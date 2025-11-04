@@ -19,13 +19,13 @@ _: {
 
     # Link root-level config files into nvim/ for tooling consistency
     "nvim/selene.toml" = {
-      source = ../../../../../selene.toml;
+      source = ../../../../selene.toml;
     };
     "nvim/.stylua.toml" = {
-      source = ../../../../../.stylua.toml;
+      source = ../../../../.stylua.toml;
     };
     "nvim/neovim.yml" = {
-      source = ../../../../../neovim.yml;
+      source = ../../../../neovim.yml;
     };
   };
 }
