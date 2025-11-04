@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+# ssh-fzf: Interactive SSH host selector using fzf and known_hosts
+# Usage: ./ssh-fzf [fzf-options]
+
+set -euo pipefail
+
+# Check if fzf is available
+if ! command -v fzf >/dev/null 2>&1; then
+    echo "Error: fzf is not installed or not in PATH" >&2
+    exit 1
+fi
+
+# Check if tmux is available
+if ! command -v tmux >/dev/null 2>&1; then
+    echo "Error: tmux is not installed or not in PATH" >&2
+    exit 1
+fi
+
+# Check if known_hosts exists
+KNOWN_HOSTS="$HOME/.ssh/known_hosts"
+if [[ ! -f "$KNOWN_HOSTS" ]]; then
+    echo "Error: $KNOWN_HOSTS not found" >&2
+    exit 1
+fi
+
+# Function to extract hostnames from known_hosts
+extract_hosts() {
+    # Handle different known_hosts formats:
+    # - hostname
+    # - hostname,ip
+    # - [hostname]:port
+    # - hashed entries (skip these as they're not readable)
+
+    awk '
+    # Skip comments and empty lines
+    /^#/ || /^$/ { next }
+
+    # Skip hashed entries (they start with |)
+    /^\|/ { next }
+
+    {
+        # Split on whitespace, first field contains host info
+        split($1, hosts, ",")
+
+        for (i in hosts) {
+            host = hosts[i]
+
+            # Remove port numbers from [hostname]:port format
+            if (match(host, /^\[(.+)\]:([0-9]+)$/, parts)) {
+                host = parts[1]
+            }
+
+            # Skip IP addresses (simple check)
+            if (host ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+                continue
+            }
+
+            # Skip IPv6 addresses
+            if (host ~ /:/) {
+                continue
+            }
+
+            # Print the hostname
+            if (host != "") {
+                print host
+            }
+        }
+    }
+    ' "$KNOWN_HOSTS" | sort -u
+}
+
+# Extract hosts and pipe to fzf
+# Use --bind to handle Enter key for manual input
+host=$(extract_hosts | fzf \
+    --prompt="SSH Host: " \
+    --header="Select host from known_hosts or type a new one (Enter to accept)" \
+    --height=40% \
+    --reverse \
+    --border \
+    --print-query \
+    --bind="enter:accept-or-print-query" \
+    --preview-window="right:50%" \
+    --preview="echo 'Host: {}'; echo; ssh -G {} 2>/dev/null | head -10 || echo 'No SSH config found for this host'" \
+    "$@" | tail -1)
+
+# If a host was selected, connect to it in a new tmux window
+if [[ -n "$host" ]]; then
+    echo "Opening SSH connection to $host in new tmux window..."
+
+    # Create new tmux window with custom name and execute SSH directly
+    tmux new-window -n "ssh: $host" "ssh $host"
+else
+    echo "No host selected."
+    exit 1
+fi
