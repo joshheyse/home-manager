@@ -20,7 +20,6 @@
   home.packages = with pkgs; [
     moar
 
-    (pkgs.callPackage ../../../pkgs/ssh-agent-switcher {})
     (pkgs.callPackage ../../../pkgs/ssh-fzf {})
 
     dust

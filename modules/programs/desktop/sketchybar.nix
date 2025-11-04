@@ -15,6 +15,7 @@
     SKETCHYBAR="${pkgs.sketchybar}/bin/sketchybar"
 
     # Tokyo Night Storm color scheme
+    export BG_PRIMARY=0xff24283b
     export BG_TRANSPARENT=0x00000000
     export FG=0xffa9b1d6
     export ACCENT=0xff7aa2f7
@@ -33,7 +34,7 @@
       position=top \
       padding_left=10 \
       padding_right=10 \
-      color=$BG_TRANSPARENT
+      color=$BG_PRIMARY
 
     # Default item settings
     $SKETCHYBAR --default \
