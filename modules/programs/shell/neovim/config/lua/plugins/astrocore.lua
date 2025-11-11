@@ -136,6 +136,8 @@ return {
         },
 
         -- Path yank functions
+        ["<Leader>y"] = { desc = "Yank Paths" },
+
         ["<Leader>yp"] = {
           function() require("paths").yank_path() end,
           desc = "Yank relative path to clipboard",

@@ -18,4 +18,5 @@ return {
   { import = "astrocommunity.pack.terraform" },
   { import = "astrocommunity.pack.typescript" },
   { import = "astrocommunity.git.blame-nvim" },
+  { import = "astrocommunity.media.image-nvim" },
 }

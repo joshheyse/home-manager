@@ -13,6 +13,26 @@
         tmux select-pane -T "claude-code"
       fi
     '';
+
+  smartSplitScript =
+    pkgs.writeShellScript "tmux-smart-split"
+    # bash
+    ''
+      # Get the current window name
+      window_name=$(tmux display-message -p '#{window_name}')
+
+      # Check if we're in an ssh: window
+      if [[ "$window_name" =~ ^ssh:\ (.+)$ ]]; then
+        # Extract the hostname (everything after "ssh: ")
+        host="''${BASH_REMATCH[1]}"
+
+        # Split with SSH to the same host, passing through split args
+        tmux split-window "$@" -c "#{pane_current_path}" "ssh $host"
+      else
+        # Normal split for non-SSH windows
+        tmux split-window "$@" -c "#{pane_current_path}"
+      fi
+    '';
 in {
   programs.tmux = {
     enable = true;
@@ -91,6 +111,11 @@ in {
         # Set default command to use zsh (macOS fix)
         set -g default-command "${pkgs.zsh}/bin/zsh"
 
+        # Allow passthrough for Kitty graphics protocol (required for image.nvim)
+        set -g allow-passthrough on
+        set -ga update-environment TERM
+        set -ga update-environment TERM_PROGRAM
+
         # Unbind keys
         unbind-key "}"
         unbind-key "v"
@@ -99,10 +124,10 @@ in {
 
         bind-key -N "Reload tmux config" r source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!"
 
-        bind-key -N "New pane to the right" "|" split-window -h -c "#{pane_current_path}"
-        bind-key -N "New outer pane to the right" "\\" split-window -fh -c "#{pane_current_path}"
-        bind-key -N "New pane to the bottom" "-" split-window -v -c "#{pane_current_path}"
-        bind-key -N "New outer pane to the bottom" "_" split-window -fv -c "#{pane_current_path}"
+        bind-key -N "New pane to the right" "\\" run-shell '${smartSplitScript} -h'
+        bind-key -N "New outer pane to the right" "|" run-shell '${smartSplitScript} -fh'
+        bind-key -N "New pane to the bottom" "-" run-shell '${smartSplitScript} -v'
+        bind-key -N "New outer pane to the bottom" "_" run-shell '${smartSplitScript} -fv'
 
         bind-key -N "New window" "c" new-window -c "#{pane_current_path}"
 

@@ -1,0 +1,22 @@
+# Ghostty Terminal Configuration
+
+# Theme - Available variants: TokyoNight, TokyoNight Day, TokyoNight Moon, TokyoNight Night, TokyoNight Storm
+theme = TokyoNight
+
+# Font configuration
+font-family = MesloLGS Nerd Font
+font-size = 12
+
+# Shell integration
+shell-integration = zsh
+
+# Window behavior
+quit-after-last-window-closed = true
+confirm-close-surface = false
+
+# Opacity
+background-opacity = 0.9
+
+# Keybindings
+# Note: On macOS use super (cmd), on Linux use ctrl+shift
+keybind = super+enter=toggle_fullscreen

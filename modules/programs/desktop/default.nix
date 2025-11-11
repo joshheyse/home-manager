@@ -3,6 +3,7 @@
 in {
   imports = [
     ./kitty.nix
+    ./ghostty
     ./firefox.nix
     ./gpg-agent.nix
     ./sketchybar.nix
