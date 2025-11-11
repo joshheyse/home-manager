@@ -14,12 +14,13 @@
   in {
     # Home Manager modules that can be imported
     homeManagerModules = {
-      # Default module exports everything except ssh-agent-switcher (enable explicitly)
+      # Default module exports everything
       default = {
         imports = [
           ./modules/base.nix
           ./modules/programs/shell
           ./modules/programs/desktop
+          ./modules/services/ssh-agent-switcher.nix
         ];
       };
 
