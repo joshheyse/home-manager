@@ -22,6 +22,8 @@
 
     (pkgs.callPackage ../../../pkgs/ssh-fzf {})
 
+    (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
+
     dust
     timg
     pandoc

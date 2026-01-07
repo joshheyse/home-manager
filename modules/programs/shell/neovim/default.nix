@@ -1,4 +1,4 @@
-_: {
+{pkgs, ...}: {
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -7,6 +7,18 @@ _: {
     vimdiffAlias = true;
     withNodeJs = true;
     withPython3 = true;
+    withRuby = true;
+    extraPackages = with pkgs; [
+      gcc
+      gnumake
+      cargo
+      rustc
+      python3
+      python3Packages.pip
+      ripgrep
+      fd
+      tree-sitter
+    ];
   };
 
   # Link neovim config files to ~/.config/nvim/
