@@ -63,7 +63,7 @@
     ga = "git add ";
     gaa = "git add .";
     gaA = "git add -A";
-    gc = "git commit -m";
+    gcm = "git commit -m";
     gca = "git commit -a -m";
     gbc = "git checkout -b";
     gco = "git checkout";

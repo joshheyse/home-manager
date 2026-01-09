@@ -16,9 +16,10 @@ The library exports:
 - **Check flake**: `nix flake check`
 - **Show flake outputs**: `nix flake show`
 - **Update flake inputs**: `nix flake update`
-- **Linting and formatting**: `.hooks/check-all.sh` (from parent nixos directory)
+- **Linting and formatting**: `scripts/check-all` (from parent nixos directory)
   - Runs appropriate linters/formatters for `.sh`, `.nix`, and `.lua` files
   - Automatically fixes issues when possible
+  - When run with no arguments, checks all dirty files (modified, staged, untracked)
   - See [Development Workflow](#development-workflow) section below for details
 
 **Note**: This flake is a library and is not directly applied with `home-manager switch`. Instead, it is imported by other flakes (like `../nixos/flake.nix`) which reference these modules.
@@ -88,7 +89,7 @@ When imperative configuration is unavoidable (e.g., git hooks installation), ens
 - Overlay definitions in `/overlays/`
 
 **Acceptable (Imperative but Idempotent)**:
-- `.hooks/setup-git-secrets.sh` in parent nixos directory
+- `.hooks/setup-git-secrets` in parent nixos directory
 - `shellHook` in parent nixos flake
 
 **Avoid**:
@@ -110,7 +111,7 @@ When modifying this library:
 
 ### Linting and Formatting
 
-The repository uses a unified linting and formatting system via `.hooks/check-all.sh` (located in the parent nixos directory).
+The repository uses a unified linting and formatting system via `scripts/check-all` (located in the parent nixos directory).
 
 #### For Claude Code (AI Assistant)
 
@@ -120,7 +121,7 @@ The repository uses a unified linting and formatting system via `.hooks/check-al
 
 1. After completing file edits, launch a Task sub-agent with `subagent_type: "general-purpose"`
 2. The sub-agent should:
-   - Run `.hooks/check-all.sh` (from parent directory if not available locally) on the edited files
+   - Run `scripts/check-all` (from parent directory if not available locally) on the edited files
    - **Parse and understand** the linter output in detail
    - Identify what was auto-fixed by the tools
    - **Apply additional fixes** for issues that the tools can't auto-fix but are mechanically fixable
@@ -134,7 +135,7 @@ Run comprehensive linting checks and fixes on the following files:
 - path/to/file2.sh
 
 For EACH file:
-1. Run .hooks/check-all.sh and capture full output
+1. Run scripts/check-all and capture full output
 2. Parse linter output to understand specific issues:
    - For Nix: alejandra formatting, deadnix unused code, statix warnings
    - For Shell: shellcheck warnings with codes (SC####)
@@ -177,7 +178,7 @@ If a linter/checker reports an issue and cannot auto-fix it:
 
 #### Linter Coverage
 
-The `.hooks/check-all.sh` script handles:
+The `scripts/check-all` script handles:
 
 - **Shell scripts** (`.sh`):
   - shellcheck (linting) - check-only
@@ -195,11 +196,14 @@ The `.hooks/check-all.sh` script handles:
 #### Manual Usage
 
 ```bash
-# From parent nixos directory or if check-all.sh is available
-./.hooks/check-all.sh path/to/file.nix
+# From parent nixos directory: check all dirty files
+./scripts/check-all
+
+# Check specific files
+./scripts/check-all path/to/file.nix
 
 # Check only (no auto-fix)
-./.hooks/check-all.sh --check-only path/to/file.nix
+./scripts/check-all --check-only path/to/file.nix
 ```
 
 ## Custom Packages
