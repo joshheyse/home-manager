@@ -426,10 +426,10 @@ def ensure_kicad_env_var(config_dir: Path, var_name: str, var_value: str) -> boo
         warn(f"Could not parse {common_file}")
         return False
 
-    # Ensure environment.vars exists
+    # Ensure environment.vars exists and is a dict
     if "environment" not in config:
         config["environment"] = {}
-    if "vars" not in config["environment"]:
+    if "vars" not in config["environment"] or config["environment"]["vars"] is None:
         config["environment"]["vars"] = {}
 
     # Check if already set
@@ -789,14 +789,26 @@ def cmd_accept(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     kicad = KicadSymbol(sym_file)
-    symbols = kicad.get_symbol_names()
+    all_symbols = kicad.get_symbol_names()
 
-    if not symbols:
+    if not all_symbols:
         error("No symbols found in staging")
         sys.exit(1)
 
-    # Show what's staged
-    info(f"Staged parts: {', '.join(symbols)}")
+    # Filter symbols if a part name/pattern is specified
+    if args.part:
+        pattern = args.part.upper()
+        symbols = [s for s in all_symbols if pattern in s.upper() or
+                   (kicad.get_property(s, "LCSC") or "").upper() == pattern]
+        if not symbols:
+            error(f"No staged parts match '{args.part}'")
+            info(f"Available: {', '.join(all_symbols)}")
+            sys.exit(1)
+    else:
+        symbols = all_symbols
+
+    # Show what will be accepted
+    info(f"Parts to accept: {', '.join(symbols)}")
 
     # Prompt for library category
     if args.library:
@@ -852,13 +864,22 @@ def cmd_accept(args: argparse.Namespace) -> None:
         if moved:
             success(f"Moved {moved} 3D model file(s)")
 
-    # Clean up staging
-    if sym_file.exists():
-        sym_file.unlink()
-    if staging_pretty.exists():
-        shutil.rmtree(staging_pretty)
-    if staging_3d.exists():
-        shutil.rmtree(staging_3d)
+    # Clean up staging - remove accepted symbols
+    remaining_symbols = [s for s in all_symbols if s not in symbols]
+    if remaining_symbols:
+        # Keep staging file with remaining symbols
+        for accepted in symbols:
+            kicad.remove_symbol(accepted)
+        kicad.save()
+        info(f"Remaining staged: {', '.join(remaining_symbols)}")
+    else:
+        # All symbols accepted - clean up completely
+        if sym_file.exists():
+            sym_file.unlink()
+        if staging_pretty.exists():
+            shutil.rmtree(staging_pretty)
+        if staging_3d.exists():
+            shutil.rmtree(staging_3d)
 
     # Register libraries in KiCad's library tables
     register_libraries(lib_base)
@@ -875,7 +896,37 @@ def cmd_accept(args: argparse.Namespace) -> None:
 
 
 def cmd_list(args: argparse.Namespace) -> None:
-    """List parts in production libraries."""
+    """List parts in production or staging libraries."""
+    if args.staging:
+        # List staged parts
+        staging = get_staging_libs()
+        sym_file = staging / "_staging.kicad_sym"
+
+        if not sym_file.exists():
+            info("No staged parts")
+            info(f"Import parts with: kicad-parts import <LCSC_ID>")
+            return
+
+        kicad = KicadSymbol(sym_file)
+        symbols = kicad.get_symbol_names()
+
+        if not symbols:
+            info("No staged parts")
+            return
+
+        print(f"{BLUE}━━━ Staged Parts ━━━{NC}")
+        print()
+        for symbol in sorted(symbols):
+            print(f"  {GREEN}{symbol}{NC}")
+            if args.verbose:
+                for prop in ["LCSC", "MPN", "Manufacturer"]:
+                    if val := kicad.get_property(symbol, prop):
+                        print(f"    {prop}: {val}")
+        print()
+        info(f"Total: {len(symbols)} staged part(s)")
+        info("Use 'kicad-parts accept' to move to production")
+        return
+
     production = get_production_libs()
 
     # Find all *-JH.kicad_sym libraries
@@ -1063,6 +1114,10 @@ def main() -> None:
     # accept command
     accept_parser = subparsers.add_parser("accept", help="Move staged parts to production library")
     accept_parser.add_argument(
+        "part", nargs="?",
+        help="Part name or LCSC number to accept (accepts all if omitted)"
+    )
+    accept_parser.add_argument(
         "-l", "--library",
         help="Library category (e.g., 'Connector', 'MCU_ST_STM32'). Prompts interactively if omitted."
     )
@@ -1072,6 +1127,9 @@ def main() -> None:
     list_parser = subparsers.add_parser("list", help="List parts in all libraries")
     list_parser.add_argument(
         "-v", "--verbose", action="store_true", help="Show detailed metadata"
+    )
+    list_parser.add_argument(
+        "-s", "--staging", action="store_true", help="List staged parts instead of production"
     )
     list_parser.set_defaults(func=cmd_list)
 
