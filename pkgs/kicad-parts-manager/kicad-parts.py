@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from kiutils.symbol import SymbolLib, Symbol
+from kiutils.items.common import Property, Effects, Font, Position
 
 # Colors for terminal output
 RED = "\033[0;31m"
@@ -186,168 +188,30 @@ class MouserClient:
         return None
 
 
-class KicadSymbol:
-    """Parser and modifier for KiCad symbol files."""
+def get_symbol_property(symbol: Symbol, prop_name: str) -> Optional[str]:
+    """Get a property value from a symbol (case-insensitive)."""
+    for prop in symbol.properties:
+        if prop.key.lower() == prop_name.lower():
+            return prop.value
+    return None
 
-    def __init__(self, filepath: Path):
-        self.filepath = filepath
-        self.content = filepath.read_text() if filepath.exists() else ""
 
-    def get_symbol_names(self) -> list[str]:
-        """Extract symbol names (excluding internal sub-symbols with ':')."""
-        pattern = r'\(symbol "([^":]+)"\s*\('
-        return list(set(re.findall(pattern, self.content)))
-
-    def get_property(self, symbol_name: str, prop_name: str) -> Optional[str]:
-        """Get a property value from a symbol (case-insensitive property name)."""
-        # Find the symbol block and extract property
-        pattern = rf'\(property\s+"{re.escape(prop_name)}"\s+"([^"]*)"'
-        match = re.search(pattern, self.content, re.IGNORECASE)
-        return match.group(1) if match else None
-
-    def set_property(self, symbol_name: str, prop_name: str, prop_value: str) -> None:
-        """Add or update a property in a symbol (in main symbol, not sub-symbols)."""
-        prop_value = prop_value.replace("\\", "\\\\").replace('"', '\\"')
-
-        # Check if property already exists - handle both single-line and multi-line formats
-        # Single-line: (property "Name" "Value" ...)
-        # Multi-line:  (property\n  "Name"\n  "Value"\n  ...)
-        # Use case-insensitive matching for property names
-        lines = self.content.split("\n")
-        found_prop = False
-        in_target_prop = False
-        prop_name_found = False
-        actual_prop_name = prop_name  # Store the actual name found in file
-
-        for i, line in enumerate(lines):
-            # Start of a property block
-            if "(property" in line:
-                # Check if property name is on same line (case-insensitive)
-                match = re.search(r'\(property\s+"([^"]+)"', line, re.IGNORECASE)
-                if match and match.group(1).lower() == prop_name.lower():
-                    in_target_prop = True
-                    prop_name_found = True
-                    actual_prop_name = match.group(1)
-                elif "(property" in line:
-                    # Multi-line format - check next line for property name
-                    in_target_prop = False
-                    prop_name_found = False
-
-            # Check for property name on its own line (multi-line format)
-            if not prop_name_found and line.strip().startswith('"'):
-                match = re.match(r'\s*"([^"]+)"', line)
-                if match and match.group(1).lower() == prop_name.lower():
-                    in_target_prop = True
-                    prop_name_found = True
-                    actual_prop_name = match.group(1)
-                    continue
-
-            # If we're in the target property, look for the value line
-            if in_target_prop and prop_name_found:
-                # Value line - starts with " and contains the value
-                stripped = line.strip()
-                if stripped.startswith('"') and stripped.endswith('"'):
-                    # This is the value line - replace it
-                    indent = line[: len(line) - len(line.lstrip())]
-                    lines[i] = f'{indent}"{prop_value}"'
-                    found_prop = True
-                    break
-                elif re.search(rf'"{re.escape(actual_prop_name)}"', line, re.IGNORECASE):
-                    # Single-line format: (property "Name" "Value" ...)
-                    pattern = rf'(\(property\s+"{re.escape(actual_prop_name)}"\s+")[^"]*(")'
-                    lines[i] = re.sub(pattern, rf"\g<1>{prop_value}\g<2>", line, flags=re.IGNORECASE)
-                    found_prop = True
-                    break
-
-        if found_prop:
-            self.content = "\n".join(lines)
+def set_symbol_property(symbol: Symbol, prop_name: str, prop_value: str) -> None:
+    """Add or update a property in a symbol."""
+    # Check if property exists (case-insensitive)
+    for prop in symbol.properties:
+        if prop.key.lower() == prop_name.lower():
+            prop.value = prop_value
             return
 
-        # Add new property - find insertion point before first sub-symbol
-        # Look for pattern: (symbol "NAME_0_1" or similar subsymbol
-        lines = self.content.split("\n")
-
-        # Get the next id number
-        max_id = 0
-        for line in lines:
-            id_match = re.search(r"\(id (\d+)\)", line)
-            if id_match:
-                max_id = max(max_id, int(id_match.group(1)))
-        new_id = max_id + 1
-
-        # Create new property block
-        new_prop = (
-            f"    (property\n"
-            f'      "{prop_name}"\n'
-            f'      "{prop_value}"\n'
-            f"      (id {new_id})\n"
-            f"      (at 0 0 0)\n"
-            f"      (effects (font (size 1.27 1.27) ) hide)\n"
-            f"    )"
-        )
-
-        # Find insertion point - just before first sub-symbol (symbol "XXX_0_1" etc)
-        for i, line in enumerate(lines):
-            # Match sub-symbol pattern: (symbol "something_digits_digits"
-            if re.search(r'\(symbol "[^"]+_\d+_\d+"', line):
-                lines.insert(i, new_prop)
-                self.content = "\n".join(lines)
-                return
-
-        # Fallback: insert before closing of main symbol block (last line with just ")")
-        # This handles cases where there's no sub-symbol
-        for i in range(len(lines) - 1, -1, -1):
-            if lines[i].strip() == ")":
-                lines.insert(i, new_prop)
-                self.content = "\n".join(lines)
-                return
-
-    def extract_symbol(self, symbol_name: str) -> str:
-        """Extract a complete symbol definition including sub-symbols."""
-        lines = self.content.split("\n")
-        result = []
-        depth = 0
-        capturing = False
-
-        for line in lines:
-            if f'(symbol "{symbol_name}"' in line or f'(symbol "{symbol_name}:' in line:
-                capturing = True
-
-            if capturing:
-                result.append(line)
-                depth += line.count("(") - line.count(")")
-                if depth <= 0:
-                    capturing = False
-                    depth = 0
-
-        return "\n".join(result)
-
-    def remove_symbol(self, symbol_name: str) -> None:
-        """Remove a symbol and its sub-symbols from the file."""
-        lines = self.content.split("\n")
-        result = []
-        depth = 0
-        skipping = False
-
-        for line in lines:
-            if f'(symbol "{symbol_name}"' in line or f'(symbol "{symbol_name}:' in line:
-                skipping = True
-                depth = 0
-
-            if skipping:
-                depth += line.count("(") - line.count(")")
-                if depth <= 0:
-                    skipping = False
-                    depth = 0
-                continue
-
-            result.append(line)
-
-        self.content = "\n".join(result)
-
-    def save(self) -> None:
-        """Save the content back to file."""
-        self.filepath.write_text(self.content)
+    # Add new property
+    new_prop = Property(
+        key=prop_name,
+        value=prop_value,
+        effects=Effects(font=Font(width=1.27, height=1.27), hide=True),
+        position=Position(x=0, y=0, angle=0),
+    )
+    symbol.properties.append(new_prop)
 
 
 def get_staging_libs() -> Path:
@@ -689,23 +553,20 @@ def cmd_import(args: argparse.Namespace) -> None:
 
     # Move symbol file (merge if _staging already exists)
     if easyeda_sym.exists():
+        new_lib = SymbolLib.from_file(str(easyeda_sym))
         if sym_file.exists():
-            existing = KicadSymbol(sym_file)
-            new_symbols = KicadSymbol(easyeda_sym)
-            for symbol in new_symbols.get_symbol_names():
-                # Remove existing symbol with same name first (avoid duplicates)
-                if symbol in existing.get_symbol_names():
-                    existing.remove_symbol(symbol)
-                symbol_content = new_symbols.extract_symbol(symbol)
-                if symbol_content:
-                    content = existing.content.rstrip()
-                    if content.endswith(")"):
-                        content = content[:-1] + symbol_content + "\n)\n"
-                        existing.content = content
-            existing.save()
-            easyeda_sym.unlink()
+            existing_lib = SymbolLib.from_file(str(sym_file))
+            # Remove duplicates and add new symbols
+            existing_names = {s.entryName for s in existing_lib.symbols}
+            for symbol in new_lib.symbols:
+                if symbol.entryName in existing_names:
+                    # Remove existing symbol with same name
+                    existing_lib.symbols = [s for s in existing_lib.symbols if s.entryName != symbol.entryName]
+                existing_lib.symbols.append(symbol)
+            existing_lib.to_file(str(sym_file))
         else:
-            easyeda_sym.rename(sym_file)
+            new_lib.to_file(str(sym_file))
+        easyeda_sym.unlink()
 
     # Move footprints
     if easyeda_pretty.exists():
@@ -721,23 +582,27 @@ def cmd_import(args: argparse.Namespace) -> None:
             if model.is_file():
                 model.rename(staging_3d / model.name)
         shutil.rmtree(easyeda_3d)
+
     if not sym_file.exists():
         error(f"Symbol file not found: {sym_file}")
         sys.exit(1)
 
-    kicad = KicadSymbol(sym_file)
+    # Load symbol library with kiutils
+    lib = SymbolLib.from_file(str(sym_file))
 
-    # Fix footprint reference: easyeda2kicad:XXX -> _staging:XXX
-    kicad.content = kicad.content.replace('easyeda2kicad:', '_staging:')
-
-    symbols = kicad.get_symbol_names()
-
-    if not symbols:
+    if not lib.symbols:
         error("No symbols found in downloaded file")
         sys.exit(1)
 
-    symbol_name = symbols[0]
+    # Get the first (main) symbol
+    symbol = lib.symbols[0]
+    symbol_name = symbol.entryName
     info(f"Symbol name: {symbol_name}")
+
+    # Fix footprint reference: easyeda2kicad:XXX -> _staging:XXX
+    for prop in symbol.properties:
+        if prop.key.lower() == "footprint" and "easyeda2kicad:" in prop.value:
+            prop.value = prop.value.replace("easyeda2kicad:", "_staging:")
 
     # Clean up MPN for API searches - remove EasyEDA suffixes like _0_1, _0, etc.
     # These are internal KiCad sub-symbol identifiers, not part of the actual MPN
@@ -746,7 +611,7 @@ def cmd_import(args: argparse.Namespace) -> None:
         info(f"Cleaned MPN for API search: {mpn}")
 
     # Add LCSC property
-    kicad.set_property(symbol_name, "LCSC", lcsc_id)
+    set_symbol_property(symbol, "LCSC", lcsc_id)
     success(f"Added LCSC property: {lcsc_id}")
 
     # Query Digikey
@@ -756,21 +621,21 @@ def cmd_import(args: argparse.Namespace) -> None:
     if dk_data:
         # V4 API field names
         if dk_pn := dk_data.get("DigiKeyProductNumber"):
-            kicad.set_property(symbol_name, "Digikey", dk_pn)
+            set_symbol_property(symbol, "Digikey", dk_pn)
             success(f"Added Digikey PN: {dk_pn}")
 
         if dk_stock := dk_data.get("QuantityAvailable"):
-            kicad.set_property(symbol_name, "Stock_Digikey", str(dk_stock))
+            set_symbol_property(symbol, "Stock_Digikey", str(dk_stock))
             info(f"Digikey stock: {dk_stock}")
 
         # V4 uses DatasheetUrl instead of PrimaryDatasheet
         if dk_ds := dk_data.get("DatasheetUrl"):
-            kicad.set_property(symbol_name, "Datasheet", dk_ds)
+            set_symbol_property(symbol, "Datasheet", dk_ds)
             success("Added datasheet URL")
 
         # V4 uses Manufacturer.Name instead of Manufacturer.Value
         if dk_mfr := dk_data.get("Manufacturer", {}).get("Name"):
-            kicad.set_property(symbol_name, "Manufacturer", dk_mfr)
+            set_symbol_property(symbol, "Manufacturer", dk_mfr)
             success(f"Added manufacturer: {dk_mfr}")
 
         # Pricing tiers (same structure in v4)
@@ -778,7 +643,7 @@ def cmd_import(args: argparse.Namespace) -> None:
             qty = pricing.get("BreakQuantity")
             price = pricing.get("UnitPrice")
             if qty and price:
-                kicad.set_property(symbol_name, f"Price_{qty}", f"${price}")
+                set_symbol_property(symbol, f"Price_{qty}", f"${price}")
 
     # Query Mouser
     info(f"Querying Mouser API for: {mpn}")
@@ -788,23 +653,23 @@ def cmd_import(args: argparse.Namespace) -> None:
         if parts:
             part = parts[0]
             if m_pn := part.get("MouserPartNumber"):
-                kicad.set_property(symbol_name, "Mouser", m_pn)
+                set_symbol_property(symbol, "Mouser", m_pn)
                 success(f"Added Mouser PN: {m_pn}")
 
             if m_avail := part.get("Availability"):
                 stock = re.search(r"\d+", m_avail)
                 if stock:
-                    kicad.set_property(symbol_name, "Stock_Mouser", stock.group())
+                    set_symbol_property(symbol, "Stock_Mouser", stock.group())
                     info(f"Mouser stock: {stock.group()}")
 
             if m_mfr := part.get("Manufacturer"):
-                if not kicad.get_property(symbol_name, "Manufacturer"):
-                    kicad.set_property(symbol_name, "Manufacturer", m_mfr)
+                if not get_symbol_property(symbol, "Manufacturer"):
+                    set_symbol_property(symbol, "Manufacturer", m_mfr)
                     success(f"Added manufacturer: {m_mfr}")
 
     # Add MPN (use the cleaned MPN, not the symbol name)
-    kicad.set_property(symbol_name, "MPN", mpn)
-    kicad.save()
+    set_symbol_property(symbol, "MPN", mpn)
+    lib.to_file(str(sym_file))
 
     # Register staging libraries in KiCad
     register_staging_libraries()
@@ -832,30 +697,35 @@ def cmd_accept(args: argparse.Namespace) -> None:
 
     if not sym_file.exists():
         error("No staged parts found")
-        info(f"Import parts first with: kicad-parts import <LCSC_ID>")
+        info("Import parts first with: kicad-parts import <LCSC_ID>")
         sys.exit(1)
 
-    kicad = KicadSymbol(sym_file)
-    all_symbols = kicad.get_symbol_names()
+    staging_lib = SymbolLib.from_file(str(sym_file))
+    all_symbol_names = [s.entryName for s in staging_lib.symbols]
 
-    if not all_symbols:
+    if not all_symbol_names:
         error("No symbols found in staging")
         sys.exit(1)
 
     # Filter symbols if a part name/pattern is specified
     if args.part:
         pattern = args.part.upper()
-        symbols = [s for s in all_symbols if pattern in s.upper() or
-                   (kicad.get_property(s, "LCSC") or "").upper() == pattern]
-        if not symbols:
+        symbols_to_accept = []
+        for sym in staging_lib.symbols:
+            lcsc = get_symbol_property(sym, "LCSC") or ""
+            if pattern in sym.entryName.upper() or lcsc.upper() == pattern:
+                symbols_to_accept.append(sym)
+        if not symbols_to_accept:
             error(f"No staged parts match '{args.part}'")
-            info(f"Available: {', '.join(all_symbols)}")
+            info(f"Available: {', '.join(all_symbol_names)}")
             sys.exit(1)
     else:
-        symbols = all_symbols
+        symbols_to_accept = staging_lib.symbols[:]
+
+    accepted_names = [s.entryName for s in symbols_to_accept]
 
     # Show what will be accepted
-    info(f"Parts to accept: {', '.join(symbols)}")
+    info(f"Parts to accept: {', '.join(accepted_names)}")
 
     # Prompt for library category
     if args.library:
@@ -874,28 +744,26 @@ def cmd_accept(args: argparse.Namespace) -> None:
     prod_pretty.mkdir(parents=True, exist_ok=True)
     prod_3d.mkdir(parents=True, exist_ok=True)
 
-    # Initialize production symbol file if needed
-    if not prod_sym.exists():
-        prod_sym.write_text(
-            '(kicad_symbol_lib\n  (version 20231120)\n  (generator "kicad-parts-manager")\n  (generator_version "1.0")\n)\n'
-        )
+    # Load or create production symbol library
+    if prod_sym.exists():
+        prod_lib = SymbolLib.from_file(str(prod_sym))
+    else:
+        prod_lib = SymbolLib()
         success(f"Created new library: {prod_sym.name}")
 
-    prod_kicad = KicadSymbol(prod_sym)
+    # Add each symbol to production
+    for symbol in symbols_to_accept:
+        # Update footprint reference from _staging to production library
+        for prop in symbol.properties:
+            if prop.key.lower() == "footprint" and "_staging:" in prop.value:
+                prop.value = prop.value.replace("_staging:", f"{lib_base}:")
 
-    # Extract and add each symbol to production
-    for mpn in symbols:
-        symbol_content = kicad.extract_symbol(mpn)
-        if symbol_content:
-            # Update footprint reference from _staging to production library
-            symbol_content = symbol_content.replace('_staging:', f'{lib_base}:')
-            content = prod_kicad.content.rstrip()
-            if content.endswith(")"):
-                content = content[:-1] + symbol_content + "\n)\n"
-                prod_kicad.content = content
-            success(f"Added symbol: {mpn}")
+        # Remove existing symbol with same name if present
+        prod_lib.symbols = [s for s in prod_lib.symbols if s.entryName != symbol.entryName]
+        prod_lib.symbols.append(symbol)
+        success(f"Added symbol: {symbol.entryName}")
 
-    prod_kicad.save()
+    prod_lib.to_file(str(prod_sym))
 
     # Move footprints
     if staging_pretty.exists():
@@ -914,13 +782,11 @@ def cmd_accept(args: argparse.Namespace) -> None:
             success(f"Moved {moved} 3D model file(s)")
 
     # Clean up staging - remove accepted symbols
-    remaining_symbols = [s for s in all_symbols if s not in symbols]
-    if remaining_symbols:
-        # Keep staging file with remaining symbols
-        for accepted in symbols:
-            kicad.remove_symbol(accepted)
-        kicad.save()
-        info(f"Remaining staged: {', '.join(remaining_symbols)}")
+    remaining = [s for s in staging_lib.symbols if s.entryName not in accepted_names]
+    if remaining:
+        staging_lib.symbols = remaining
+        staging_lib.to_file(str(sym_file))
+        info(f"Remaining staged: {', '.join(s.entryName for s in remaining)}")
     else:
         # All symbols accepted - clean up completely
         if sym_file.exists():
@@ -953,26 +819,25 @@ def cmd_list(args: argparse.Namespace) -> None:
 
         if not sym_file.exists():
             info("No staged parts")
-            info(f"Import parts with: kicad-parts import <LCSC_ID>")
+            info("Import parts with: kicad-parts import <LCSC_ID>")
             return
 
-        kicad = KicadSymbol(sym_file)
-        symbols = kicad.get_symbol_names()
+        lib = SymbolLib.from_file(str(sym_file))
 
-        if not symbols:
+        if not lib.symbols:
             info("No staged parts")
             return
 
         print(f"{BLUE}━━━ Staged Parts ━━━{NC}")
         print()
-        for symbol in sorted(symbols):
-            print(f"  {GREEN}{symbol}{NC}")
+        for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
+            print(f"  {GREEN}{symbol.entryName}{NC}")
             if args.verbose:
-                for prop in ["LCSC", "MPN", "Manufacturer"]:
-                    if val := kicad.get_property(symbol, prop):
-                        print(f"    {prop}: {val}")
+                for prop_name in ["LCSC", "MPN", "Manufacturer", "Datasheet"]:
+                    if val := get_symbol_property(symbol, prop_name):
+                        print(f"    {prop_name}: {val}")
         print()
-        info(f"Total: {len(symbols)} staged part(s)")
+        info(f"Total: {len(lib.symbols)} staged part(s)")
         info("Use 'kicad-parts accept' to move to production")
         return
 
@@ -991,20 +856,19 @@ def cmd_list(args: argparse.Namespace) -> None:
     for lib_file in lib_files:
         lib_name = lib_file.stem  # e.g., "Connector-JH"
 
-        kicad = KicadSymbol(lib_file)
-        symbols = kicad.get_symbol_names()
+        lib = SymbolLib.from_file(str(lib_file))
 
-        if not symbols:
+        if not lib.symbols:
             continue
 
         print(f"{BLUE}━━━ {lib_name} ━━━{NC}")
         print()
 
-        for symbol in sorted(symbols):
-            print(f"  {GREEN}{symbol}{NC}")
+        for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
+            print(f"  {GREEN}{symbol.entryName}{NC}")
 
             if args.verbose:
-                for prop in [
+                for prop_name in [
                     "LCSC",
                     "MPN",
                     "Manufacturer",
@@ -1012,32 +876,32 @@ def cmd_list(args: argparse.Namespace) -> None:
                     "Mouser",
                     "Datasheet",
                 ]:
-                    if val := kicad.get_property(symbol, prop):
-                        print(f"    {prop}: {val}")
-                for prop in [
+                    if val := get_symbol_property(symbol, prop_name):
+                        print(f"    {prop_name}: {val}")
+                for prop_name in [
                     "Price_1",
                     "Price_10",
                     "Price_100",
                     "Stock_Digikey",
                     "Stock_Mouser",
                 ]:
-                    if val := kicad.get_property(symbol, prop):
-                        print(f"    {prop}: {val}")
+                    if val := get_symbol_property(symbol, prop_name):
+                        print(f"    {prop_name}: {val}")
                 print()
             else:
                 parts = []
-                if lcsc := kicad.get_property(symbol, "LCSC"):
+                if lcsc := get_symbol_property(symbol, "LCSC"):
                     parts.append(f"LCSC:{lcsc}")
-                if mfr := kicad.get_property(symbol, "Manufacturer"):
+                if mfr := get_symbol_property(symbol, "Manufacturer"):
                     parts.append(mfr)
-                if kicad.get_property(symbol, "Digikey"):
+                if get_symbol_property(symbol, "Digikey"):
                     parts.append("DK")
-                if kicad.get_property(symbol, "Mouser"):
+                if get_symbol_property(symbol, "Mouser"):
                     parts.append("M")
                 if parts:
                     print(f"    {CYAN}{' | '.join(parts)}{NC}")
 
-        total_parts += len(symbols)
+        total_parts += len(lib.symbols)
         print()
 
     info(f"Total: {total_parts} part(s) across {len(lib_files)} library/libraries")
@@ -1059,9 +923,9 @@ def cmd_delete(args: argparse.Namespace) -> None:
 
     for lib_file in lib_files:
         lib_name = lib_file.stem
-        kicad = KicadSymbol(lib_file)
-        for symbol in kicad.get_symbol_names():
-            all_parts.append((f"{lib_name}/{symbol}", lib_file, symbol))
+        lib = SymbolLib.from_file(str(lib_file))
+        for symbol in lib.symbols:
+            all_parts.append((f"{lib_name}/{symbol.entryName}", lib_file, symbol.entryName))
 
     if not all_parts:
         info("No parts found in libraries")
@@ -1113,22 +977,23 @@ def cmd_delete(args: argparse.Namespace) -> None:
 
     # Group by library
     by_library: dict[Path, list[str]] = {}
-    for _, lib_path, symbol in to_delete:
-        by_library.setdefault(lib_path, []).append(symbol)
+    for _, lib_path, symbol_name in to_delete:
+        by_library.setdefault(lib_path, []).append(symbol_name)
 
-    for lib_path, symbols in by_library.items():
+    for lib_path, symbol_names in by_library.items():
         lib_name = lib_path.stem
-        kicad = KicadSymbol(lib_path)
+        lib = SymbolLib.from_file(str(lib_path))
         pretty_dir = production / f"{lib_name}.pretty"
         shapes_dir = production / f"{lib_name}.3dshapes"
 
-        for symbol in symbols:
-            info(f"Deleting {lib_name}/{symbol}...")
+        for symbol_name in symbol_names:
+            info(f"Deleting {lib_name}/{symbol_name}...")
 
-            kicad.remove_symbol(symbol)
+            # Remove symbol from library
+            lib.symbols = [s for s in lib.symbols if s.entryName != symbol_name]
 
             # Delete footprint
-            fp_file = pretty_dir / f"{symbol}.kicad_mod"
+            fp_file = pretty_dir / f"{symbol_name}.kicad_mod"
             if fp_file.exists():
                 fp_file.unlink()
                 success(f"Deleted footprint: {fp_file.name}")
@@ -1136,14 +1001,14 @@ def cmd_delete(args: argparse.Namespace) -> None:
             # Delete 3D models
             deleted = 0
             for ext in ["wrl", "step", "WRL", "STEP", "stp", "STP"]:
-                model = shapes_dir / f"{symbol}.{ext}"
+                model = shapes_dir / f"{symbol_name}.{ext}"
                 if model.exists():
                     model.unlink()
                     deleted += 1
             if deleted:
                 success(f"Deleted {deleted} 3D model file(s)")
 
-        kicad.save()
+        lib.to_file(str(lib_path))
 
     print()
     success(f"Deleted {len(to_delete)} part(s)")
