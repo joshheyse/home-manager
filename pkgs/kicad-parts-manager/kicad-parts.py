@@ -262,68 +262,45 @@ class KicadSymbol:
         if found_prop:
             self.content = "\n".join(lines)
             return
-        else:
-            # Add new property after the last existing property in the main symbol
-            # Find the position just before the first sub-symbol (symbol "NAME_0_1" or similar)
-            lines = self.content.split("\n")
-            result = []
-            inserted = False
-            in_main_symbol = False
-            last_property_idx = -1
 
-            for i, line in enumerate(lines):
-                # Detect main symbol start (exact match, not sub-symbols with _0_1 etc)
-                if f'(symbol "{symbol_name}"' in line and "_" not in line.split('"')[
-                    1
-                ].replace(symbol_name, ""):
-                    in_main_symbol = True
+        # Add new property - find insertion point before first sub-symbol
+        # Look for pattern: (symbol "NAME_0_1" or similar subsymbol
+        lines = self.content.split("\n")
 
-                # Track last property line in main symbol
-                if in_main_symbol and "(property" in line:
-                    last_property_idx = i
+        # Get the next id number
+        max_id = 0
+        for line in lines:
+            id_match = re.search(r"\(id (\d+)\)", line)
+            if id_match:
+                max_id = max(max_id, int(id_match.group(1)))
+        new_id = max_id + 1
 
-                # Detect sub-symbol start - this ends the main symbol's property section
-                if in_main_symbol and f'(symbol "{symbol_name}_' in line:
-                    in_main_symbol = False
-                    if not inserted and last_property_idx >= 0:
-                        # Insert after last property, maintaining proper structure
-                        # We need to handle multi-line properties
-                        pass
+        # Create new property block
+        new_prop = (
+            f"    (property\n"
+            f'      "{prop_name}"\n'
+            f'      "{prop_value}"\n'
+            f"      (id {new_id})\n"
+            f"      (at 0 0 0)\n"
+            f"      (effects (font (size 1.27 1.27) ) hide)\n"
+            f"    )"
+        )
 
-                result.append(line)
+        # Find insertion point - just before first sub-symbol (symbol "XXX_0_1" etc)
+        for i, line in enumerate(lines):
+            # Match sub-symbol pattern: (symbol "something_digits_digits"
+            if re.search(r'\(symbol "[^"]+_\d+_\d+"', line):
+                lines.insert(i, new_prop)
+                self.content = "\n".join(lines)
+                return
 
-            # Find proper insertion point - after the last property block
-            if last_property_idx >= 0:
-                # Find the end of the last property (matching closing paren)
-                depth = 0
-                end_idx = last_property_idx
-                for i in range(last_property_idx, len(result)):
-                    depth += result[i].count("(") - result[i].count(")")
-                    if depth == 0:
-                        end_idx = i
-                        break
-
-                # Get the next id number
-                max_id = 0
-                for line in result:
-                    id_match = re.search(r"\(id (\d+)\)", line)
-                    if id_match:
-                        max_id = max(max_id, int(id_match.group(1)))
-                new_id = max_id + 1
-
-                # Insert new property after the last property
-                new_prop = (
-                    f"    (property\n"
-                    f'      "{prop_name}"\n'
-                    f'      "{prop_value}"\n'
-                    f"      (id {new_id})\n"
-                    f"      (at 0 0 0)\n"
-                    f"      (effects (font (size 1.27 1.27) ) hide)\n"
-                    f"    )"
-                )
-                result.insert(end_idx + 1, new_prop)
-
-            self.content = "\n".join(result)
+        # Fallback: insert before closing of main symbol block (last line with just ")")
+        # This handles cases where there's no sub-symbol
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == ")":
+                lines.insert(i, new_prop)
+                self.content = "\n".join(lines)
+                return
 
     def extract_symbol(self, symbol_name: str) -> str:
         """Extract a complete symbol definition including sub-symbols."""
@@ -749,6 +726,10 @@ def cmd_import(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     kicad = KicadSymbol(sym_file)
+
+    # Fix footprint reference: easyeda2kicad:XXX -> _staging:XXX
+    kicad.content = kicad.content.replace('easyeda2kicad:', '_staging:')
+
     symbols = kicad.get_symbol_names()
 
     if not symbols:
@@ -906,6 +887,8 @@ def cmd_accept(args: argparse.Namespace) -> None:
     for mpn in symbols:
         symbol_content = kicad.extract_symbol(mpn)
         if symbol_content:
+            # Update footprint reference from _staging to production library
+            symbol_content = symbol_content.replace('_staging:', f'{lib_base}:')
             content = prod_kicad.content.rstrip()
             if content.endswith(")"):
                 content = content[:-1] + symbol_content + "\n)\n"
