@@ -13,7 +13,7 @@ python3.pkgs.buildPythonApplication {
   src = ./.;
 
   nativeBuildInputs = [makeWrapper];
-  propagatedBuildInputs = [python3.pkgs.requests];
+  propagatedBuildInputs = with python3.pkgs; [requests kiutils];
 
   dontBuild = true;
 
