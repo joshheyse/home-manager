@@ -374,6 +374,103 @@ def get_production_libs() -> Path:
     return prod
 
 
+def get_kicad_config_dir() -> Path:
+    """Get KiCad config directory."""
+    path = os.environ.get("KICAD_CONFIG_DIR")
+    if not path:
+        error("KICAD_CONFIG_DIR environment variable is not set")
+        sys.exit(1)
+    return Path(path)
+
+
+def ensure_lib_in_table(table_file: Path, lib_name: str, lib_uri: str, lib_type: str = "KiCad") -> bool:
+    """Ensure a library is in the library table. Returns True if added."""
+    if not table_file.exists():
+        # Create new table
+        if "sym" in table_file.name:
+            table_file.write_text(f'(sym_lib_table\n  (version 7)\n  (lib (name "{lib_name}")(type "{lib_type}")(uri "{lib_uri}")(options "")(descr "Custom library"))\n)\n')
+        else:
+            table_file.write_text(f'(fp_lib_table\n  (version 7)\n  (lib (name "{lib_name}")(type "{lib_type}")(uri "{lib_uri}")(options "")(descr "Custom library"))\n)\n')
+        return True
+
+    content = table_file.read_text()
+
+    # Check if library already exists
+    if f'(name "{lib_name}")' in content:
+        return False
+
+    # Add library entry before closing paren
+    new_entry = f'  (lib (name "{lib_name}")(type "{lib_type}")(uri "{lib_uri}")(options "")(descr "Custom library"))\n'
+    content = content.rstrip()
+    if content.endswith(")"):
+        content = content[:-1] + new_entry + ")\n"
+        table_file.write_text(content)
+        return True
+
+    return False
+
+
+def ensure_kicad_env_var(config_dir: Path, var_name: str, var_value: str) -> bool:
+    """Ensure an environment variable is set in KiCad's kicad_common.json."""
+    common_file = config_dir / "kicad_common.json"
+
+    if not common_file.exists():
+        # Create minimal config with the env var
+        config = {"environment": {"vars": {var_name: var_value}}}
+        common_file.write_text(json.dumps(config, indent=2))
+        return True
+
+    try:
+        config = json.loads(common_file.read_text())
+    except json.JSONDecodeError:
+        warn(f"Could not parse {common_file}")
+        return False
+
+    # Ensure environment.vars exists
+    if "environment" not in config:
+        config["environment"] = {}
+    if "vars" not in config["environment"]:
+        config["environment"]["vars"] = {}
+
+    # Check if already set
+    if var_name in config["environment"]["vars"]:
+        return False
+
+    # Add the variable
+    config["environment"]["vars"][var_name] = var_value
+    common_file.write_text(json.dumps(config, indent=2))
+    return True
+
+
+def register_libraries(lib_base: str) -> None:
+    """Register symbol and footprint libraries in KiCad's library tables."""
+    config_dir = get_kicad_config_dir()
+    production = get_production_libs()
+
+    # Ensure KICAD_MY_LIBS is set in KiCad's environment
+    if ensure_kicad_env_var(config_dir, "KICAD_MY_LIBS", str(production)):
+        success(f"Added KICAD_MY_LIBS to KiCad configure paths")
+    else:
+        info("KICAD_MY_LIBS already in KiCad configure paths")
+
+    sym_table = config_dir / "sym-lib-table"
+    fp_table = config_dir / "fp-lib-table"
+
+    # Use KICAD_MY_LIBS variable so paths are portable
+    sym_uri = f"${{KICAD_MY_LIBS}}/{lib_base}.kicad_sym"
+    fp_uri = f"${{KICAD_MY_LIBS}}/{lib_base}.pretty"
+
+    if ensure_lib_in_table(sym_table, lib_base, sym_uri):
+        success(f"Added {lib_base} to symbol library table")
+    else:
+        info(f"{lib_base} already in symbol library table")
+
+    if ensure_lib_in_table(fp_table, lib_base, fp_uri):
+        success(f"Added {lib_base} to footprint library table")
+    else:
+        info(f"{lib_base} already in footprint library table")
+
+
 # Standard KiCad library categories for autocomplete
 KICAD_LIBRARY_CATEGORIES = [
     "Amplifier_Audio",
@@ -762,6 +859,9 @@ def cmd_accept(args: argparse.Namespace) -> None:
         shutil.rmtree(staging_pretty)
     if staging_3d.exists():
         shutil.rmtree(staging_3d)
+
+    # Register libraries in KiCad's library tables
+    register_libraries(lib_base)
 
     print()
     success(f"Parts moved to production library!")

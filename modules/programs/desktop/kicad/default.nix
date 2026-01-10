@@ -12,9 +12,22 @@
     then "${config.home.homeDirectory}/Library/Preferences/kicad/9.0"
     else "${config.home.homeDirectory}/.config/kicad/9.0";
 
+  # KiCad user data directory (libraries, 3D models, etc.)
+  kicadUserDir =
+    if isDarwin
+    then "${config.home.homeDirectory}/Documents/KiCad/9.0"
+    else "${config.home.homeDirectory}/KiCad/9.0";
+
   # Path to config files in this repo
   repoConfigDir = ./config;
 in {
+  # Export KiCad paths as environment variables
+  home.sessionVariables = {
+    KICAD_CONFIG_DIR = kicadConfigDir;
+    KICAD_USER_DIR = kicadUserDir;
+    KICAD_STAGING_LIBS = "${kicadUserDir}/staging";
+    KICAD_MY_LIBS = "${kicadUserDir}/my_libs";
+  };
   # Sync-back script to copy KiCad settings from machine to repo
   home.packages = [
     (pkgs.writeShellScriptBin "kicad-sync-to-repo" ''
