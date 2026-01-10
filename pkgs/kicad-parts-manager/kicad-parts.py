@@ -364,10 +364,10 @@ def get_staging_libs() -> Path:
 
 
 def get_production_libs() -> Path:
-    """Get and validate MY_KICAD_LIBS path."""
-    path = os.environ.get("MY_KICAD_LIBS")
+    """Get and validate KICAD_MY_LIBS path."""
+    path = os.environ.get("KICAD_MY_LIBS")
     if not path:
-        error("MY_KICAD_LIBS environment variable is not set")
+        error("KICAD_MY_LIBS environment variable is not set")
         sys.exit(1)
     prod = Path(path)
     prod.mkdir(parents=True, exist_ok=True)
