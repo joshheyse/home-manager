@@ -199,10 +199,10 @@ class KicadSymbol:
         return list(set(re.findall(pattern, self.content)))
 
     def get_property(self, symbol_name: str, prop_name: str) -> Optional[str]:
-        """Get a property value from a symbol."""
+        """Get a property value from a symbol (case-insensitive property name)."""
         # Find the symbol block and extract property
-        pattern = rf'\(property "{prop_name}" "([^"]*)"'
-        match = re.search(pattern, self.content)
+        pattern = rf'\(property\s+"{re.escape(prop_name)}"\s+"([^"]*)"'
+        match = re.search(pattern, self.content, re.IGNORECASE)
         return match.group(1) if match else None
 
     def set_property(self, symbol_name: str, prop_name: str, prop_value: str) -> None:
@@ -212,32 +212,35 @@ class KicadSymbol:
         # Check if property already exists - handle both single-line and multi-line formats
         # Single-line: (property "Name" "Value" ...)
         # Multi-line:  (property\n  "Name"\n  "Value"\n  ...)
+        # Use case-insensitive matching for property names
         lines = self.content.split("\n")
         found_prop = False
         in_target_prop = False
         prop_name_found = False
+        actual_prop_name = prop_name  # Store the actual name found in file
 
         for i, line in enumerate(lines):
             # Start of a property block
             if "(property" in line:
-                # Check if property name is on same line or next line
-                if f'"{prop_name}"' in line:
+                # Check if property name is on same line (case-insensitive)
+                match = re.search(r'\(property\s+"([^"]+)"', line, re.IGNORECASE)
+                if match and match.group(1).lower() == prop_name.lower():
                     in_target_prop = True
                     prop_name_found = True
-                elif "(property" in line and f'"{prop_name}"' not in line:
+                    actual_prop_name = match.group(1)
+                elif "(property" in line:
                     # Multi-line format - check next line for property name
                     in_target_prop = False
                     prop_name_found = False
 
             # Check for property name on its own line (multi-line format)
-            if (
-                not prop_name_found
-                and f'"{prop_name}"' in line
-                and '"' == line.strip()[0]
-            ):
-                in_target_prop = True
-                prop_name_found = True
-                continue
+            if not prop_name_found and line.strip().startswith('"'):
+                match = re.match(r'\s*"([^"]+)"', line)
+                if match and match.group(1).lower() == prop_name.lower():
+                    in_target_prop = True
+                    prop_name_found = True
+                    actual_prop_name = match.group(1)
+                    continue
 
             # If we're in the target property, look for the value line
             if in_target_prop and prop_name_found:
@@ -249,10 +252,10 @@ class KicadSymbol:
                     lines[i] = f'{indent}"{prop_value}"'
                     found_prop = True
                     break
-                elif f'"{prop_name}"' in line:
+                elif re.search(rf'"{re.escape(actual_prop_name)}"', line, re.IGNORECASE):
                     # Single-line format: (property "Name" "Value" ...)
-                    pattern = rf'(\(property\s+"{prop_name}"\s+")[^"]*(")'
-                    lines[i] = re.sub(pattern, rf"\g<1>{prop_value}\g<2>", line)
+                    pattern = rf'(\(property\s+"{re.escape(actual_prop_name)}"\s+")[^"]*(")'
+                    lines[i] = re.sub(pattern, rf"\g<1>{prop_value}\g<2>", line, flags=re.IGNORECASE)
                     found_prop = True
                     break
 
@@ -460,6 +463,35 @@ def ensure_kicad_env_var(config_dir: Path, var_name: str, var_value: str) -> boo
     return True
 
 
+def register_staging_libraries() -> None:
+    """Register staging libraries in KiCad's library tables."""
+    config_dir = get_kicad_config_dir()
+    staging = get_staging_libs()
+
+    # Ensure KICAD_STAGING_LIBS is set in KiCad's environment
+    if ensure_kicad_env_var(config_dir, "KICAD_STAGING_LIBS", str(staging)):
+        success("Added KICAD_STAGING_LIBS to KiCad configure paths")
+    else:
+        info("KICAD_STAGING_LIBS already in KiCad configure paths")
+
+    sym_table = config_dir / "sym-lib-table"
+    fp_table = config_dir / "fp-lib-table"
+
+    # Use KICAD_STAGING_LIBS variable so paths are portable
+    sym_uri = "${KICAD_STAGING_LIBS}/_staging.kicad_sym"
+    fp_uri = "${KICAD_STAGING_LIBS}/_staging.pretty"
+
+    if ensure_lib_in_table(sym_table, "_staging", sym_uri):
+        success("Added _staging to symbol library table")
+    else:
+        info("_staging already in symbol library table")
+
+    if ensure_lib_in_table(fp_table, "_staging", fp_uri):
+        success("Added _staging to footprint library table")
+    else:
+        info("_staging already in footprint library table")
+
+
 def register_libraries(lib_base: str) -> None:
     """Register symbol and footprint libraries in KiCad's library tables."""
     config_dir = get_kicad_config_dir()
@@ -467,7 +499,7 @@ def register_libraries(lib_base: str) -> None:
 
     # Ensure KICAD_MY_LIBS is set in KiCad's environment
     if ensure_kicad_env_var(config_dir, "KICAD_MY_LIBS", str(production)):
-        success(f"Added KICAD_MY_LIBS to KiCad configure paths")
+        success("Added KICAD_MY_LIBS to KiCad configure paths")
     else:
         info("KICAD_MY_LIBS already in KiCad configure paths")
 
@@ -789,6 +821,9 @@ def cmd_import(args: argparse.Namespace) -> None:
     # Add MPN (use the cleaned MPN, not the symbol name)
     kicad.set_property(symbol_name, "MPN", mpn)
     kicad.save()
+
+    # Register staging libraries in KiCad
+    register_staging_libraries()
 
     print()
     success(f"Part {lcsc_id} ({mpn}) imported to staging!")
