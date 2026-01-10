@@ -1,0 +1,256 @@
+{
+    "packages": [
+        {
+            "current_version": "2025.10.18",
+            "install_timestamp": 1767370206,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/Steffen-W"
+                    },
+                    "name": "Steffen Wittemeier"
+                },
+                "description": "Import library files from Octopart, Samacsys, Ultralibrarian, Snapeda and EasyEDA",
+                "description_full": "Import library files from Octopart, Samacsys, Ultralibrarian, Snapeda and EasyEDA.\n For usage and correct setup please read the Readme: \n https://github.com/Steffen-W/Import-LIB-KiCad-Plugin#use-of-the-application",
+                "identifier": "com.github.Steffen-W.impartGUI",
+                "keep_on_update": [
+                    ".*/config.ini"
+                ],
+                "license": "GPL-3.0",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/Steffen-W"
+                    },
+                    "name": "Steffen Wittemeier"
+                },
+                "name": "impart GUI for KiCad",
+                "resources": {
+                    "homepage": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin"
+                },
+                "tags": [
+                    "import",
+                    "library",
+                    "octopart",
+                    "samacsys",
+                    "ultralibrarian",
+                    "snapeda",
+                    "easyeda"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "2ee18b679a833761030dc8726681004782254f9fa480ee9275687ee795554db5",
+                        "download_size": 170315,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2025.10.18/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 791309,
+                        "kicad_version": "8.0.4",
+                        "status": "stable",
+                        "version": "2025.10.18"
+                    },
+                    {
+                        "download_sha256": "f8113ff67d74ffb92b736a3bf48752e5d62ba14bae558e3579ea61131054901e",
+                        "download_size": 169367,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2025.08.25/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 787353,
+                        "kicad_version": "8.0.4",
+                        "status": "stable",
+                        "version": "2025.08.25"
+                    },
+                    {
+                        "download_sha256": "6173e1070ceee6bda9fb649f3655934520f6bdd87f8d63b48094093ce34680be",
+                        "download_size": 33309,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2025.03.03/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 106506,
+                        "kicad_version": "8.00",
+                        "status": "stable",
+                        "version": "2025.03.03"
+                    },
+                    {
+                        "download_sha256": "0aec88102fd8f7c89f6bf4e5d179e20168abedadb0a09984dd540c684b5e98e9",
+                        "download_size": 65949,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2025.01.21/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 219144,
+                        "kicad_version": "8.00",
+                        "status": "stable",
+                        "version": "2025.01.21"
+                    },
+                    {
+                        "download_sha256": "ca4714f8ba62d3ed148465791bd66449102a2da0f5c78a23e84b5dd2744965a5",
+                        "download_size": 65343,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2024.08.17/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 217649,
+                        "kicad_version": "8.00",
+                        "status": "stable",
+                        "version": "2024.08.17"
+                    },
+                    {
+                        "download_sha256": "d548dfe9deda47b4a718da35a13215b53016f8bef2d671a421ddfaeccb9943ea",
+                        "download_size": 27869,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2024.07.11/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 72200,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "2024.07.11"
+                    },
+                    {
+                        "download_sha256": "3c4c926d7a00bce0edfcd1ad20ba3be52bb2494f529b2c6198081525dbc32262",
+                        "download_size": 27837,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2024.04.08/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 72143,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "2024.04.08"
+                    },
+                    {
+                        "download_sha256": "747bfdbfc34edc160cbf6f77462c16aa5064c68c1adc076930a1a1c7fef0f695",
+                        "download_size": 27824,
+                        "download_url": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin/releases/download/2024.02.24/Import-LIB-KiCad-Plugin.zip",
+                        "install_size": 71950,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "2024.02.24"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "1.0.2",
+            "install_timestamp": 1767387827,
+            "package": {
+                "author": {
+                    "contact": {
+                        "web": "https://www.pcbway.com"
+                    },
+                    "name": "PCBWay.com"
+                },
+                "description": "Export production files (gerber file, bom file, pnp file) with one click.",
+                "description_full": "Toolkit for automating PCB fabrication process with KiCad and PCBWay.\n    Export the following production files to your local device with just one click:\n    1. Gerber files in correct format for production.\n    2. IPC-Netlist file.\n    3.Bom-file that includes all information of components.\n    4.Pick and Place-file used in assembly.\n    \n    About PCBWay:\n    \n    PCBWay is a Chinese company specializing in PCB prototyping and assembly, devotes to offer one-stop service. The build-time for standard PCB is 24hrs. Our upgraded material with TG150-160 costs as low as $5/10pcs while our remarkable after-sale services are standing by for any questions you may encounter.\n    As a sponsor of KiCad, we will always support its development.",
+                "identifier": "com.github.pcbway.PCBWay-Fabrication-Toolkit-for-KiCad",
+                "license": "MIT",
+                "maintainer": {
+                    "contact": {
+                        "web": "https://www.pcbway.com"
+                    },
+                    "name": "PCBWay.com"
+                },
+                "name": "PCBWay Fabrication Toolkit",
+                "resources": {
+                    "homepage": "https://github.com/pcbway/PCBWay-Fabrication-Toolkit-for-KiCad"
+                },
+                "type": "fab",
+                "versions": [
+                    {
+                        "download_sha256": "f2052b95c6411ea2be2947a0fb10d4f0e81e1c49849bb19041eabcf8c4b3d2fb",
+                        "download_size": 14888,
+                        "download_url": "https://github.com/pcbway/PCBWay-Fabrication-Toolkit-for-KiCad/releases/download/v1.0.2/PCBWayFabricationToolkitForKiCad_v1.0.2.zip",
+                        "install_size": 29445,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "1.0.2"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "1.0.2",
+            "install_timestamp": 1767387827,
+            "package": {
+                "author": {
+                    "contact": {
+                        "web": "https://www.pcbway.com"
+                    },
+                    "name": "PCBWay.com"
+                },
+                "description": "Start prototype and assembly by sending files to PCBWay with just one click.",
+                "description_full": "Click this plugin for high quality prototyping and assembly services, PCBWay will commit to meeting your needs to the greatest extent.\n\nWhen you click PCBWay Plug-in button, we will export these files in your project:\n\n1. Gerber files in correct format for production\n2. IPC-Netlist file\n3. Bom-file that includes all information of components (please note designator, quantity, MPN/part number, package/footprint are necessary)\n4. Pick and Place-file used in assembly\n\nYou can click \"Save to Cart\" to place an order immediately after uploading the files ( usually only takes a few seconds), our engineers will double check the files before the production.\n\nAbout PCBWay:\n\nPCBWay is a Chinese company specializing in PCB prototyping and assembly, devotes to offer one-stop service. The build-time for standard PCBs is 24hrs. Our upgraded material with TG150-160 costs as low as $5/10pcs while our remarkable after-sale services are standing by for any questions you may encounter. As a sponsor of KiCad, we will always support its development.",
+                "identifier": "com.github.pcbway.PCBWay-Plug-in-for-Kicad",
+                "license": "MIT",
+                "maintainer": {
+                    "contact": {
+                        "web": "https://www.pcbway.com"
+                    },
+                    "name": "PCBWay.com"
+                },
+                "name": "PCBWay Plug-in for KiCad",
+                "resources": {
+                    "homepage": "https://github.com/pcbway/PCBWay-Plug-in-for-Kicad"
+                },
+                "type": "fab",
+                "versions": [
+                    {
+                        "download_sha256": "69355ae2356b664b05ad7438b8004f823300f75b4496d198c5c38cf6af686e67",
+                        "download_size": 13320,
+                        "download_url": "https://github.com/pcbway/PCBWay-Plug-in-for-Kicad/releases/download/v1.0.2/KiCadToPCBWay_v1.0.2.zip",
+                        "install_size": 27954,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "1.0.2"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "2024.02.25",
+            "install_timestamp": 1767370207,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/lethalbit",
+                        "mastodon": "https://chaos.social/@lethalbit",
+                        "website": "https://lethalbit.net"
+                    },
+                    "name": "Aki Van Ness"
+                },
+                "description": "A dark and vibrant color scheme by @lethalbit",
+                "description_full": "A dark and vibrant color scheme by @lethalbit",
+                "identifier": "net.lethalbit.arcana",
+                "license": "CC-BY-NC-SA-4.0",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/lethalbit",
+                        "mastodon": "https://chaos.social/@lethalbit",
+                        "website": "https://lethalbit.net"
+                    },
+                    "name": "Aki Van Ness"
+                },
+                "name": "Arcana",
+                "resources": {
+                    "github": "https://github.com/lethalbit/arcana-kicad"
+                },
+                "type": "colortheme",
+                "versions": [
+                    {
+                        "download_sha256": "1a1b0030cc8f5b60d2b8a680d9dbc34b0ea697f12eed47744c93956f70a047fb",
+                        "download_size": 13283,
+                        "download_url": "https://github.com/lethalbit/arcana-kicad/releases/download/2024.02.25/kicad-arcana.zip",
+                        "install_size": 20337,
+                        "kicad_version": "7.0",
+                        "status": "stable",
+                        "version": "2024.02.25"
+                    },
+                    {
+                        "download_sha256": "a1192841d2a273df686bf97bcea5fff38f1ee7eaa84269403d42b124b8caaa05",
+                        "download_size": 13029,
+                        "download_url": "https://github.com/lethalbit/arcana-kicad/releases/download/2023.11.21/kicad-arcana.zip",
+                        "install_size": 20206,
+                        "kicad_version": "7.0",
+                        "status": "stable",
+                        "version": "2023.11.21"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        }
+    ]
+}

@@ -5,6 +5,7 @@ in {
     ./kitty.nix
     ./ghostty
     ./gpg-agent.nix
+    ./kicad
     ./sketchybar.nix
     ./raycast.nix
     ./yabai.nix

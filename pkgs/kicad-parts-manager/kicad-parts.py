@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -108,7 +109,9 @@ class DigikeyClient:
 
     def search(self, mpn: str) -> Optional[dict]:
         if not self.available:
-            warn("Digikey API credentials not set (DIGIKEY_CLIENT_ID, DIGIKEY_CLIENT_SECRET)")
+            warn(
+                "Digikey API credentials not set (DIGIKEY_CLIENT_ID, DIGIKEY_CLIENT_SECRET)"
+            )
             return None
 
         token = self.get_token()
@@ -209,7 +212,11 @@ class KicadSymbol:
                     prop_name_found = False
 
             # Check for property name on its own line (multi-line format)
-            if not prop_name_found and f'"{prop_name}"' in line and '"' == line.strip()[0]:
+            if (
+                not prop_name_found
+                and f'"{prop_name}"' in line
+                and '"' == line.strip()[0]
+            ):
                 in_target_prop = True
                 prop_name_found = True
                 continue
@@ -220,14 +227,14 @@ class KicadSymbol:
                 stripped = line.strip()
                 if stripped.startswith('"') and stripped.endswith('"'):
                     # This is the value line - replace it
-                    indent = line[:len(line) - len(line.lstrip())]
+                    indent = line[: len(line) - len(line.lstrip())]
                     lines[i] = f'{indent}"{prop_value}"'
                     found_prop = True
                     break
                 elif f'"{prop_name}"' in line:
                     # Single-line format: (property "Name" "Value" ...)
                     pattern = rf'(\(property\s+"{prop_name}"\s+")[^"]*(")'
-                    lines[i] = re.sub(pattern, rf'\g<1>{prop_value}\g<2>', line)
+                    lines[i] = re.sub(pattern, rf"\g<1>{prop_value}\g<2>", line)
                     found_prop = True
                     break
 
@@ -245,7 +252,9 @@ class KicadSymbol:
 
             for i, line in enumerate(lines):
                 # Detect main symbol start (exact match, not sub-symbols with _0_1 etc)
-                if f'(symbol "{symbol_name}"' in line and "_" not in line.split('"')[1].replace(symbol_name, ""):
+                if f'(symbol "{symbol_name}"' in line and "_" not in line.split('"')[
+                    1
+                ].replace(symbol_name, ""):
                     in_main_symbol = True
 
                 # Track last property line in main symbol
@@ -276,20 +285,20 @@ class KicadSymbol:
                 # Get the next id number
                 max_id = 0
                 for line in result:
-                    id_match = re.search(r'\(id (\d+)\)', line)
+                    id_match = re.search(r"\(id (\d+)\)", line)
                     if id_match:
                         max_id = max(max_id, int(id_match.group(1)))
                 new_id = max_id + 1
 
                 # Insert new property after the last property
                 new_prop = (
-                    f'    (property\n'
+                    f"    (property\n"
                     f'      "{prop_name}"\n'
                     f'      "{prop_value}"\n'
-                    f'      (id {new_id})\n'
-                    f'      (at 0 0 0)\n'
-                    f'      (effects (font (size 1.27 1.27) ) hide)\n'
-                    f'    )'
+                    f"      (id {new_id})\n"
+                    f"      (at 0 0 0)\n"
+                    f"      (effects (font (size 1.27 1.27) ) hide)\n"
+                    f"    )"
                 )
                 result.insert(end_idx + 1, new_prop)
 
@@ -365,23 +374,191 @@ def get_production_libs() -> Path:
     return prod
 
 
+# Standard KiCad library categories for autocomplete
+KICAD_LIBRARY_CATEGORIES = [
+    "Amplifier_Audio",
+    "Amplifier_Buffer",
+    "Amplifier_Current",
+    "Amplifier_Difference",
+    "Amplifier_Instrumentation",
+    "Amplifier_Operational",
+    "Amplifier_Video",
+    "Analog",
+    "Analog_ADC",
+    "Analog_DAC",
+    "Analog_Switch",
+    "Audio",
+    "Battery",
+    "Comparator",
+    "Connector",
+    "Connector_Generic",
+    "Converter_ACDC",
+    "Converter_DCDC",
+    "Device",
+    "Diode",
+    "Diode_Bridge",
+    "Display_Character",
+    "Driver_Display",
+    "Driver_FET",
+    "Driver_LED",
+    "Driver_Motor",
+    "Driver_Relay",
+    "DSP_Microchip_DSPIC33",
+    "Filter",
+    "FPGA_Lattice",
+    "FPGA_Xilinx",
+    "GPS",
+    "Graphic",
+    "Interface",
+    "Interface_CAN_LIN",
+    "Interface_CurrentLoop",
+    "Interface_Ethernet",
+    "Interface_Expansion",
+    "Interface_HID",
+    "Interface_LineDriver",
+    "Interface_Optical",
+    "Interface_Telecom",
+    "Interface_UART",
+    "Interface_USB",
+    "Isolator",
+    "Jumper",
+    "LED",
+    "Logic",
+    "MCU_Espressif",
+    "MCU_Microchip_ATmega",
+    "MCU_Microchip_ATtiny",
+    "MCU_Microchip_PIC",
+    "MCU_Nordic",
+    "MCU_NXP",
+    "MCU_Raspberry_Pi",
+    "MCU_ST_STM32",
+    "MCU_Texas",
+    "Memory_Controller",
+    "Memory_EEPROM",
+    "Memory_Flash",
+    "Memory_RAM",
+    "Memory_ROM",
+    "Motor",
+    "Oscillator",
+    "Power_Management",
+    "Power_Protection",
+    "Power_Supervisor",
+    "Reference_Current",
+    "Reference_Voltage",
+    "Regulator_Controller",
+    "Regulator_Current",
+    "Regulator_Linear",
+    "Regulator_Switching",
+    "Relay",
+    "Relay_SolidState",
+    "RF",
+    "RF_Amplifier",
+    "RF_Bluetooth",
+    "RF_GPS",
+    "RF_Mixer",
+    "RF_Module",
+    "RF_Switch",
+    "RF_WiFi",
+    "RF_ZigBee",
+    "Sensor",
+    "Sensor_Audio",
+    "Sensor_Current",
+    "Sensor_Gas",
+    "Sensor_Humidity",
+    "Sensor_Magnetic",
+    "Sensor_Motion",
+    "Sensor_Optical",
+    "Sensor_Pressure",
+    "Sensor_Proximity",
+    "Sensor_Temperature",
+    "Sensor_Touch",
+    "Sensor_Voltage",
+    "Switch",
+    "Timer",
+    "Timer_PLL",
+    "Timer_RTC",
+    "Transformer",
+    "Transistor_Array",
+    "Transistor_BJT",
+    "Transistor_FET",
+    "Transistor_IGBT",
+    "Triac_Thyristor",
+    "Valve",
+    "Video",
+]
+
+
+def prompt_library_name() -> str:
+    """Prompt user for library name with autocomplete from KiCad categories."""
+    try:
+        result = subprocess.run(
+            ["fzf", "--prompt=Select library category: ", "--print-query", "--select-1", "--exit-0"],
+            input="\n".join(KICAD_LIBRARY_CATEGORIES),
+            capture_output=True,
+            text=True,
+        )
+        lines = result.stdout.strip().split("\n")
+        # fzf --print-query returns query on first line, selection on second
+        if len(lines) >= 2 and lines[1]:
+            return lines[1]  # User selected from list
+        elif lines[0]:
+            return lines[0]  # User typed custom name
+        else:
+            error("No library selected")
+            sys.exit(1)
+    except FileNotFoundError:
+        # Fallback to simple input if fzf not available
+        print(f"{CYAN}Available categories:{NC}")
+        for cat in KICAD_LIBRARY_CATEGORIES[:20]:
+            print(f"  {cat}")
+        print("  ...")
+        lib_name = input(f"{BLUE}Enter library name: {NC}").strip()
+        if not lib_name:
+            error("No library name provided")
+            sys.exit(1)
+        return lib_name
+
+
 def cmd_import(args: argparse.Namespace) -> None:
     """Import a part from LCSC."""
     lcsc_id = args.lcsc_id.upper()
 
     if not re.match(r"^C\d+$", lcsc_id):
-        error(f"Invalid LCSC ID format: {lcsc_id}. Expected format: C<number> (e.g., C2040)")
+        error(
+            f"Invalid LCSC ID format: {lcsc_id}. Expected format: C<number> (e.g., C2040)"
+        )
         sys.exit(1)
 
+    # Prompt for library category
+    if args.library:
+        lib_name = args.library
+    else:
+        lib_name = prompt_library_name()
+
+    info(f"Target library: {lib_name}-JH")
+
     staging = get_staging_libs()
-    output_base = staging / "easyeda2kicad"
+    production = get_production_libs()
+    output_base = staging / "_staging"
+
+    # Production library paths
+    lib_base = f"{lib_name}-JH"
+    prod_sym = production / f"{lib_base}.kicad_sym"
+    prod_pretty = production / f"{lib_base}.pretty"
+    prod_3d = production / f"{lib_base}.3dshapes"
 
     info(f"Importing part {lcsc_id} from LCSC/EasyEDA...")
 
     # Run easyeda2kicad
     try:
         subprocess.run(
-            ["easyeda2kicad", "--full", f"--lcsc_id={lcsc_id}", f"--output={output_base}", "--overwrite"],
+            [
+                "easyeda2kicad",
+                "--full",
+                f"--lcsc_id={lcsc_id}",
+                f"--output={output_base}",
+                "--overwrite",
+            ],
             check=True,
         )
     except subprocess.CalledProcessError:
@@ -465,113 +642,8 @@ def cmd_import(args: argparse.Namespace) -> None:
     kicad.set_property(mpn, "MPN", mpn)
     kicad.save()
 
-    print()
-    success(f"Part {lcsc_id} imported successfully to staging!")
-    print()
-    info("Files created:")
-    print(f"  Symbol:    {sym_file}")
-    print(f"  Footprint: {output_base}.pretty/")
-    print(f"  3D Models: {output_base}.3dshapes/")
-    print()
-    info("Use 'kicad-parts list' to view staged parts")
-    info("Use 'kicad-parts accept' to move to production library")
-
-
-def cmd_list(args: argparse.Namespace) -> None:
-    """List parts in staging."""
-    staging = get_staging_libs()
-    sym_file = staging / "easyeda2kicad.kicad_sym"
-
-    if not sym_file.exists():
-        info("No parts in staging library")
-        return
-
-    kicad = KicadSymbol(sym_file)
-    symbols = kicad.get_symbol_names()
-
-    if not symbols:
-        info("No parts in staging library")
-        return
-
-    print(f"{BLUE}Parts in staging library:{NC}")
-    print()
-
-    for symbol in sorted(symbols):
-        print(f"{GREEN}{symbol}{NC}")
-
-        if args.verbose:
-            for prop in ["LCSC", "MPN", "Manufacturer", "Digikey", "Mouser", "Datasheet"]:
-                if val := kicad.get_property(symbol, prop):
-                    print(f"  {prop}: {val}")
-            for prop in ["Price_1", "Price_10", "Price_100", "Stock_Digikey", "Stock_Mouser"]:
-                if val := kicad.get_property(symbol, prop):
-                    print(f"  {prop}: {val}")
-            print()
-        else:
-            parts = []
-            if lcsc := kicad.get_property(symbol, "LCSC"):
-                parts.append(f"LCSC:{lcsc}")
-            if mfr := kicad.get_property(symbol, "Manufacturer"):
-                parts.append(mfr)
-            if kicad.get_property(symbol, "Digikey"):
-                parts.append("DK")
-            if kicad.get_property(symbol, "Mouser"):
-                parts.append("M")
-            if parts:
-                print(f"  {CYAN}{' | '.join(parts)}{NC}")
-
-    print()
-    info(f"Total: {len(symbols)} part(s) in staging")
-
-
-def cmd_accept(args: argparse.Namespace) -> None:
-    """Accept parts from staging to production."""
-    staging = get_staging_libs()
-    production = get_production_libs()
-
-    staging_sym = staging / "easyeda2kicad.kicad_sym"
-    staging_pretty = staging / "easyeda2kicad.pretty"
-    staging_3d = staging / "easyeda2kicad.3dshapes"
-
-    prod_sym = production / "my_parts.kicad_sym"
-    prod_pretty = production / "my_parts.pretty"
-    prod_3d = production / "my_parts.3dshapes"
-
-    if not staging_sym.exists():
-        info("No parts in staging library")
-        return
-
-    kicad = KicadSymbol(staging_sym)
-    symbols = kicad.get_symbol_names()
-
-    if not symbols:
-        info("No parts in staging library")
-        return
-
-    # Determine which parts to accept
-    if args.all:
-        to_accept = symbols
-    elif args.part:
-        if args.part not in symbols:
-            error(f"Part not found: {args.part}")
-            sys.exit(1)
-        to_accept = [args.part]
-    else:
-        # Interactive selection with fzf
-        try:
-            result = subprocess.run(
-                ["fzf", "--multi", "--prompt=Select parts to accept: "],
-                input="\n".join(symbols),
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                info("No parts selected")
-                return
-            to_accept = result.stdout.strip().split("\n")
-        except FileNotFoundError:
-            error("fzf not found. Specify part name or use --all")
-            sys.exit(1)
+    # Move to production library
+    info(f"Moving to production library: {lib_base}")
 
     # Create production directories
     prod_pretty.mkdir(parents=True, exist_ok=True)
@@ -580,49 +652,33 @@ def cmd_accept(args: argparse.Namespace) -> None:
     # Initialize production symbol file if needed
     if not prod_sym.exists():
         prod_sym.write_text(
-            '(kicad_symbol_lib\n  (version 20231120)\n  (generator "kicad-parts-manager")\n)\n'
+            f'(kicad_symbol_lib\n  (version 20231120)\n  (generator "kicad-parts-manager")\n  (generator_version "1.0")\n)\n'
         )
+        success(f"Created new library: {prod_sym.name}")
 
     prod_kicad = KicadSymbol(prod_sym)
 
-    for symbol in to_accept:
-        info(f"Accepting part: {symbol}")
-
-        # Extract and move symbol
-        symbol_content = kicad.extract_symbol(symbol)
-        if not symbol_content:
-            error(f"Could not extract symbol: {symbol}")
-            continue
-
-        # Append to production (before final closing paren)
+    # Extract and add symbol to production
+    symbol_content = kicad.extract_symbol(mpn)
+    if symbol_content:
         content = prod_kicad.content.rstrip()
         if content.endswith(")"):
             content = content[:-1] + symbol_content + "\n)\n"
             prod_kicad.content = content
+            prod_kicad.save()
+        success("Added symbol to production library")
 
-        kicad.remove_symbol(symbol)
-        success("Moved symbol to production library")
+    # Move footprint
+    staging_pretty = staging / "_staging.pretty"
+    if staging_pretty.exists():
+        for fp in staging_pretty.glob("*.kicad_mod"):
+            fp.rename(prod_pretty / fp.name)
+            success(f"Moved footprint: {fp.name}")
 
-        # Move footprint
-        fp_file = staging_pretty / f"{symbol}.kicad_mod"
-        if fp_file.exists():
-            fp_file.rename(prod_pretty / fp_file.name)
-            success(f"Moved footprint: {fp_file.name}")
-        else:
-            # Try to find any footprint
-            for fp in staging_pretty.glob("*.kicad_mod"):
-                fp.rename(prod_pretty / fp.name)
-                success(f"Moved footprint: {fp.name}")
-                break
-
-        # Move 3D models
+    # Move 3D models
+    staging_3d = staging / "_staging.3dshapes"
+    if staging_3d.exists():
         moved = 0
-        for ext in ["wrl", "step", "WRL", "STEP", "stp", "STP"]:
-            model = staging_3d / f"{symbol}.{ext}"
-            if model.exists():
-                model.rename(prod_3d / model.name)
-                moved += 1
-        # Also move any remaining models
         for model in staging_3d.glob("*"):
             if model.is_file():
                 model.rename(prod_3d / model.name)
@@ -630,103 +686,199 @@ def cmd_accept(args: argparse.Namespace) -> None:
         if moved:
             success(f"Moved {moved} 3D model file(s)")
 
-        success(f"Part {symbol} accepted!")
+    # Clean up staging
+    if sym_file.exists():
+        sym_file.unlink()
 
-    kicad.save()
-    prod_kicad.save()
+    if staging_pretty.exists():
+        shutil.rmtree(staging_pretty)
+    if staging_3d.exists():
+        shutil.rmtree(staging_3d)
 
     print()
-    success(f"Done! Parts moved to: {production}")
+    success(f"Part {lcsc_id} ({mpn}) imported successfully!")
+    print()
+    info("Files created:")
+    print(f"  Symbol:    {prod_sym}")
+    print(f"  Footprint: {prod_pretty}/")
+    print(f"  3D Models: {prod_3d}/")
+    print()
+    info(f"Library '{lib_base}' is ready to use in KiCad")
 
 
-def cmd_reject(args: argparse.Namespace) -> None:
-    """Reject parts from staging."""
-    staging = get_staging_libs()
+def cmd_list(args: argparse.Namespace) -> None:
+    """List parts in production libraries."""
+    production = get_production_libs()
 
-    staging_sym = staging / "easyeda2kicad.kicad_sym"
-    staging_pretty = staging / "easyeda2kicad.pretty"
-    staging_3d = staging / "easyeda2kicad.3dshapes"
+    # Find all *-JH.kicad_sym libraries
+    lib_files = sorted(production.glob("*-JH.kicad_sym"))
 
-    if args.all:
-        warn("This will delete all staged parts!")
-        confirm = input("Are you sure? [y/N] ")
-        if confirm.lower() != "y":
-            info("Cancelled")
-            return
-
-        import shutil
-
-        if staging_sym.exists():
-            staging_sym.unlink()
-        if staging_pretty.exists():
-            shutil.rmtree(staging_pretty)
-        if staging_3d.exists():
-            shutil.rmtree(staging_3d)
-
-        success("Staging cleared!")
+    if not lib_files:
+        info("No parts libraries found")
+        info(f"Libraries are stored in: {production}")
         return
 
-    if not staging_sym.exists():
-        info("No parts in staging library")
+    total_parts = 0
+
+    for lib_file in lib_files:
+        lib_name = lib_file.stem  # e.g., "Connector-JH"
+
+        kicad = KicadSymbol(lib_file)
+        symbols = kicad.get_symbol_names()
+
+        if not symbols:
+            continue
+
+        print(f"{BLUE}━━━ {lib_name} ━━━{NC}")
+        print()
+
+        for symbol in sorted(symbols):
+            print(f"  {GREEN}{symbol}{NC}")
+
+            if args.verbose:
+                for prop in [
+                    "LCSC",
+                    "MPN",
+                    "Manufacturer",
+                    "Digikey",
+                    "Mouser",
+                    "Datasheet",
+                ]:
+                    if val := kicad.get_property(symbol, prop):
+                        print(f"    {prop}: {val}")
+                for prop in [
+                    "Price_1",
+                    "Price_10",
+                    "Price_100",
+                    "Stock_Digikey",
+                    "Stock_Mouser",
+                ]:
+                    if val := kicad.get_property(symbol, prop):
+                        print(f"    {prop}: {val}")
+                print()
+            else:
+                parts = []
+                if lcsc := kicad.get_property(symbol, "LCSC"):
+                    parts.append(f"LCSC:{lcsc}")
+                if mfr := kicad.get_property(symbol, "Manufacturer"):
+                    parts.append(mfr)
+                if kicad.get_property(symbol, "Digikey"):
+                    parts.append("DK")
+                if kicad.get_property(symbol, "Mouser"):
+                    parts.append("M")
+                if parts:
+                    print(f"    {CYAN}{' | '.join(parts)}{NC}")
+
+        total_parts += len(symbols)
+        print()
+
+    info(f"Total: {total_parts} part(s) across {len(lib_files)} library/libraries")
+
+
+def cmd_delete(args: argparse.Namespace) -> None:
+    """Delete parts from production libraries."""
+    production = get_production_libs()
+
+    # Find all libraries
+    lib_files = sorted(production.glob("*-JH.kicad_sym"))
+
+    if not lib_files:
+        info("No parts libraries found")
         return
 
-    kicad = KicadSymbol(staging_sym)
-    symbols = kicad.get_symbol_names()
+    # Build a list of all parts across all libraries
+    all_parts: list[tuple[str, Path, str]] = []  # (display_name, lib_path, symbol_name)
 
-    if not symbols:
-        info("No parts in staging library")
+    for lib_file in lib_files:
+        lib_name = lib_file.stem
+        kicad = KicadSymbol(lib_file)
+        for symbol in kicad.get_symbol_names():
+            all_parts.append((f"{lib_name}/{symbol}", lib_file, symbol))
+
+    if not all_parts:
+        info("No parts found in libraries")
         return
 
-    # Determine which parts to reject
+    # Filter by library if specified
+    if args.library:
+        lib_filter = args.library if args.library.endswith("-JH") else f"{args.library}-JH"
+        all_parts = [(d, l, s) for d, l, s in all_parts if l.stem == lib_filter]
+        if not all_parts:
+            error(f"No parts found in library: {lib_filter}")
+            sys.exit(1)
+
+    # Determine which parts to delete
     if args.part:
-        if args.part not in symbols:
+        # Find part by name
+        matches = [(d, l, s) for d, l, s in all_parts if s == args.part or d == args.part]
+        if not matches:
             error(f"Part not found: {args.part}")
             sys.exit(1)
-        to_reject = [args.part]
+        to_delete = matches
     else:
         # Interactive selection with fzf
         try:
             result = subprocess.run(
-                ["fzf", "--multi", "--prompt=Select parts to reject: "],
-                input="\n".join(symbols),
+                ["fzf", "--multi", "--prompt=Select parts to delete: "],
+                input="\n".join(d for d, _, _ in all_parts),
                 capture_output=True,
                 text=True,
             )
             if result.returncode != 0:
                 info("No parts selected")
                 return
-            to_reject = result.stdout.strip().split("\n")
+            selected = result.stdout.strip().split("\n")
+            to_delete = [(d, l, s) for d, l, s in all_parts if d in selected]
         except FileNotFoundError:
-            error("fzf not found. Specify part name or use --all")
+            error("fzf not found. Specify part name with -l LIBRARY PART")
             sys.exit(1)
 
-    for symbol in to_reject:
-        info(f"Rejecting part: {symbol}")
-
-        kicad.remove_symbol(symbol)
-        success("Removed symbol from library")
-
-        # Delete footprint
-        fp_file = staging_pretty / f"{symbol}.kicad_mod"
-        if fp_file.exists():
-            fp_file.unlink()
-            success(f"Deleted footprint: {fp_file.name}")
-
-        # Delete 3D models
-        deleted = 0
-        for ext in ["wrl", "step", "WRL", "STEP", "stp", "STP"]:
-            model = staging_3d / f"{symbol}.{ext}"
-            if model.exists():
-                model.unlink()
-                deleted += 1
-        if deleted:
-            success(f"Deleted {deleted} 3D model file(s)")
-
-        success(f"Part {symbol} rejected!")
-
-    kicad.save()
+    # Confirm deletion
+    print(f"{YELLOW}Parts to delete:{NC}")
+    for display, _, _ in to_delete:
+        print(f"  {display}")
     print()
-    success("Done!")
+    confirm = input(f"Delete {len(to_delete)} part(s)? [y/N] ")
+    if confirm.lower() != "y":
+        info("Cancelled")
+        return
+
+    # Group by library
+    by_library: dict[Path, list[str]] = {}
+    for _, lib_path, symbol in to_delete:
+        by_library.setdefault(lib_path, []).append(symbol)
+
+    for lib_path, symbols in by_library.items():
+        lib_name = lib_path.stem
+        kicad = KicadSymbol(lib_path)
+        pretty_dir = production / f"{lib_name}.pretty"
+        shapes_dir = production / f"{lib_name}.3dshapes"
+
+        for symbol in symbols:
+            info(f"Deleting {lib_name}/{symbol}...")
+
+            kicad.remove_symbol(symbol)
+
+            # Delete footprint
+            fp_file = pretty_dir / f"{symbol}.kicad_mod"
+            if fp_file.exists():
+                fp_file.unlink()
+                success(f"Deleted footprint: {fp_file.name}")
+
+            # Delete 3D models
+            deleted = 0
+            for ext in ["wrl", "step", "WRL", "STEP", "stp", "STP"]:
+                model = shapes_dir / f"{symbol}.{ext}"
+                if model.exists():
+                    model.unlink()
+                    deleted += 1
+            if deleted:
+                success(f"Deleted {deleted} 3D model file(s)")
+
+        kicad.save()
+
+    print()
+    success(f"Deleted {len(to_delete)} part(s)")
 
 
 def main() -> None:
@@ -738,24 +890,28 @@ def main() -> None:
     # import command
     import_parser = subparsers.add_parser("import", help="Import a part from LCSC")
     import_parser.add_argument("lcsc_id", help="LCSC part number (e.g., C2040)")
+    import_parser.add_argument(
+        "-l", "--library",
+        help="Library category (e.g., 'Connector', 'MCU_ST_STM32'). Prompts interactively if omitted."
+    )
     import_parser.set_defaults(func=cmd_import)
 
     # list command
-    list_parser = subparsers.add_parser("list", help="List parts in staging")
-    list_parser.add_argument("-v", "--verbose", action="store_true", help="Show detailed metadata")
+    list_parser = subparsers.add_parser("list", help="List parts in all libraries")
+    list_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show detailed metadata"
+    )
     list_parser.set_defaults(func=cmd_list)
 
-    # accept command
-    accept_parser = subparsers.add_parser("accept", help="Accept parts to production")
-    accept_parser.add_argument("part", nargs="?", help="Part name (interactive if omitted)")
-    accept_parser.add_argument("--all", action="store_true", help="Accept all parts")
-    accept_parser.set_defaults(func=cmd_accept)
-
-    # reject command
-    reject_parser = subparsers.add_parser("reject", help="Reject parts from staging")
-    reject_parser.add_argument("part", nargs="?", help="Part name (interactive if omitted)")
-    reject_parser.add_argument("--all", action="store_true", help="Clear all staging")
-    reject_parser.set_defaults(func=cmd_reject)
+    # delete command (replaces reject)
+    delete_parser = subparsers.add_parser("delete", help="Delete parts from libraries")
+    delete_parser.add_argument(
+        "part", nargs="?", help="Part name (interactive if omitted)"
+    )
+    delete_parser.add_argument(
+        "-l", "--library", help="Library name (e.g., 'Connector-JH')"
+    )
+    delete_parser.set_defaults(func=cmd_delete)
 
     args = parser.parse_args()
     args.func(args)
