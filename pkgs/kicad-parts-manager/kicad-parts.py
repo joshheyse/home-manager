@@ -132,6 +132,10 @@ class DigikeyClient:
             )
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 404:
+                warn(f"Digikey: Part '{mpn}' not found")
+            else:
+                warn(f"Digikey API returned {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
             warn(f"Digikey API error: {e}")
         return None
@@ -702,31 +706,38 @@ def cmd_import(args: argparse.Namespace) -> None:
         error("No symbols found in downloaded file")
         sys.exit(1)
 
-    mpn = symbols[0]
-    info(f"Part MPN: {mpn}")
+    symbol_name = symbols[0]
+    info(f"Symbol name: {symbol_name}")
+
+    # Clean up MPN for API searches - remove EasyEDA suffixes like _0_1, _0, etc.
+    # These are internal KiCad sub-symbol identifiers, not part of the actual MPN
+    mpn = re.sub(r"_\d+(_\d+)?$", "", symbol_name)
+    if mpn != symbol_name:
+        info(f"Cleaned MPN for API search: {mpn}")
 
     # Add LCSC property
-    kicad.set_property(mpn, "LCSC", lcsc_id)
+    kicad.set_property(symbol_name, "LCSC", lcsc_id)
     success(f"Added LCSC property: {lcsc_id}")
 
     # Query Digikey
-    info("Querying Digikey API...")
+    info(f"Querying Digikey API for: {mpn}")
     digikey = DigikeyClient()
-    if dk_data := digikey.search(mpn):
+    dk_data = digikey.search(mpn)
+    if dk_data:
         if dk_pn := dk_data.get("DigiKeyPartNumber"):
-            kicad.set_property(mpn, "Digikey", dk_pn)
+            kicad.set_property(symbol_name, "Digikey", dk_pn)
             success(f"Added Digikey PN: {dk_pn}")
 
         if dk_stock := dk_data.get("QuantityAvailable"):
-            kicad.set_property(mpn, "Stock_Digikey", str(dk_stock))
+            kicad.set_property(symbol_name, "Stock_Digikey", str(dk_stock))
             info(f"Digikey stock: {dk_stock}")
 
         if dk_ds := dk_data.get("PrimaryDatasheet"):
-            kicad.set_property(mpn, "Datasheet", dk_ds)
+            kicad.set_property(symbol_name, "Datasheet", dk_ds)
             success("Added datasheet URL")
 
         if dk_mfr := dk_data.get("Manufacturer", {}).get("Value"):
-            kicad.set_property(mpn, "Manufacturer", dk_mfr)
+            kicad.set_property(symbol_name, "Manufacturer", dk_mfr)
             success(f"Added manufacturer: {dk_mfr}")
 
         # Pricing tiers
@@ -734,32 +745,32 @@ def cmd_import(args: argparse.Namespace) -> None:
             qty = pricing.get("BreakQuantity")
             price = pricing.get("UnitPrice")
             if qty and price:
-                kicad.set_property(mpn, f"Price_{qty}", f"${price}")
+                kicad.set_property(symbol_name, f"Price_{qty}", f"${price}")
 
     # Query Mouser
-    info("Querying Mouser API...")
+    info(f"Querying Mouser API for: {mpn}")
     mouser = MouserClient()
     if m_data := mouser.search(mpn):
         parts = m_data.get("SearchResults", {}).get("Parts", [])
         if parts:
             part = parts[0]
             if m_pn := part.get("MouserPartNumber"):
-                kicad.set_property(mpn, "Mouser", m_pn)
+                kicad.set_property(symbol_name, "Mouser", m_pn)
                 success(f"Added Mouser PN: {m_pn}")
 
             if m_avail := part.get("Availability"):
                 stock = re.search(r"\d+", m_avail)
                 if stock:
-                    kicad.set_property(mpn, "Stock_Mouser", stock.group())
+                    kicad.set_property(symbol_name, "Stock_Mouser", stock.group())
                     info(f"Mouser stock: {stock.group()}")
 
             if m_mfr := part.get("Manufacturer"):
-                if not kicad.get_property(mpn, "Manufacturer"):
-                    kicad.set_property(mpn, "Manufacturer", m_mfr)
+                if not kicad.get_property(symbol_name, "Manufacturer"):
+                    kicad.set_property(symbol_name, "Manufacturer", m_mfr)
                     success(f"Added manufacturer: {m_mfr}")
 
-    # Add MPN
-    kicad.set_property(mpn, "MPN", mpn)
+    # Add MPN (use the cleaned MPN, not the symbol name)
+    kicad.set_property(symbol_name, "MPN", mpn)
     kicad.save()
 
     print()
