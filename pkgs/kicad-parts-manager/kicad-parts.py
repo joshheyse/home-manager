@@ -716,6 +716,9 @@ def cmd_import(args: argparse.Namespace) -> None:
             existing = KicadSymbol(sym_file)
             new_symbols = KicadSymbol(easyeda_sym)
             for symbol in new_symbols.get_symbol_names():
+                # Remove existing symbol with same name first (avoid duplicates)
+                if symbol in existing.get_symbol_names():
+                    existing.remove_symbol(symbol)
                 symbol_content = new_symbols.extract_symbol(symbol)
                 if symbol_content:
                     content = existing.content.rstrip()
