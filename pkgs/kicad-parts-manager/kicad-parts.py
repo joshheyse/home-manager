@@ -555,8 +555,10 @@ def cmd_import(args: argparse.Namespace) -> None:
             [
                 "easyeda2kicad",
                 "--full",
-                f"--lcsc_id={lcsc_id}",
-                f"--output={output_base}",
+                "--lcsc_id",
+                lcsc_id,
+                "--output",
+                str(output_base),
                 "--overwrite",
             ],
             check=True,
