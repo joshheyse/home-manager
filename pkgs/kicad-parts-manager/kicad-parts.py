@@ -520,7 +520,7 @@ def prompt_library_name() -> str:
 
 
 def cmd_import(args: argparse.Namespace) -> None:
-    """Import a part from LCSC."""
+    """Import a part from LCSC to staging."""
     lcsc_id = args.lcsc_id.upper()
 
     if not re.match(r"^C\d+$", lcsc_id):
@@ -529,40 +529,22 @@ def cmd_import(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    # Prompt for library category
-    if args.library:
-        lib_name = args.library
-    else:
-        lib_name = prompt_library_name()
-
-    info(f"Target library: {lib_name}-JH")
-
     staging = get_staging_libs()
-    production = get_production_libs()
-    output_base = staging / "_staging"
-
-    # Production library paths
-    lib_base = f"{lib_name}-JH"
-    prod_sym = production / f"{lib_base}.kicad_sym"
-    prod_pretty = production / f"{lib_base}.pretty"
-    prod_3d = production / f"{lib_base}.3dshapes"
 
     info(f"Importing part {lcsc_id} from LCSC/EasyEDA...")
 
-    # Run easyeda2kicad
+    # Run easyeda2kicad (note: it ignores the lib name and always uses "easyeda2kicad")
+    cmd = [
+        "easyeda2kicad",
+        "--full",
+        "--lcsc_id",
+        lcsc_id,
+        "--output",
+        str(staging / "easyeda2kicad"),
+        "--overwrite",
+    ]
     try:
-        subprocess.run(
-            [
-                "easyeda2kicad",
-                "--full",
-                "--lcsc_id",
-                lcsc_id,
-                "--output",
-                str(output_base),
-                "--overwrite",
-            ],
-            check=True,
-        )
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError:
         error("Failed to import part from LCSC")
         sys.exit(1)
@@ -572,7 +554,46 @@ def cmd_import(args: argparse.Namespace) -> None:
 
     success("Downloaded symbol, footprint, and 3D model from LCSC")
 
-    sym_file = Path(f"{output_base}.kicad_sym")
+    # easyeda2kicad outputs to easyeda2kicad.* - rename to _staging.*
+    easyeda_sym = staging / "easyeda2kicad.kicad_sym"
+    easyeda_pretty = staging / "easyeda2kicad.pretty"
+    easyeda_3d = staging / "easyeda2kicad.3dshapes"
+
+    sym_file = staging / "_staging.kicad_sym"
+    staging_pretty = staging / "_staging.pretty"
+    staging_3d = staging / "_staging.3dshapes"
+
+    # Move symbol file (merge if _staging already exists)
+    if easyeda_sym.exists():
+        if sym_file.exists():
+            existing = KicadSymbol(sym_file)
+            new_symbols = KicadSymbol(easyeda_sym)
+            for symbol in new_symbols.get_symbol_names():
+                symbol_content = new_symbols.extract_symbol(symbol)
+                if symbol_content:
+                    content = existing.content.rstrip()
+                    if content.endswith(")"):
+                        content = content[:-1] + symbol_content + "\n)\n"
+                        existing.content = content
+            existing.save()
+            easyeda_sym.unlink()
+        else:
+            easyeda_sym.rename(sym_file)
+
+    # Move footprints
+    if easyeda_pretty.exists():
+        staging_pretty.mkdir(parents=True, exist_ok=True)
+        for fp in easyeda_pretty.glob("*.kicad_mod"):
+            fp.rename(staging_pretty / fp.name)
+        shutil.rmtree(easyeda_pretty)
+
+    # Move 3D models
+    if easyeda_3d.exists():
+        staging_3d.mkdir(parents=True, exist_ok=True)
+        for model in easyeda_3d.glob("*"):
+            if model.is_file():
+                model.rename(staging_3d / model.name)
+        shutil.rmtree(easyeda_3d)
     if not sym_file.exists():
         error(f"Symbol file not found: {sym_file}")
         sys.exit(1)
@@ -644,7 +665,53 @@ def cmd_import(args: argparse.Namespace) -> None:
     kicad.set_property(mpn, "MPN", mpn)
     kicad.save()
 
-    # Move to production library
+    print()
+    success(f"Part {lcsc_id} ({mpn}) imported to staging!")
+    print()
+    info("Files created:")
+    print(f"  Symbol:    {sym_file}")
+    print(f"  Footprint: {staging_pretty}/")
+    print(f"  3D Models: {staging_3d}/")
+    print()
+    info("Use 'kicad-parts list --staging' to view staged parts")
+    info("Use 'kicad-parts accept' to move to production library")
+
+
+def cmd_accept(args: argparse.Namespace) -> None:
+    """Move staged parts to production library."""
+    staging = get_staging_libs()
+    production = get_production_libs()
+
+    sym_file = staging / "_staging.kicad_sym"
+    staging_pretty = staging / "_staging.pretty"
+    staging_3d = staging / "_staging.3dshapes"
+
+    if not sym_file.exists():
+        error("No staged parts found")
+        info(f"Import parts first with: kicad-parts import <LCSC_ID>")
+        sys.exit(1)
+
+    kicad = KicadSymbol(sym_file)
+    symbols = kicad.get_symbol_names()
+
+    if not symbols:
+        error("No symbols found in staging")
+        sys.exit(1)
+
+    # Show what's staged
+    info(f"Staged parts: {', '.join(symbols)}")
+
+    # Prompt for library category
+    if args.library:
+        lib_name = args.library
+    else:
+        lib_name = prompt_library_name()
+
+    lib_base = f"{lib_name}-JH"
+    prod_sym = production / f"{lib_base}.kicad_sym"
+    prod_pretty = production / f"{lib_base}.pretty"
+    prod_3d = production / f"{lib_base}.3dshapes"
+
     info(f"Moving to production library: {lib_base}")
 
     # Create production directories
@@ -654,31 +721,31 @@ def cmd_import(args: argparse.Namespace) -> None:
     # Initialize production symbol file if needed
     if not prod_sym.exists():
         prod_sym.write_text(
-            f'(kicad_symbol_lib\n  (version 20231120)\n  (generator "kicad-parts-manager")\n  (generator_version "1.0")\n)\n'
+            '(kicad_symbol_lib\n  (version 20231120)\n  (generator "kicad-parts-manager")\n  (generator_version "1.0")\n)\n'
         )
         success(f"Created new library: {prod_sym.name}")
 
     prod_kicad = KicadSymbol(prod_sym)
 
-    # Extract and add symbol to production
-    symbol_content = kicad.extract_symbol(mpn)
-    if symbol_content:
-        content = prod_kicad.content.rstrip()
-        if content.endswith(")"):
-            content = content[:-1] + symbol_content + "\n)\n"
-            prod_kicad.content = content
-            prod_kicad.save()
-        success("Added symbol to production library")
+    # Extract and add each symbol to production
+    for mpn in symbols:
+        symbol_content = kicad.extract_symbol(mpn)
+        if symbol_content:
+            content = prod_kicad.content.rstrip()
+            if content.endswith(")"):
+                content = content[:-1] + symbol_content + "\n)\n"
+                prod_kicad.content = content
+            success(f"Added symbol: {mpn}")
 
-    # Move footprint
-    staging_pretty = staging / "_staging.pretty"
+    prod_kicad.save()
+
+    # Move footprints
     if staging_pretty.exists():
         for fp in staging_pretty.glob("*.kicad_mod"):
             fp.rename(prod_pretty / fp.name)
             success(f"Moved footprint: {fp.name}")
 
     # Move 3D models
-    staging_3d = staging / "_staging.3dshapes"
     if staging_3d.exists():
         moved = 0
         for model in staging_3d.glob("*"):
@@ -691,16 +758,15 @@ def cmd_import(args: argparse.Namespace) -> None:
     # Clean up staging
     if sym_file.exists():
         sym_file.unlink()
-
     if staging_pretty.exists():
         shutil.rmtree(staging_pretty)
     if staging_3d.exists():
         shutil.rmtree(staging_3d)
 
     print()
-    success(f"Part {lcsc_id} ({mpn}) imported successfully!")
+    success(f"Parts moved to production library!")
     print()
-    info("Files created:")
+    info("Files updated:")
     print(f"  Symbol:    {prod_sym}")
     print(f"  Footprint: {prod_pretty}/")
     print(f"  3D Models: {prod_3d}/")
@@ -890,13 +956,17 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # import command
-    import_parser = subparsers.add_parser("import", help="Import a part from LCSC")
+    import_parser = subparsers.add_parser("import", help="Import a part from LCSC to staging")
     import_parser.add_argument("lcsc_id", help="LCSC part number (e.g., C2040)")
-    import_parser.add_argument(
+    import_parser.set_defaults(func=cmd_import)
+
+    # accept command
+    accept_parser = subparsers.add_parser("accept", help="Move staged parts to production library")
+    accept_parser.add_argument(
         "-l", "--library",
         help="Library category (e.g., 'Connector', 'MCU_ST_STM32'). Prompts interactively if omitted."
     )
-    import_parser.set_defaults(func=cmd_import)
+    accept_parser.set_defaults(func=cmd_accept)
 
     # list command
     list_parser = subparsers.add_parser("list", help="List parts in all libraries")
