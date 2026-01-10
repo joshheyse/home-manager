@@ -41,10 +41,11 @@ def success(msg: str) -> None:
 
 
 class DigikeyClient:
-    """Digikey API client with OAuth2 authentication."""
+    """Digikey API client with OAuth2 authentication (v4 API)."""
 
     TOKEN_URL = "https://api.digikey.com/v1/oauth2/token"
-    SEARCH_URL = "https://api.digikey.com/Search/v3/Products"
+    # Product Information API v4
+    SEARCH_URL = "https://api.digikey.com/products/v4/search"
 
     def __init__(self):
         self.client_id = os.environ.get("DIGIKEY_CLIENT_ID")
@@ -118,20 +119,33 @@ class DigikeyClient:
         if not token:
             return None
 
+        # Try keyword search first (more flexible for manufacturer part numbers)
         try:
-            resp = requests.get(
-                f"{self.SEARCH_URL}/{mpn}",
+            resp = requests.post(
+                f"{self.SEARCH_URL}/keyword",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "X-DIGIKEY-Client-Id": self.client_id,
                     "X-DIGIKEY-Locale-Site": "US",
                     "X-DIGIKEY-Locale-Language": "en",
                     "X-DIGIKEY-Locale-Currency": "USD",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "Keywords": mpn,
+                    "Limit": 1,
+                    "Offset": 0,
                 },
                 timeout=30,
             )
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                # V4 returns products in a "Products" array
+                products = data.get("Products", [])
+                if products:
+                    return products[0]  # Return first match
+                else:
+                    warn(f"Digikey: No results for '{mpn}'")
             elif resp.status_code == 404:
                 warn(f"Digikey: Part '{mpn}' not found")
             else:
@@ -724,7 +738,8 @@ def cmd_import(args: argparse.Namespace) -> None:
     digikey = DigikeyClient()
     dk_data = digikey.search(mpn)
     if dk_data:
-        if dk_pn := dk_data.get("DigiKeyPartNumber"):
+        # V4 API field names
+        if dk_pn := dk_data.get("DigiKeyProductNumber"):
             kicad.set_property(symbol_name, "Digikey", dk_pn)
             success(f"Added Digikey PN: {dk_pn}")
 
@@ -732,15 +747,17 @@ def cmd_import(args: argparse.Namespace) -> None:
             kicad.set_property(symbol_name, "Stock_Digikey", str(dk_stock))
             info(f"Digikey stock: {dk_stock}")
 
-        if dk_ds := dk_data.get("PrimaryDatasheet"):
+        # V4 uses DatasheetUrl instead of PrimaryDatasheet
+        if dk_ds := dk_data.get("DatasheetUrl"):
             kicad.set_property(symbol_name, "Datasheet", dk_ds)
             success("Added datasheet URL")
 
-        if dk_mfr := dk_data.get("Manufacturer", {}).get("Value"):
+        # V4 uses Manufacturer.Name instead of Manufacturer.Value
+        if dk_mfr := dk_data.get("Manufacturer", {}).get("Name"):
             kicad.set_property(symbol_name, "Manufacturer", dk_mfr)
             success(f"Added manufacturer: {dk_mfr}")
 
-        # Pricing tiers
+        # Pricing tiers (same structure in v4)
         for pricing in dk_data.get("StandardPricing", []):
             qty = pricing.get("BreakQuantity")
             price = pricing.get("UnitPrice")
