@@ -5,6 +5,9 @@
   easyeda2kicad,
   fzf,
 }:
+let
+  kiutils = python3.pkgs.callPackage ./kiutils.nix {};
+in
 python3.pkgs.buildPythonApplication {
   pname = "kicad-parts-manager";
   version = "1.0.0";
@@ -13,7 +16,7 @@ python3.pkgs.buildPythonApplication {
   src = ./.;
 
   nativeBuildInputs = [makeWrapper];
-  propagatedBuildInputs = with python3.pkgs; [requests kiutils];
+  propagatedBuildInputs = [python3.pkgs.requests kiutils];
 
   dontBuild = true;
 
