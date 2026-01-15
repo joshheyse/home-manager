@@ -1049,7 +1049,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         rows = []
         for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
             lcsc = get_symbol_property(symbol, "LCSC") or ""
-            desc = get_symbol_property(symbol, "ki_description") or ""
+            desc = get_symbol_property(symbol, "Description") or ""
             rows.append((lcsc, symbol.entryName, desc))
 
         # Calculate column widths
