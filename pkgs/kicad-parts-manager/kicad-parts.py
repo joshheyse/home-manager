@@ -196,22 +196,67 @@ def get_symbol_property(symbol: Symbol, prop_name: str) -> Optional[str]:
     return None
 
 
-def set_symbol_property(symbol: Symbol, prop_name: str, prop_value: str) -> None:
+def set_symbol_property(symbol: Symbol, prop_name: str, prop_value: str, hidden: bool = True) -> None:
     """Add or update a property in a symbol."""
     # Check if property exists (case-insensitive)
     for prop in symbol.properties:
         if prop.key.lower() == prop_name.lower():
             prop.value = prop_value
+            # Also ensure visibility is set correctly
+            if prop.effects:
+                prop.effects.hide = hidden
             return
 
-    # Add new property
+    # Add new property (hidden by default)
     new_prop = Property(
         key=prop_name,
         value=prop_value,
-        effects=Effects(font=Font(width=1.27, height=1.27), hide=True),
-        position=Position(x=0, y=0, angle=0),
+        effects=Effects(font=Font(width=1.27, height=1.27), hide=hidden),
+        position=Position(X=0, Y=0, angle=0),
     )
     symbol.properties.append(new_prop)
+
+
+# Properties that should be visible on schematic
+VISIBLE_PROPERTIES = {"Reference", "Value"}
+
+
+def normalize_symbol_visibility(symbol: Symbol) -> None:
+    """Ensure only Reference and Value properties are visible, hide all others."""
+    for prop in symbol.properties:
+        should_be_visible = prop.key in VISIBLE_PROPERTIES
+        if prop.effects:
+            prop.effects.hide = not should_be_visible
+
+
+def update_footprint_3d_paths(footprint_dir: Path, lib_env_var: str, lib_name: str) -> None:
+    """Update 3D model paths in all footprints in a directory.
+
+    Uses text replacement to avoid kiutils corrupting arc geometry.
+
+    Args:
+        footprint_dir: Directory containing .kicad_mod files
+        lib_env_var: Environment variable for the library path (e.g., KICAD_STAGING_LIBS)
+        lib_name: Library name for the 3dshapes folder (e.g., _staging or Connector_USB-JH)
+    """
+    if not footprint_dir.exists():
+        return
+
+    for fp_file in footprint_dir.glob("*.kicad_mod"):
+        try:
+            content = fp_file.read_text()
+            # Match (model "path/to/file.ext") and replace with env var path
+            # Keeps just the filename and builds new path
+            def replace_path(match: re.Match) -> str:
+                old_path = match.group(1)
+                filename = Path(old_path).name
+                return f'(model "${{{lib_env_var}}}/{lib_name}.3dshapes/{filename}"'
+
+            new_content = re.sub(r'\(model\s+"([^"]+)"', replace_path, content)
+            if new_content != content:
+                fp_file.write_text(new_content)
+        except Exception as e:
+            warn(f"Failed to update 3D paths in {fp_file.name}: {e}")
 
 
 def get_staging_libs() -> Path:
@@ -362,8 +407,13 @@ def register_libraries(lib_base: str) -> None:
         info(f"{lib_base} already in footprint library table")
 
 
-# Standard KiCad library categories for autocomplete
+# Standard KiCad library categories for autocomplete (from KiCad 9 installation)
 KICAD_LIBRARY_CATEGORIES = [
+    "4xxx",
+    "4xxx_IEEE",
+    "74xGxx",
+    "74xx",
+    "74xx_IEEE",
     "Amplifier_Audio",
     "Amplifier_Buffer",
     "Amplifier_Current",
@@ -376,32 +426,64 @@ KICAD_LIBRARY_CATEGORIES = [
     "Analog_DAC",
     "Analog_Switch",
     "Audio",
-    "Battery",
+    "Battery_Management",
+    "Buffer",
     "Comparator",
     "Connector",
+    "Connector_Audio",
     "Connector_Generic",
+    "Connector_Generic_MountingPin",
+    "Connector_Generic_Shielded",
     "Converter_ACDC",
     "Converter_DCDC",
+    "CPLD_Altera",
+    "CPLD_Microchip",
+    "CPLD_Renesas",
+    "CPLD_Xilinx",
+    "CPU",
+    "CPU_NXP_6800",
+    "CPU_NXP_68000",
+    "CPU_NXP_IMX",
+    "CPU_PowerPC",
     "Device",
     "Diode",
     "Diode_Bridge",
+    "Diode_Laser",
     "Display_Character",
+    "Display_Graphic",
     "Driver_Display",
     "Driver_FET",
+    "Driver_Haptic",
     "Driver_LED",
     "Driver_Motor",
     "Driver_Relay",
+    "Driver_TEC",
+    "DSP_AnalogDevices",
+    "DSP_Freescale",
     "DSP_Microchip_DSPIC33",
+    "DSP_Motorola",
+    "DSP_Texas",
+    "Fiber_Optic",
     "Filter",
+    "FPGA_CologneChip_GateMate",
+    "FPGA_Efinix_Trion",
     "FPGA_Lattice",
+    "FPGA_Microsemi",
     "FPGA_Xilinx",
-    "GPS",
+    "FPGA_Xilinx_Artix7",
+    "FPGA_Xilinx_Kintex7",
+    "FPGA_Xilinx_Spartan6",
+    "FPGA_Xilinx_Virtex5",
+    "FPGA_Xilinx_Virtex6",
+    "FPGA_Xilinx_Virtex7",
+    "GPU",
     "Graphic",
     "Interface",
     "Interface_CAN_LIN",
     "Interface_CurrentLoop",
     "Interface_Ethernet",
     "Interface_Expansion",
+    "Interface_HDMI",
     "Interface_HID",
     "Interface_LineDriver",
     "Interface_Optical",
@@ -409,25 +491,91 @@ KICAD_LIBRARY_CATEGORIES = [
     "Interface_UART",
     "Interface_USB",
     "Isolator",
+    "Isolator_Analog",
     "Jumper",
     "LED",
-    "Logic",
+    "Logic_LevelTranslator",
+    "Logic_Programmable",
+    "MCU_AnalogDevices",
+    "MCU_Cypress",
+    "MCU_Dialog",
     "MCU_Espressif",
+    "MCU_Intel",
+    "MCU_Microchip_8051",
     "MCU_Microchip_ATmega",
     "MCU_Microchip_ATtiny",
-    "MCU_Microchip_PIC",
+    "MCU_Microchip_AVR",
+    "MCU_Microchip_AVR_Dx",
+    "MCU_Microchip_PIC10",
+    "MCU_Microchip_PIC12",
+    "MCU_Microchip_PIC16",
+    "MCU_Microchip_PIC18",
+    "MCU_Microchip_PIC24",
+    "MCU_Microchip_PIC32",
+    "MCU_Microchip_SAMA",
+    "MCU_Microchip_SAMD",
+    "MCU_Microchip_SAME",
+    "MCU_Microchip_SAML",
+    "MCU_Microchip_SAMV",
+    "MCU_Module",
     "MCU_Nordic",
-    "MCU_NXP",
-    "MCU_Raspberry_Pi",
-    "MCU_ST_STM32",
+    "MCU_NXP_ColdFire",
+    "MCU_NXP_HC11",
+    "MCU_NXP_HC12",
+    "MCU_NXP_HCS12",
+    "MCU_NXP_Kinetis",
+    "MCU_NXP_LPC",
+    "MCU_NXP_MAC7100",
+    "MCU_NXP_MCore",
+    "MCU_NXP_NTAG",
+    "MCU_NXP_S08",
+    "MCU_Parallax",
+    "MCU_Puya",
+    "MCU_RaspberryPi",
+    "MCU_Renesas_Synergy_S1",
+    "MCU_SiFive",
+    "MCU_SiliconLabs",
+    "MCU_ST_STM32C0",
+    "MCU_ST_STM32F0",
+    "MCU_ST_STM32F1",
+    "MCU_ST_STM32F2",
+    "MCU_ST_STM32F3",
+    "MCU_ST_STM32F4",
+    "MCU_ST_STM32F7",
+    "MCU_ST_STM32G0",
+    "MCU_ST_STM32G4",
+    "MCU_ST_STM32H5",
+    "MCU_ST_STM32H7",
+    "MCU_ST_STM32L0",
+    "MCU_ST_STM32L1",
+    "MCU_ST_STM32L4",
+    "MCU_ST_STM32L5",
+    "MCU_ST_STM32MP1",
+    "MCU_ST_STM32U0",
+    "MCU_ST_STM32U5",
+    "MCU_ST_STM32WB",
+    "MCU_ST_STM32WL",
+    "MCU_ST_STM8",
+    "MCU_STC",
     "MCU_Texas",
-    "Memory_Controller",
+    "MCU_Texas_MSP430",
+    "MCU_Texas_SimpleLink",
+    "MCU_Trident",
+    "MCU_WCH_CH32V0",
+    "MCU_WCH_CH32V2",
+    "MCU_WCH_CH32V3",
+    "MCU_WCH_CH32X0",
+    "Mechanical",
     "Memory_EEPROM",
+    "Memory_EPROM",
     "Memory_Flash",
+    "Memory_NVRAM",
     "Memory_RAM",
     "Memory_ROM",
+    "Memory_UniqueID",
     "Motor",
     "Oscillator",
+    "Potentiometer_Digital",
     "Power_Management",
     "Power_Protection",
     "Power_Supervisor",
@@ -436,21 +584,30 @@ KICAD_LIBRARY_CATEGORIES = [
     "Regulator_Controller",
     "Regulator_Current",
     "Regulator_Linear",
+    "Regulator_SwitchedCapacitor",
     "Regulator_Switching",
     "Relay",
     "Relay_SolidState",
     "RF",
+    "RF_AM_FM",
     "RF_Amplifier",
     "RF_Bluetooth",
+    "RF_Filter",
     "RF_GPS",
+    "RF_GSM",
     "RF_Mixer",
     "RF_Module",
+    "RF_NFC",
+    "RF_RFID",
     "RF_Switch",
     "RF_WiFi",
     "RF_ZigBee",
+    "Security",
     "Sensor",
     "Sensor_Audio",
     "Sensor_Current",
+    "Sensor_Distance",
+    "Sensor_Energy",
     "Sensor_Gas",
     "Sensor_Humidity",
     "Sensor_Magnetic",
@@ -469,7 +626,9 @@ KICAD_LIBRARY_CATEGORIES = [
     "Transistor_Array",
     "Transistor_BJT",
     "Transistor_FET",
+    "Transistor_FET_Other",
     "Transistor_IGBT",
+    "Transistor_Power_Module",
     "Triac_Thyristor",
     "Valve",
     "Video",
@@ -522,6 +681,7 @@ def cmd_import(args: argparse.Namespace) -> None:
     info(f"Importing part {lcsc_id} from LCSC/EasyEDA...")
 
     # Run easyeda2kicad (note: it ignores the lib name and always uses "easyeda2kicad")
+    # Don't use check=True - easyeda2kicad may crash on 3D model export even if symbol/footprint succeed
     cmd = [
         "easyeda2kicad",
         "--full",
@@ -532,28 +692,51 @@ def cmd_import(args: argparse.Namespace) -> None:
         "--overwrite",
     ]
     try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError:
-        error("Failed to import part from LCSC")
-        sys.exit(1)
+        subprocess.run(cmd, check=False)
     except FileNotFoundError:
         error("easyeda2kicad not found. Is it installed?")
         sys.exit(1)
-
-    success("Downloaded symbol, footprint, and 3D model from LCSC")
 
     # easyeda2kicad outputs to easyeda2kicad.* - rename to _staging.*
     easyeda_sym = staging / "easyeda2kicad.kicad_sym"
     easyeda_pretty = staging / "easyeda2kicad.pretty"
     easyeda_3d = staging / "easyeda2kicad.3dshapes"
 
+    # Check what was successfully created
+    has_symbol = False
+    if easyeda_sym.exists():
+        try:
+            temp_lib = SymbolLib.from_file(str(easyeda_sym))
+            has_symbol = len(temp_lib.symbols) > 0
+        except Exception:
+            pass
+    has_footprint = easyeda_pretty.exists() and any(easyeda_pretty.glob("*.kicad_mod"))
+    has_3d = easyeda_3d.exists() and any(easyeda_3d.glob("*"))
+
+    if not has_symbol:
+        error(f"Failed to download symbol for {lcsc_id} from LCSC/EasyEDA")
+        sys.exit(1)
+
+    if has_symbol and has_footprint and has_3d:
+        success("Downloaded symbol, footprint, and 3D model from LCSC")
+    elif has_symbol and has_footprint:
+        success("Downloaded symbol and footprint from LCSC")
+        warn("No 3D model available for this component")
+    elif has_symbol:
+        success("Downloaded symbol from LCSC")
+        warn("No footprint or 3D model available for this component")
+
     sym_file = staging / "_staging.kicad_sym"
     staging_pretty = staging / "_staging.pretty"
     staging_3d = staging / "_staging.3dshapes"
 
     # Move symbol file (merge if _staging already exists)
+    imported_symbol_name = None
     if easyeda_sym.exists():
         new_lib = SymbolLib.from_file(str(easyeda_sym))
+        # Remember the symbol name we're importing (first/main symbol)
+        if new_lib.symbols:
+            imported_symbol_name = new_lib.symbols[0].entryName
         if sym_file.exists():
             existing_lib = SymbolLib.from_file(str(sym_file))
             # Remove duplicates and add new symbols
@@ -583,6 +766,9 @@ def cmd_import(args: argparse.Namespace) -> None:
                 model.rename(staging_3d / model.name)
         shutil.rmtree(easyeda_3d)
 
+    # Update 3D model paths in footprints to use staging location
+    update_footprint_3d_paths(staging_pretty, "KICAD_STAGING_LIBS", "_staging")
+
     if not sym_file.exists():
         error(f"Symbol file not found: {sym_file}")
         sys.exit(1)
@@ -594,8 +780,16 @@ def cmd_import(args: argparse.Namespace) -> None:
         error("No symbols found in downloaded file")
         sys.exit(1)
 
-    # Get the first (main) symbol
-    symbol = lib.symbols[0]
+    # Find the symbol we just imported
+    symbol = None
+    if imported_symbol_name:
+        for s in lib.symbols:
+            if s.entryName == imported_symbol_name:
+                symbol = s
+                break
+    if not symbol:
+        # Fallback to first symbol if name lookup fails
+        symbol = lib.symbols[0]
     symbol_name = symbol.entryName
     info(f"Symbol name: {symbol_name}")
 
@@ -630,8 +824,19 @@ def cmd_import(args: argparse.Namespace) -> None:
 
         # V4 uses DatasheetUrl instead of PrimaryDatasheet
         if dk_ds := dk_data.get("DatasheetUrl"):
+            # Fix protocol-relative URLs (start with //)
+            if dk_ds.startswith("//"):
+                dk_ds = "https:" + dk_ds
             set_symbol_property(symbol, "Datasheet", dk_ds)
             success("Added datasheet URL")
+
+        # V4 has Description.ProductDescription and Description.DetailedDescription
+        if dk_desc := dk_data.get("Description", {}):
+            # Prefer DetailedDescription, fall back to ProductDescription
+            desc = dk_desc.get("DetailedDescription") or dk_desc.get("ProductDescription")
+            if desc:
+                set_symbol_property(symbol, "ki_description", desc)
+                success(f"Added description: {desc[:50]}...")
 
         # V4 uses Manufacturer.Name instead of Manufacturer.Value
         if dk_mfr := dk_data.get("Manufacturer", {}).get("Name"):
@@ -669,6 +874,9 @@ def cmd_import(args: argparse.Namespace) -> None:
 
     # Add MPN (use the cleaned MPN, not the symbol name)
     set_symbol_property(symbol, "MPN", mpn)
+
+    # Ensure only Reference and Value are visible
+    normalize_symbol_visibility(symbol)
     lib.to_file(str(sym_file))
 
     # Register staging libraries in KiCad
@@ -758,6 +966,9 @@ def cmd_accept(args: argparse.Namespace) -> None:
             if prop.key.lower() == "footprint" and "_staging:" in prop.value:
                 prop.value = prop.value.replace("_staging:", f"{lib_base}:")
 
+        # Ensure only Reference and Value are visible
+        normalize_symbol_visibility(symbol)
+
         # Remove existing symbol with same name if present
         prod_lib.symbols = [s for s in prod_lib.symbols if s.entryName != symbol.entryName]
         prod_lib.symbols.append(symbol)
@@ -780,6 +991,9 @@ def cmd_accept(args: argparse.Namespace) -> None:
                 moved += 1
         if moved:
             success(f"Moved {moved} 3D model file(s)")
+
+    # Update 3D model paths in footprints to use production location
+    update_footprint_3d_paths(prod_pretty, "KICAD_MY_LIBS", lib_base)
 
     # Clean up staging - remove accepted symbols
     remaining = [s for s in staging_lib.symbols if s.entryName not in accepted_names]
