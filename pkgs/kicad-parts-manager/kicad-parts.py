@@ -1044,12 +1044,27 @@ def cmd_list(args: argparse.Namespace) -> None:
 
         print(f"{BLUE}━━━ Staged Parts ━━━{NC}")
         print()
+
+        # Collect data for table
+        rows = []
         for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
-            print(f"  {GREEN}{symbol.entryName}{NC}")
-            if args.verbose:
-                for prop_name in ["LCSC", "MPN", "Manufacturer", "Datasheet"]:
-                    if val := get_symbol_property(symbol, prop_name):
-                        print(f"    {prop_name}: {val}")
+            lcsc = get_symbol_property(symbol, "LCSC") or ""
+            desc = get_symbol_property(symbol, "ki_description") or ""
+            rows.append((lcsc, symbol.entryName, desc))
+
+        # Calculate column widths
+        lcsc_width = max(4, max((len(r[0]) for r in rows), default=0))
+        sym_width = max(6, max((len(r[1]) for r in rows), default=0))
+        desc_width = max(11, max((len(r[2]) for r in rows), default=0))
+
+        # Print table header
+        print(f"  {'LCSC':<{lcsc_width}} │ {'Symbol':<{sym_width}} │ {'Description':<{desc_width}}")
+        print(f"  {'─' * lcsc_width}─┼─{'─' * sym_width}─┼─{'─' * desc_width}")
+
+        # Print rows
+        for lcsc, sym, desc in rows:
+            print(f"  {GREEN}{lcsc:<{lcsc_width}}{NC} │ {sym:<{sym_width}} │ {desc:<{desc_width}}")
+
         print()
         info(f"Total: {len(lib.symbols)} staged part(s)")
         info("Use 'kicad-parts accept' to move to production")
