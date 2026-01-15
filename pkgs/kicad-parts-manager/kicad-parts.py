@@ -976,18 +976,39 @@ def cmd_accept(args: argparse.Namespace) -> None:
 
     prod_lib.to_file(str(prod_sym))
 
-    # Move footprints
-    if staging_pretty.exists():
-        for fp in staging_pretty.glob("*.kicad_mod"):
-            fp.rename(prod_pretty / fp.name)
-            success(f"Moved footprint: {fp.name}")
+    # Collect footprint names from accepted symbols
+    footprints_to_move = set()
+    for symbol in symbols_to_accept:
+        fp_ref = get_symbol_property(symbol, "Footprint") or ""
+        # Extract footprint name from reference like "_staging:SOT-23-6_xxx" or "Lib:FP_Name"
+        if ":" in fp_ref:
+            fp_name = fp_ref.split(":", 1)[1]
+            footprints_to_move.add(f"{fp_name}.kicad_mod")
 
-    # Move 3D models
-    if staging_3d.exists():
+    # Move only the footprints belonging to accepted symbols
+    models_to_move = set()
+    if staging_pretty.exists():
+        for fp_file in footprints_to_move:
+            fp_path = staging_pretty / fp_file
+            if fp_path.exists():
+                # Parse footprint to find 3D model references before moving
+                fp_content = fp_path.read_text()
+                for line in fp_content.splitlines():
+                    if "(model " in line:
+                        # Extract model filename from path like "${KICAD_STAGING_LIBS}/_staging.3dshapes/xxx.wrl"
+                        match = re.search(r'/([^/]+\.(wrl|step|stp|WRL|STEP|STP))', line, re.IGNORECASE)
+                        if match:
+                            models_to_move.add(match.group(1))
+                fp_path.rename(prod_pretty / fp_file)
+                success(f"Moved footprint: {fp_file}")
+
+    # Move only the 3D models referenced by moved footprints
+    if staging_3d.exists() and models_to_move:
         moved = 0
-        for model in staging_3d.glob("*"):
-            if model.is_file():
-                model.rename(prod_3d / model.name)
+        for model_name in models_to_move:
+            model_path = staging_3d / model_name
+            if model_path.exists():
+                model_path.rename(prod_3d / model_name)
                 moved += 1
         if moved:
             success(f"Moved {moved} 3D model file(s)")
