@@ -11,7 +11,7 @@ buildGoModule {
     owner = "jmmv";
     repo = "ssh-agent-switcher";
     rev = "main";
-    sha256 = "sha256-mPf6q45jc5EgqIM+3721aVXVb8nnlBoyuWjsfItIgkM=";
+    sha256 = "sha256-QsWngp0z7yNOamItmlLJp1K+drdXuAtuIQXcSDkDiQs=";
   };
 
   vendorHash = null;
