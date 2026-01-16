@@ -1,15 +1,24 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   inherit (pkgs.stdenv) isDarwin;
 in {
-  imports = [
-    ./kitty.nix
-    ./ghostty
-    ./gpg-agent.nix
-    ./kicad
-    ./sketchybar.nix
-    ./raycast.nix
-    ./yabai.nix
-  ];
+  imports =
+    [
+      ./kitty.nix
+      ./ghostty
+      ./gpg-agent.nix
+      ./kicad
+      ./sketchybar.nix
+      ./raycast.nix
+      ./yabai.nix
+    ]
+    ++ lib.optionals (!isDarwin) [
+      # Linux-only desktop environment
+      ./hyprland
+    ];
 
   home.packages = with pkgs;
     [
