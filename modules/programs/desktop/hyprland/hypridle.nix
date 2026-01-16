@@ -3,11 +3,13 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.programs.hyprland-desktop;
+  inherit (pkgs.stdenv) isLinux;
 in {
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf (cfg.enable && isLinux) {
     services.hypridle = {
       enable = true;
       settings = {

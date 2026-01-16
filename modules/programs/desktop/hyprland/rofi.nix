@@ -8,8 +8,9 @@
 }: let
   cfg = config.programs.hyprland-desktop;
   theme = config.theme.tokyoNight;
+  inherit (pkgs.stdenv) isLinux;
 in {
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf (cfg.enable && isLinux) {
     programs.rofi = {
       enable = true;
       package = pkgs.rofi-wayland;

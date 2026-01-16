@@ -1,5 +1,6 @@
 # Hyprland desktop environment for Home Manager
 # Entry point module that imports all Hyprland-related configurations
+# Only applies on Linux (Hyprland doesn't support macOS)
 {
   config,
   lib,
@@ -7,6 +8,7 @@
   ...
 }: let
   cfg = config.programs.hyprland-desktop;
+  inherit (pkgs.stdenv) isLinux;
 in {
   options.programs.hyprland-desktop = {
     enable = lib.mkEnableOption "Hyprland desktop configuration";
@@ -23,7 +25,8 @@ in {
     ./mako.nix
   ];
 
-  config = lib.mkIf cfg.enable {
+  # Only install packages on Linux when enabled
+  config = lib.mkIf (cfg.enable && isLinux) {
     home.packages = with pkgs; [
       cliphist
       wl-clipboard
