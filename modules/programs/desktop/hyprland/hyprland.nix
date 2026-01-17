@@ -16,8 +16,12 @@ in {
       settings = {
         "$mod" = "SUPER";
 
-        # Monitor config (auto-detect)
-        monitor = ",preferred,auto,1";
+        # Monitor config - dual Dell U3824DW ultrawides (stacked)
+        # DP-2 on top, DP-1 on bottom
+        monitor = [
+          "DP-2,3840x1600@60,0x0,1"
+          "DP-1,3840x1600@60,0x1600,1"
+        ];
 
         # General settings
         general = {
