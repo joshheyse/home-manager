@@ -65,6 +65,7 @@ in {
         input = {
           kb_layout = "us";
           kb_options = "caps:escape";
+          numlock_by_default = true;
           repeat_rate = 50;
           repeat_delay = 300;
           follow_mouse = 1;

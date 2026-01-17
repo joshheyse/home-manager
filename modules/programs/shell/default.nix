@@ -24,6 +24,7 @@
 
     (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
 
+    jq
     dust
     timg
     pandoc
