@@ -29,11 +29,14 @@ in {
   config = lib.mkIf (cfg.enable && isLinux) {
     home.packages = with pkgs; [
       cliphist
-      wl-clipboard
+      discord
+      firefox
       grim
-      slurp
       hyprpicker
       pavucontrol
+      slurp
+      spotify
+      wl-clipboard
     ];
   };
 }

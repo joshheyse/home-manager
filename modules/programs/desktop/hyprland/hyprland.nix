@@ -60,6 +60,9 @@ in {
         # Input
         input = {
           kb_layout = "us";
+          kb_options = "caps:escape";
+          repeat_rate = 50;
+          repeat_delay = 300;
           follow_mouse = 1;
           sensitivity = 0;
         };
@@ -74,12 +77,16 @@ in {
         bind = [
           # Apps
           "$mod, Return, exec, kitty"
-          "$mod, D, exec, rofi -show drun"
+          "$mod, grave, exec, kitty"
+          "$mod, D, exec, discord"
+          "$mod, R, exec, rofi -show drun"
+          "$mod, S, exec, spotify"
+          "$mod, W, exec, firefox"
           "$mod, Q, killactive"
           "$mod, M, exit"
           "$mod, V, togglefloating"
           "$mod, F, fullscreen"
-          "$mod, L, exec, hyprlock"
+          "$mod, Escape, exec, hyprlock"
 
           # Focus (arrow keys)
           "$mod, left, movefocus, l"
@@ -91,6 +98,7 @@ in {
           "$mod, h, movefocus, l"
           "$mod, j, movefocus, d"
           "$mod, k, movefocus, u"
+          "$mod, l, movefocus, r"
 
           # Workspaces 1-10
           "$mod, 1, workspace, 1"
