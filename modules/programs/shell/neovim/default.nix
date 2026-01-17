@@ -9,14 +9,15 @@
     withPython3 = true;
     withRuby = true;
     extraPackages = with pkgs; [
+      cargo
+      fd
       gcc
       gnumake
-      cargo
-      rustc
+      luajitPackages.luarocks
       python3
       python3Packages.pip
       ripgrep
-      fd
+      rustc
       tree-sitter
     ];
   };
