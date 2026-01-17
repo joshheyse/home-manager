@@ -12,8 +12,12 @@ in {
     ./hyprland
   ];
 
+  # Enable fontconfig for proper font discovery
+  fonts.fontconfig.enable = true;
+
   home.packages = with pkgs;
     [
+      font-awesome
       noto-fonts
       nerd-fonts.meslo-lg
       nerd-fonts.noto

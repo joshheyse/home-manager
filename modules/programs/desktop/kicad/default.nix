@@ -22,51 +22,55 @@
   repoConfigDir = ./config;
 in {
   # Export KiCad paths as environment variables
-  home.sessionVariables = {
-    KICAD_CONFIG_DIR = kicadConfigDir;
-    KICAD_USER_DIR = kicadUserDir;
-    KICAD_STAGING_LIBS = "${kicadUserDir}/staging";
-    KICAD_MY_LIBS = "${kicadUserDir}/my_libs";
-  };
-  # Sync-back script to copy KiCad settings from machine to repo
-  home.packages = [
-    (pkgs.writeShellScriptBin "kicad-sync-to-repo" ''
-      REPO_DIR="${config.home.homeDirectory}/code/nixos/home-manager/modules/programs/desktop/kicad/config"
-      KICAD_DIR="${kicadConfigDir}"
+  home = {
+    sessionVariables = {
+      KICAD_CONFIG_DIR = kicadConfigDir;
+      KICAD_USER_DIR = kicadUserDir;
+      KICAD_STAGING_LIBS = "${kicadUserDir}/staging";
+      KICAD_MY_LIBS = "${kicadUserDir}/my_libs";
+    };
+    # Sync-back script to copy KiCad settings from machine to repo
+    packages = [
+      (pkgs.writeShellScriptBin "kicad-sync-to-repo" ''
+        REPO_DIR="${config.home.homeDirectory}/code/nixos/home-manager/modules/programs/desktop/kicad/config"
+        KICAD_DIR="${kicadConfigDir}"
 
-      if [ ! -d "$KICAD_DIR" ]; then
-        echo "KiCad config directory not found: $KICAD_DIR"
-        exit 1
-      fi
-
-      mkdir -p "$REPO_DIR"
-
-      # Sync all json files, hotkeys, and library tables
-      for file in "$KICAD_DIR"/*.json "$KICAD_DIR"/*.hotkeys "$KICAD_DIR"/*-table; do
-        if [ -f "$file" ]; then
-          name=$(basename "$file")
-          cp "$file" "$REPO_DIR/$name"
-          echo "Synced $name"
+        if [ ! -d "$KICAD_DIR" ]; then
+          echo "KiCad config directory not found: $KICAD_DIR"
+          exit 1
         fi
-      done
 
-      echo "Done. Don't forget to commit the changes!"
-    '')
-  ];
+        mkdir -p "$REPO_DIR"
 
-  # On activation, copy config files from repo to KiCad config dir
-  # Only copies if the destination file doesn't exist (preserves local changes)
-  home.activation.kicadConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    KICAD_DIR="${kicadConfigDir}"
-    run mkdir -p "$KICAD_DIR"
+        # Sync all json files, hotkeys, and library tables
+        for file in "$KICAD_DIR"/*.json "$KICAD_DIR"/*.hotkeys "$KICAD_DIR"/*-table; do
+          if [ -f "$file" ]; then
+            name=$(basename "$file")
+            cp "$file" "$REPO_DIR/$name"
+            echo "Synced $name"
+          fi
+        done
 
-    # Copy each config file if it doesn't already exist
-    for file in ${repoConfigDir}/*; do
-      name=$(basename "$file")
-      if [ ! -e "$KICAD_DIR/$name" ]; then
-        run cp "$file" "$KICAD_DIR/$name"
-        run echo "Copied $name to KiCad config"
-      fi
-    done
-  '';
+        echo "Done. Don't forget to commit the changes!"
+      '')
+    ];
+
+    activation = {
+      # On activation, copy config files from repo to KiCad config dir
+      # Only copies if the destination file doesn't exist (preserves local changes)
+      kicadConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        KICAD_DIR="${kicadConfigDir}"
+        run mkdir -p "$KICAD_DIR"
+
+        # Copy each config file if it doesn't already exist
+        for file in ${repoConfigDir}/*; do
+          name=$(basename "$file")
+          if [ ! -e "$KICAD_DIR/$name" ]; then
+            run cp "$file" "$KICAD_DIR/$name"
+            run echo "Copied $name to KiCad config"
+          fi
+        done
+      '';
+    };
+  };
 }

@@ -69,7 +69,7 @@
         truncation_length = 4;
         truncation_symbol = "…/";
         substitutions = {
-          Documents = " ";
+          Documents = "󰈙 ";
           Downloads = " ";
           Music = " ";
           Pictures = " ";
@@ -147,13 +147,13 @@
         symbol = " ";
       };
       memory_usage = {
-        symbol = " ";
+        symbol = "󰍛 ";
       };
       meson = {
-        symbol = "喝 ";
+        symbol = "󰣖 ";
       };
       nim = {
-        symbol = " ";
+        symbol = "󰆥 ";
       };
       nix_shell = {
         symbol = " ";
@@ -213,11 +213,11 @@
           SUSE = " ";
           Ubuntu = " ";
           Unknown = " ";
-          Windows = " ";
+          Windows = "󰍲 ";
         };
       };
       package = {
-        symbol = " ";
+        symbol = "󰏗 ";
       };
       python = {
         symbol = " ";

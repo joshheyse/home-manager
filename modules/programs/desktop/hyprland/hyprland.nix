@@ -140,6 +140,14 @@ in {
           "$mod, mouse:273, resizewindow"
         ];
 
+        # Window rules
+        windowrulev2 = [
+          "float, class:^(pavucontrol)$"
+          "size 600 400, class:^(pavucontrol)$"
+          "move 100%-620 50, class:^(pavucontrol)$"
+          "float, class:^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$"
+        ];
+
         # Autostart
         exec-once = [
           "waybar"
