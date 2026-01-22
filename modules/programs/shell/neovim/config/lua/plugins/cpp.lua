@@ -1,10 +1,11 @@
 -- C/C++ Development Configuration
 --
--- Uses clangd and compiler from PATH (Nix, Homebrew, system, etc.)
--- Configures --query-driver with clang++ or g++ from PATH for proper header resolution.
+-- Uses clangd, compiler, and lldb-dap from PATH (Nix, Homebrew, system, etc.)
+-- No Mason dependencies - all tools come from the system/Nix shell.
 
--- Check if clangd is available in PATH
+-- Check if tools are available in PATH
 local has_clangd = vim.fn.exepath "clangd" ~= ""
+local has_lldb_dap = vim.fn.exepath "lldb-dap" ~= ""
 
 -- Find compiler path for --query-driver (prefer clang++ over g++)
 local function get_compiler_path()
@@ -104,21 +105,45 @@ return {
   {
     "Civitasv/cmake-tools.nvim",
     ft = { "c", "cpp", "objc", "objcpp", "cuda", "proto" },
-    dependencies = {
-      {
-        "jay-babu/mason-nvim-dap.nvim",
-        opts = function(_, opts)
-          opts.ensure_installed = require("astrocore").list_insert_unique(opts.ensure_installed, { "codelldb" })
-        end,
-      },
-    },
     opts = {},
   },
+  -- Configure nvim-dap to use lldb-dap from PATH
   {
-    "WhoIsSethDaniel/mason-tool-installer.nvim",
+    "mfussenegger/nvim-dap",
     optional = true,
-    opts = function(_, opts)
-      opts.ensure_installed = require("astrocore").list_insert_unique(opts.ensure_installed, { "codelldb" })
+    config = function()
+      if not has_lldb_dap then return end
+
+      local dap = require "dap"
+
+      dap.adapters.lldb = {
+        type = "executable",
+        command = "lldb-dap",
+        name = "lldb",
+      }
+
+      dap.configurations.cpp = {
+        {
+          name = "Launch",
+          type = "lldb",
+          request = "launch",
+          program = function() return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file") end,
+          cwd = "${workspaceFolder}",
+          stopOnEntry = false,
+          args = {},
+        },
+        {
+          name = "Attach to process",
+          type = "lldb",
+          request = "attach",
+          pid = require("dap.utils").pick_process,
+          args = {},
+        },
+      }
+
+      -- Use same config for C and Rust
+      dap.configurations.c = dap.configurations.cpp
+      dap.configurations.rust = dap.configurations.cpp
     end,
   },
 }
