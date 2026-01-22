@@ -3,29 +3,14 @@
 -- Uses clangd and compiler from PATH (Nix, Homebrew, system, etc.)
 -- Configures --query-driver with clang++ or g++ from PATH for proper header resolution.
 
--- Helper function to check if a command exists in PATH
-local function command_exists(cmd)
-  local handle = io.popen("command -v " .. cmd .. " 2>/dev/null")
-  if not handle then return false end
-  local result = handle:read "*a"
-  handle:close()
-  return result ~= ""
-end
-
 -- Check if clangd is available in PATH
-local has_clangd = command_exists "clangd"
+local has_clangd = vim.fn.exepath "clangd" ~= ""
 
 -- Find compiler path for --query-driver (prefer clang++ over g++)
 local function get_compiler_path()
   for _, compiler in ipairs { "clang++", "g++" } do
-    if command_exists(compiler) then
-      local handle = io.popen("command -v " .. compiler .. " 2>/dev/null")
-      if handle then
-        local path = handle:read("*a"):gsub("%s+$", "")
-        handle:close()
-        if path ~= "" then return path end
-      end
-    end
+    local path = vim.fn.exepath(compiler)
+    if path ~= "" then return path end
   end
   return nil
 end
@@ -47,7 +32,7 @@ return {
         "--fallback-style=llvm",
         "--pch-storage=disk",
         "-j",
-        "12",
+        "16",
       }
 
       -- Add query-driver if a compiler is in PATH
