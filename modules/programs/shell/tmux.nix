@@ -161,6 +161,10 @@ in {
       '';
   };
 
+  home.sessionVariables = {
+    TMUX_TMPDIR = "\${XDG_RUNTIME_DIR:-/tmp}";
+  };
+
   home.shellAliases = {
     rc = "reset && tmux clear-history";
   };
