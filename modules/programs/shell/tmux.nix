@@ -1,4 +1,8 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   claudeToggleScript =
     pkgs.writeShellScript "tmux-claude-toggle"
     # bash
@@ -162,7 +166,7 @@ in {
   };
 
   home.sessionVariables = {
-    TMUX_TMPDIR = "\${XDG_RUNTIME_DIR:-/tmp}";
+    TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
   };
 
   home.shellAliases = {
