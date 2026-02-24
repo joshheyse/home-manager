@@ -666,6 +666,186 @@ def prompt_library_name() -> str:
         return lib_name
 
 
+def cmd_import_local(args: argparse.Namespace) -> None:
+    """Import a part from a local directory (e.g., Ultra Librarian download) to staging."""
+    source_dir = Path(args.source).expanduser().resolve()
+
+    if not source_dir.exists():
+        error(f"Source directory not found: {source_dir}")
+        sys.exit(1)
+
+    staging = get_staging_libs()
+    sym_file = staging / "_staging.kicad_sym"
+    staging_pretty = staging / "_staging.pretty"
+    staging_3d = staging / "_staging.3dshapes"
+
+    info(f"Importing from: {source_dir}")
+
+    # Find symbol file
+    sym_files = list(source_dir.rglob("*.kicad_sym"))
+    if not sym_files:
+        error("No .kicad_sym file found in source directory")
+        sys.exit(1)
+    if len(sym_files) > 1:
+        warn(f"Multiple symbol files found, using: {sym_files[0].name}")
+    src_sym_file = sym_files[0]
+
+    # Find footprint files
+    fp_files = list(source_dir.rglob("*.kicad_mod"))
+    if not fp_files:
+        warn("No footprint files found")
+
+    # Find 3D model files
+    model_files = list(source_dir.rglob("*.step")) + list(source_dir.rglob("*.STEP"))
+    model_files += list(source_dir.rglob("*.wrl")) + list(source_dir.rglob("*.WRL"))
+    model_files += list(source_dir.rglob("*.stp")) + list(source_dir.rglob("*.STP"))
+
+    # Load source symbol library
+    src_lib = SymbolLib.from_file(str(src_sym_file))
+    if not src_lib.symbols:
+        error("No symbols found in source file")
+        sys.exit(1)
+
+    symbol = src_lib.symbols[0]
+    symbol_name = symbol.entryName
+    info(f"Symbol: {symbol_name}")
+
+    # Create staging directories
+    staging_pretty.mkdir(parents=True, exist_ok=True)
+    staging_3d.mkdir(parents=True, exist_ok=True)
+
+    # Copy footprints and build mapping of old names to new paths
+    fp_mapping: dict[str, str] = {}
+    for fp_file in fp_files:
+        dest = staging_pretty / fp_file.name
+        shutil.copy2(fp_file, dest)
+        # Map the footprint name (without extension) to the library reference
+        fp_name = fp_file.stem
+        fp_mapping[fp_name] = f"_staging:{fp_name}"
+        success(f"Copied footprint: {fp_file.name}")
+
+    # Copy 3D models
+    for model_file in model_files:
+        dest = staging_3d / model_file.name
+        shutil.copy2(model_file, dest)
+        success(f"Copied 3D model: {model_file.name}")
+
+    # Update footprint reference in symbol
+    for prop in symbol.properties:
+        if prop.key.lower() == "footprint":
+            old_fp = prop.value
+            # Check if it's just a name without library prefix
+            if ":" not in old_fp and old_fp in fp_mapping:
+                prop.value = fp_mapping[old_fp]
+                info(f"Updated footprint reference: {old_fp} -> {prop.value}")
+            elif ":" in old_fp:
+                # Replace library prefix with staging
+                fp_name = old_fp.split(":", 1)[1]
+                if fp_name in fp_mapping:
+                    prop.value = fp_mapping[fp_name]
+                    info(f"Updated footprint reference: {old_fp} -> {prop.value}")
+
+    # Update 3D model paths in footprints
+    update_footprint_3d_paths(staging_pretty, "KICAD_STAGING_LIBS", "_staging")
+
+    # Query APIs for metadata enrichment
+    mpn = symbol_name
+
+    # Add MPN property
+    set_symbol_property(symbol, "MPN", mpn)
+
+    # Query LCSC if ID provided
+    if args.lcsc:
+        lcsc_id = args.lcsc.upper()
+        set_symbol_property(symbol, "LCSC", lcsc_id)
+        success(f"Added LCSC: {lcsc_id}")
+
+    # Query Digikey
+    info(f"Querying Digikey API for: {mpn}")
+    digikey = DigikeyClient()
+    dk_data = digikey.search(mpn)
+    if dk_data:
+        if dk_pn := dk_data.get("DigiKeyProductNumber"):
+            set_symbol_property(symbol, "Digikey", dk_pn)
+            success(f"Added Digikey PN: {dk_pn}")
+
+        if dk_stock := dk_data.get("QuantityAvailable"):
+            set_symbol_property(symbol, "Stock_Digikey", str(dk_stock))
+            info(f"Digikey stock: {dk_stock}")
+
+        if dk_ds := dk_data.get("DatasheetUrl"):
+            if dk_ds.startswith("//"):
+                dk_ds = "https:" + dk_ds
+            set_symbol_property(symbol, "Datasheet", dk_ds)
+            success("Added datasheet URL")
+
+        if dk_desc := dk_data.get("Description", {}):
+            desc = dk_desc.get("DetailedDescription") or dk_desc.get("ProductDescription")
+            if desc:
+                set_symbol_property(symbol, "ki_description", desc)
+                success(f"Added description: {desc[:50]}...")
+
+        if dk_mfr := dk_data.get("Manufacturer", {}).get("Name"):
+            set_symbol_property(symbol, "Manufacturer", dk_mfr)
+            success(f"Added manufacturer: {dk_mfr}")
+
+        for pricing in dk_data.get("StandardPricing", []):
+            qty = pricing.get("BreakQuantity")
+            price = pricing.get("UnitPrice")
+            if qty and price:
+                set_symbol_property(symbol, f"Price_{qty}", f"${price}")
+
+    # Query Mouser
+    info(f"Querying Mouser API for: {mpn}")
+    mouser = MouserClient()
+    if m_data := mouser.search(mpn):
+        parts = m_data.get("SearchResults", {}).get("Parts", [])
+        if parts:
+            part = parts[0]
+            if m_pn := part.get("MouserPartNumber"):
+                set_symbol_property(symbol, "Mouser", m_pn)
+                success(f"Added Mouser PN: {m_pn}")
+
+            if m_avail := part.get("Availability"):
+                stock = re.search(r"\d+", m_avail)
+                if stock:
+                    set_symbol_property(symbol, "Stock_Mouser", stock.group())
+                    info(f"Mouser stock: {stock.group()}")
+
+            if m_mfr := part.get("Manufacturer"):
+                if not get_symbol_property(symbol, "Manufacturer"):
+                    set_symbol_property(symbol, "Manufacturer", m_mfr)
+                    success(f"Added manufacturer: {m_mfr}")
+
+    # Ensure only Reference and Value are visible
+    normalize_symbol_visibility(symbol)
+
+    # Load or create staging symbol library
+    if sym_file.exists():
+        staging_lib = SymbolLib.from_file(str(sym_file))
+        # Remove existing symbol with same name
+        staging_lib.symbols = [s for s in staging_lib.symbols if s.entryName != symbol_name]
+    else:
+        staging_lib = SymbolLib()
+
+    staging_lib.symbols.append(symbol)
+    staging_lib.to_file(str(sym_file))
+
+    # Register staging libraries in KiCad
+    register_staging_libraries()
+
+    print()
+    success(f"Part {symbol_name} imported to staging!")
+    print()
+    info("Files created:")
+    print(f"  Symbol:    {sym_file}")
+    print(f"  Footprint: {staging_pretty}/")
+    print(f"  3D Models: {staging_3d}/")
+    print()
+    info("Use 'kicad-parts list' to view staged parts")
+    info("Use 'kicad-parts accept' to move to production library")
+
+
 def cmd_import(args: argparse.Namespace) -> None:
     """Import a part from LCSC to staging."""
     lcsc_id = args.lcsc_id.upper()
@@ -1046,51 +1226,61 @@ def cmd_accept(args: argparse.Namespace) -> None:
 
 
 def cmd_list(args: argparse.Namespace) -> None:
-    """List parts in production or staging libraries."""
-    if args.staging:
-        # List staged parts
-        staging = get_staging_libs()
-        sym_file = staging / "_staging.kicad_sym"
+    """List parts in staging or production libraries."""
+    if args.production:
+        # List production parts
+        _list_production(args)
+    else:
+        # List staged parts (default)
+        _list_staging()
 
-        if not sym_file.exists():
-            info("No staged parts")
-            info("Import parts with: kicad-parts import <LCSC_ID>")
-            return
 
-        lib = SymbolLib.from_file(str(sym_file))
+def _list_staging() -> None:
+    """List staged parts."""
+    staging = get_staging_libs()
+    sym_file = staging / "_staging.kicad_sym"
 
-        if not lib.symbols:
-            info("No staged parts")
-            return
-
-        print(f"{BLUE}━━━ Staged Parts ━━━{NC}")
-        print()
-
-        # Collect data for table
-        rows = []
-        for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
-            lcsc = get_symbol_property(symbol, "LCSC") or ""
-            desc = get_symbol_property(symbol, "Description") or ""
-            rows.append((lcsc, symbol.entryName, desc))
-
-        # Calculate column widths
-        lcsc_width = max(4, max((len(r[0]) for r in rows), default=0))
-        sym_width = max(6, max((len(r[1]) for r in rows), default=0))
-        desc_width = max(11, max((len(r[2]) for r in rows), default=0))
-
-        # Print table header
-        print(f"  {'LCSC':<{lcsc_width}} │ {'Symbol':<{sym_width}} │ {'Description':<{desc_width}}")
-        print(f"  {'─' * lcsc_width}─┼─{'─' * sym_width}─┼─{'─' * desc_width}")
-
-        # Print rows
-        for lcsc, sym, desc in rows:
-            print(f"  {GREEN}{lcsc:<{lcsc_width}}{NC} │ {sym:<{sym_width}} │ {desc:<{desc_width}}")
-
-        print()
-        info(f"Total: {len(lib.symbols)} staged part(s)")
-        info("Use 'kicad-parts accept' to move to production")
+    if not sym_file.exists():
+        info("No staged parts")
+        info("Import parts with: kicad-parts import <LCSC_ID>")
         return
 
+    lib = SymbolLib.from_file(str(sym_file))
+
+    if not lib.symbols:
+        info("No staged parts")
+        return
+
+    print(f"{BLUE}━━━ Staged Parts ━━━{NC}")
+    print()
+
+    # Collect data for table
+    rows = []
+    for symbol in sorted(lib.symbols, key=lambda s: s.entryName):
+        lcsc = get_symbol_property(symbol, "LCSC") or ""
+        desc = get_symbol_property(symbol, "Description") or ""
+        rows.append((lcsc, symbol.entryName, desc))
+
+    # Calculate column widths
+    lcsc_width = max(4, max((len(r[0]) for r in rows), default=0))
+    sym_width = max(6, max((len(r[1]) for r in rows), default=0))
+    desc_width = max(11, max((len(r[2]) for r in rows), default=0))
+
+    # Print table header
+    print(f"  {'LCSC':<{lcsc_width}} │ {'Symbol':<{sym_width}} │ {'Description':<{desc_width}}")
+    print(f"  {'─' * lcsc_width}─┼─{'─' * sym_width}─┼─{'─' * desc_width}")
+
+    # Print rows
+    for lcsc, sym, desc in rows:
+        print(f"  {GREEN}{lcsc:<{lcsc_width}}{NC} │ {sym:<{sym_width}} │ {desc:<{desc_width}}")
+
+    print()
+    info(f"Total: {len(lib.symbols)} staged part(s)")
+    info("Use 'kicad-parts accept' to move to production")
+
+
+def _list_production(args: argparse.Namespace) -> None:
+    """List production parts."""
     production = get_production_libs()
 
     # Find all *-JH.kicad_sym libraries
@@ -1155,6 +1345,132 @@ def cmd_list(args: argparse.Namespace) -> None:
         print()
 
     info(f"Total: {total_parts} part(s) across {len(lib_files)} library/libraries")
+
+
+def cmd_reject(args: argparse.Namespace) -> None:
+    """Remove parts from staging."""
+    staging = get_staging_libs()
+
+    sym_file = staging / "_staging.kicad_sym"
+    staging_pretty = staging / "_staging.pretty"
+    staging_3d = staging / "_staging.3dshapes"
+
+    if not sym_file.exists():
+        info("No staged parts found")
+        return
+
+    lib = SymbolLib.from_file(str(sym_file))
+
+    if not lib.symbols:
+        info("No staged parts found")
+        return
+
+    # Build list of staged parts
+    all_parts: list[tuple[str, str]] = []  # (display_name, symbol_name)
+    for symbol in lib.symbols:
+        lcsc = get_symbol_property(symbol, "LCSC") or ""
+        display = f"{symbol.entryName} ({lcsc})" if lcsc else symbol.entryName
+        all_parts.append((display, symbol.entryName))
+
+    # Determine which parts to reject
+    if args.part:
+        # Find part by name or LCSC
+        pattern = args.part.upper()
+        matches = []
+        for display, sym_name in all_parts:
+            lcsc = get_symbol_property(
+                next(s for s in lib.symbols if s.entryName == sym_name), "LCSC"
+            ) or ""
+            if pattern in sym_name.upper() or lcsc.upper() == pattern:
+                matches.append((display, sym_name))
+        if not matches:
+            error(f"No staged parts match '{args.part}'")
+            info(f"Available: {', '.join(d for d, _ in all_parts)}")
+            sys.exit(1)
+        to_reject = matches
+    else:
+        # Interactive selection with fzf
+        try:
+            result = subprocess.run(
+                ["fzf", "--multi", "--prompt=Select parts to reject: "],
+                input="\n".join(d for d, _ in all_parts),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                info("No parts selected")
+                return
+            selected = result.stdout.strip().split("\n")
+            to_reject = [(d, s) for d, s in all_parts if d in selected]
+        except FileNotFoundError:
+            error("fzf not found. Specify part name: kicad-parts reject <PART>")
+            sys.exit(1)
+
+    # Confirm rejection
+    print(f"{YELLOW}Parts to reject:{NC}")
+    for display, _ in to_reject:
+        print(f"  {display}")
+    print()
+    confirm = input(f"Reject {len(to_reject)} part(s) from staging? [y/N] ")
+    if confirm.lower() != "y":
+        info("Cancelled")
+        return
+
+    symbol_names = [s for _, s in to_reject]
+
+    # Collect footprint names from symbols being rejected
+    footprints_to_delete = set()
+    for symbol in lib.symbols:
+        if symbol.entryName in symbol_names:
+            fp_ref = get_symbol_property(symbol, "Footprint") or ""
+            if ":" in fp_ref:
+                fp_name = fp_ref.split(":", 1)[1]
+                footprints_to_delete.add(f"{fp_name}.kicad_mod")
+
+    # Delete footprints and collect 3D model names
+    models_to_delete = set()
+    if staging_pretty.exists():
+        for fp_file in footprints_to_delete:
+            fp_path = staging_pretty / fp_file
+            if fp_path.exists():
+                # Parse footprint to find 3D model references
+                fp_content = fp_path.read_text()
+                for line in fp_content.splitlines():
+                    if "(model " in line:
+                        match = re.search(r'/([^/]+\.(wrl|step|stp|WRL|STEP|STP))', line, re.IGNORECASE)
+                        if match:
+                            models_to_delete.add(match.group(1))
+                fp_path.unlink()
+                success(f"Deleted footprint: {fp_file}")
+
+    # Delete 3D models
+    if staging_3d.exists() and models_to_delete:
+        deleted = 0
+        for model_name in models_to_delete:
+            model_path = staging_3d / model_name
+            if model_path.exists():
+                model_path.unlink()
+                deleted += 1
+        if deleted:
+            success(f"Deleted {deleted} 3D model file(s)")
+
+    # Remove symbols from library
+    remaining = [s for s in lib.symbols if s.entryName not in symbol_names]
+    if remaining:
+        lib.symbols = remaining
+        lib.to_file(str(sym_file))
+        info(f"Remaining staged: {', '.join(s.entryName for s in remaining)}")
+    else:
+        # All symbols rejected - clean up completely
+        if sym_file.exists():
+            sym_file.unlink()
+        if staging_pretty.exists() and not any(staging_pretty.iterdir()):
+            shutil.rmtree(staging_pretty)
+        if staging_3d.exists() and not any(staging_3d.iterdir()):
+            shutil.rmtree(staging_3d)
+
+    print()
+    success(f"Rejected {len(to_reject)} part(s) from staging")
 
 
 def cmd_delete(args: argparse.Namespace) -> None:
@@ -1275,6 +1591,14 @@ def main() -> None:
     import_parser.add_argument("lcsc_id", help="LCSC part number (e.g., C2040)")
     import_parser.set_defaults(func=cmd_import)
 
+    # import-local command
+    import_local_parser = subparsers.add_parser(
+        "import-local", help="Import from local directory (e.g., Ultra Librarian) to staging"
+    )
+    import_local_parser.add_argument("source", help="Source directory with KiCad files")
+    import_local_parser.add_argument("--lcsc", help="LCSC part number (e.g., C2847497)")
+    import_local_parser.set_defaults(func=cmd_import_local)
+
     # accept command
     accept_parser = subparsers.add_parser("accept", help="Move staged parts to production library")
     accept_parser.add_argument(
@@ -1288,17 +1612,24 @@ def main() -> None:
     accept_parser.set_defaults(func=cmd_accept)
 
     # list command
-    list_parser = subparsers.add_parser("list", help="List parts in all libraries")
+    list_parser = subparsers.add_parser("list", help="List parts (staging by default)")
     list_parser.add_argument(
         "-v", "--verbose", action="store_true", help="Show detailed metadata"
     )
     list_parser.add_argument(
-        "-s", "--staging", action="store_true", help="List staged parts instead of production"
+        "-p", "--production", action="store_true", help="List production libraries instead of staging"
     )
     list_parser.set_defaults(func=cmd_list)
 
-    # delete command (replaces reject)
-    delete_parser = subparsers.add_parser("delete", help="Delete parts from libraries")
+    # reject command
+    reject_parser = subparsers.add_parser("reject", help="Remove parts from staging")
+    reject_parser.add_argument(
+        "part", nargs="?", help="Part name or LCSC number (interactive if omitted)"
+    )
+    reject_parser.set_defaults(func=cmd_reject)
+
+    # delete command
+    delete_parser = subparsers.add_parser("delete", help="Delete parts from production libraries")
     delete_parser.add_argument(
         "part", nargs="?", help="Part name (interactive if omitted)"
     )
