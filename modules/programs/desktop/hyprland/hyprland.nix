@@ -9,6 +9,215 @@
   cfg = config.programs.hyprland-desktop;
   theme = config.theme.tokyoNight;
   inherit (pkgs.stdenv) isLinux;
+
+  # --- Keybinding data (single source of truth) ---
+
+  keybinds = [
+    {
+      mods = "$mod";
+      key = "Return";
+      action = "exec, kitty";
+      desc = "Terminal (kitty)";
+    }
+    {
+      mods = "$mod";
+      key = "grave";
+      action = "exec, kitty";
+      desc = "Terminal (kitty)";
+    }
+    {
+      mods = "$mod";
+      key = "R";
+      action = "exec, rofi -show drun";
+      desc = "App launcher (rofi)";
+    }
+    {
+      mods = "$mod";
+      key = "W";
+      action = "exec, firefox";
+      desc = "Firefox";
+    }
+    {
+      mods = "$mod";
+      key = "D";
+      action = "exec, discord";
+      desc = "Discord";
+    }
+    {
+      mods = "$mod";
+      key = "S";
+      action = "exec, spotify";
+      desc = "Spotify";
+    }
+    {
+      mods = "$mod";
+      key = "Q";
+      action = "killactive";
+      desc = "Kill window";
+    }
+    {
+      mods = "$mod";
+      key = "M";
+      action = "exit";
+      desc = "Exit Hyprland";
+    }
+    {
+      mods = "$mod";
+      key = "V";
+      action = "togglefloating";
+      desc = "Toggle floating";
+    }
+    {
+      mods = "$mod";
+      key = "F";
+      action = "fullscreen";
+      desc = "Fullscreen";
+    }
+    {
+      mods = "$mod";
+      key = "Escape";
+      action = "exec, hyprlock";
+      desc = "Lock screen";
+    }
+    # Focus (vim + arrow)
+    {
+      mods = "$mod";
+      key = "h";
+      altKey = "left";
+      action = "movefocus, l";
+      desc = "Focus left";
+    }
+    {
+      mods = "$mod";
+      key = "j";
+      altKey = "down";
+      action = "movefocus, d";
+      desc = "Focus down";
+    }
+    {
+      mods = "$mod";
+      key = "k";
+      altKey = "up";
+      action = "movefocus, u";
+      desc = "Focus up";
+    }
+    {
+      mods = "$mod";
+      key = "l";
+      altKey = "right";
+      action = "movefocus, r";
+      desc = "Focus right";
+    }
+    # Move window between monitors
+    {
+      mods = "$mod SHIFT";
+      key = "k";
+      altKey = "up";
+      action = "movewindow, mon:u";
+      desc = "Move window to top monitor";
+    }
+    {
+      mods = "$mod SHIFT";
+      key = "j";
+      altKey = "down";
+      action = "movewindow, mon:d";
+      desc = "Move window to bottom monitor";
+    }
+    # Screenshots
+    {
+      mods = "";
+      key = "Print";
+      action = ''exec, grim -g "$(slurp)" - | wl-copy'';
+      desc = "Screenshot region → clipboard";
+    }
+    {
+      mods = "SHIFT";
+      key = "Print";
+      action = "exec, grim - | wl-copy";
+      desc = "Screenshot full → clipboard";
+    }
+  ];
+
+  workspaceBinds = builtins.concatMap (ws: let
+    key =
+      if ws == 10
+      then "0"
+      else toString ws;
+  in [
+    {
+      mods = "$mod";
+      inherit key;
+      action = "workspace, ${toString ws}";
+    }
+    {
+      mods = "$mod SHIFT";
+      inherit key;
+      action = "movetoworkspace, ${toString ws}";
+    }
+  ]) (lib.range 1 10);
+
+  # --- Keybinding formatting helpers ---
+
+  toBind = b:
+    ["${b.mods}, ${b.key}, ${b.action}"]
+    ++ lib.optional (b ? altKey) "${b.mods}, ${b.altKey}, ${b.action}";
+
+  keyDisplayMap = {
+    Return = "Enter";
+    grave = "`";
+    left = "←";
+    right = "→";
+    up = "↑";
+    down = "↓";
+  };
+
+  displayKey = k: keyDisplayMap.${k} or k;
+
+  formatMods = m:
+    builtins.replaceStrings
+    ["$mod SHIFT" "$mod" "SHIFT"]
+    ["Super + Shift" "Super" "Shift"]
+    m;
+
+  padRight = width: s: let
+    padding = builtins.concatStringsSep "" (builtins.genList (_: " ") width);
+  in
+    builtins.substring 0 width (s + padding);
+
+  formatKeybind = b: let
+    modsStr = formatMods b.mods;
+    keyStr =
+      if b ? altKey
+      then "${displayKey b.key}/${displayKey b.altKey}"
+      else displayKey b.key;
+    combo =
+      if modsStr == ""
+      then keyStr
+      else "${modsStr} + ${keyStr}";
+  in "${padRight 27 combo}${b.desc}";
+
+  formatExtra = combo: desc: "${padRight 27 combo}${desc}";
+
+  # --- Cheatsheet ---
+
+  cheatsheetText = lib.concatStringsSep "\n" (
+    (map formatKeybind keybinds)
+    ++ [
+      (formatExtra "Super + 1-0" "Workspace 1-10")
+      (formatExtra "Super + Shift + 1-0" "Move to workspace 1-10")
+      (formatExtra "Super + ?" "This cheatsheet")
+      (formatExtra "Super + LMB" "Move window (drag)")
+      (formatExtra "Super + RMB" "Resize window (drag)")
+    ]
+  );
+
+  cheatsheetFile = pkgs.writeText "keybind-cheatsheet" cheatsheetText;
+
+  showKeybinds = pkgs.writeShellScript "show-keybinds" ''
+    ${pkgs.rofi-wayland}/bin/rofi -dmenu -i -no-custom -p "Keybindings" \
+      -theme-str 'window {width: 50%;} listview {lines: 20;}' \
+      < ${cheatsheetFile}
+  '';
 in {
   config = lib.mkIf (cfg.enable && isLinux) {
     wayland.windowManager.hyprland = {
@@ -78,61 +287,11 @@ in {
           preserve_split = true;
         };
 
-        # Keybindings
-        bind = [
-          # Apps
-          "$mod, Return, exec, kitty"
-          "$mod, grave, exec, kitty"
-          "$mod, D, exec, discord"
-          "$mod, R, exec, rofi -show drun"
-          "$mod, S, exec, spotify"
-          "$mod, W, exec, firefox"
-          "$mod, Q, killactive"
-          "$mod, M, exit"
-          "$mod, V, togglefloating"
-          "$mod, F, fullscreen"
-          "$mod, Escape, exec, hyprlock"
-
-          # Focus (arrow keys)
-          "$mod, left, movefocus, l"
-          "$mod, right, movefocus, r"
-          "$mod, up, movefocus, u"
-          "$mod, down, movefocus, d"
-
-          # Focus (vim keys)
-          "$mod, h, movefocus, l"
-          "$mod, j, movefocus, d"
-          "$mod, k, movefocus, u"
-          "$mod, l, movefocus, r"
-
-          # Workspaces 1-10
-          "$mod, 1, workspace, 1"
-          "$mod, 2, workspace, 2"
-          "$mod, 3, workspace, 3"
-          "$mod, 4, workspace, 4"
-          "$mod, 5, workspace, 5"
-          "$mod, 6, workspace, 6"
-          "$mod, 7, workspace, 7"
-          "$mod, 8, workspace, 8"
-          "$mod, 9, workspace, 9"
-          "$mod, 0, workspace, 10"
-
-          # Move to workspace
-          "$mod SHIFT, 1, movetoworkspace, 1"
-          "$mod SHIFT, 2, movetoworkspace, 2"
-          "$mod SHIFT, 3, movetoworkspace, 3"
-          "$mod SHIFT, 4, movetoworkspace, 4"
-          "$mod SHIFT, 5, movetoworkspace, 5"
-          "$mod SHIFT, 6, movetoworkspace, 6"
-          "$mod SHIFT, 7, movetoworkspace, 7"
-          "$mod SHIFT, 8, movetoworkspace, 8"
-          "$mod SHIFT, 9, movetoworkspace, 9"
-          "$mod SHIFT, 0, movetoworkspace, 10"
-
-          # Screenshots
-          ", Print, exec, grim -g \"$(slurp)\" - | wl-copy"
-          "SHIFT, Print, exec, grim - | wl-copy"
-        ];
+        # Keybindings (generated from keybinds data)
+        bind =
+          (lib.concatMap toBind keybinds)
+          ++ (lib.concatMap toBind workspaceBinds)
+          ++ ["$mod SHIFT, slash, exec, ${showKeybinds}"];
 
         # Mouse bindings
         bindm = [
