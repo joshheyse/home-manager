@@ -1,0 +1,67 @@
+# Allowed patterns for git-secrets
+# This file contains regex patterns that are allowed exceptions to git-secrets scanning
+
+# Allow git-secrets configuration files and their contents
+git secrets --add
+\.git-secrets-patterns:
+\.gitallowed:
+BEGIN.*PRIVATE KEY
+
+# Allow documentation about security patterns (README files)
+\.hooks/README\.md:
+Private keys:
+API keys:
+Secret keys:
+Private key headers:
+
+# Allow documentation and comments about secrets/keys
+.*#.*key
+.*comment.*key
+.*SSH host key.*
+
+# Allow GPG keygrips (public identifiers, not secrets)
+015B64C5064DC1FEE3E6CCF5BF4C9374F3DDF06B
+
+# Allow git commit SHAs in flake.lock files (rev and narHash fields)
+flake\.lock:.*"rev":
+flake\.lock:.*"narHash":
+
+# SOPS encrypted data (already encrypted, safe to commit)
+ENC\[AES256_GCM,
+-----BEGIN AGE ENCRYPTED FILE-----
+-----BEGIN PGP MESSAGE-----
+-----END PGP MESSAGE-----
+
+# YubiKey/GPG fingerprints (public identifiers)
+3436A2586592D359231059AA06B3614378AFA59E
+
+# SOPS configuration and secret file references (metadata)
+\.sops\.yaml:.*yubikey
+secrets/.*\.yaml:
+secrets/README\.md:
+modules/nixos/services/.*\.nix:.*sops\.secrets
+
+# Public key files (safe to commit)
+secrets/yubikey\.pub:
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+-----END PGP PUBLIC KEY BLOCK-----
+
+# Documentation references to infrastructure paths
+hosts/.*\.nix:.*postgresql\.nix
+hosts/.*/PLAN\.md:
+hosts/.*/PHASE.*\.md:
+
+# NixOS module paths and sops.secrets definitions (secret names, not values)
+modules/nixos/.*\.nix:.*sops\.secrets
+modules/nixos/.*\.nix:.*private-key.*=
+modules/nixos/.*\.nix:.*secret-key.*=
+.*\.nix:.*sops\.secrets\[
+/modules/nixos/services/
+
+# Configuration file references containing service names
+.*configuration\.nix:.*modules/nixos/services
+.*\.nix:.*plugins/configurations/
+
+# WireGuard/VPN config references (paths, not keys)
+wireguard-private-key.*=.*\{
+vpnNamespaces

@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+# Unified linting and formatting script
+# Can be called directly or by git hooks
+#
+# Usage:
+#   check-all [--check-only] [FILE...]
+#
+# If no files are specified, lints all dirty files (modified, staged, untracked)
+#
+# Options:
+#   --check-only    Only check, don't auto-fix (default: auto-fix)
+
+set -euo pipefail
+
+# Get script directory and source colors
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/colors
+source "${SCRIPT_DIR}/lib/colors"
+
+# Parse arguments
+AUTO_FIX=true
+FILES=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --check-only)
+      AUTO_FIX=false
+      shift
+      ;;
+    *)
+      FILES+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# If no files specified, get dirty files from git
+if [[ ${#FILES[@]} -eq 0 ]]; then
+  info "No files specified, checking dirty files..."
+
+  # Get modified files (tracked, unstaged)
+  mapfile -t MODIFIED < <(git diff --name-only 2>/dev/null || true)
+
+  # Get staged files
+  mapfile -t STAGED < <(git diff --cached --name-only 2>/dev/null || true)
+
+  # Get untracked files (excluding ignored)
+  mapfile -t UNTRACKED < <(git ls-files --others --exclude-standard 2>/dev/null || true)
+
+  # Combine and deduplicate
+  ALL_DIRTY=("${MODIFIED[@]}" "${STAGED[@]}" "${UNTRACKED[@]}")
+
+  # Filter to only supported file types, existing files, and deduplicate
+  declare -A SEEN
+  for file in "${ALL_DIRTY[@]}"; do
+    if [[ -n "$file" && ! ${SEEN[$file]+_} ]]; then
+      # Skip deleted files (they show up in git diff but don't exist)
+      if [[ ! -f "$file" ]]; then
+        continue
+      fi
+      if [[ "$file" == *.sh || "$file" == *.nix || "$file" == *.lua ]]; then
+        FILES+=("$file")
+        SEEN[$file]=1
+      fi
+    fi
+  done
+
+  if [[ ${#FILES[@]} -eq 0 ]]; then
+    info "No dirty .sh, .nix, or .lua files found"
+    exit 0
+  fi
+
+  info "Found ${#FILES[@]} dirty file(s) to check:"
+  for file in "${FILES[@]}"; do
+    echo "  - $file"
+  done
+  echo ""
+fi
+
+TOTAL_EXIT_CODE=0
+
+# Process each file
+check_file() {
+  local FILE="$1"
+  local EXIT_CODE=0
+
+  if [[ ! -f "$FILE" ]]; then
+    warn "File not found: $FILE"
+    return 0
+  fi
+
+  step "Checking $FILE"
+
+  # Check and fix shell scripts
+  if [[ "$FILE" == *.sh ]]; then
+    echo "  → Running shellcheck"
+    # SC1091: Not following sourced files (expected for dynamic paths)
+    if ! shellcheck --exclude=SC1091 "$FILE" 2>&1; then
+      if [[ "$AUTO_FIX" == true ]]; then
+        echo "    Attempting to auto-fix with shellharden..."
+        if command -v shellharden &>/dev/null; then
+          shellharden --replace "$FILE" 2>&1 || true
+          echo "    ✓ Auto-fixed some issues, re-checking..."
+          if ! shellcheck --exclude=SC1091 "$FILE" 2>&1; then
+            EXIT_CODE=1
+          fi
+        else
+          warn "shellharden not available, cannot auto-fix"
+          EXIT_CODE=1
+        fi
+      else
+        echo "    ✗ Issues found (auto-fix disabled)"
+        EXIT_CODE=1
+      fi
+    fi
+  fi
+
+  # Format Nix files
+  if [[ "$FILE" == *.nix ]]; then
+    echo "  → Running alejandra"
+    if ! alejandra --check "$FILE" 2>&1; then
+      if [[ "$AUTO_FIX" == true ]]; then
+        echo "    Formatting..."
+        alejandra --quiet "$FILE" 2>&1 || true
+      else
+        echo "    ✗ Formatting needed (auto-fix disabled)"
+        EXIT_CODE=1
+      fi
+    fi
+
+    # Check for dead code with deadnix
+    echo "  → Running deadnix"
+    if command -v deadnix &>/dev/null; then
+      DEADNIX_OUTPUT=$(deadnix "$FILE" 2>&1 || true)
+      if [[ -n "$DEADNIX_OUTPUT" ]]; then
+        echo "$DEADNIX_OUTPUT"
+        if [[ "$AUTO_FIX" == true ]]; then
+          echo "    Removing dead code..."
+          deadnix --edit "$FILE" 2>&1 || true
+        else
+          echo "    ✗ Dead code found (auto-fix disabled)"
+          EXIT_CODE=1
+        fi
+      fi
+    else
+      warn "deadnix not available, skipping dead code check"
+    fi
+
+    # Lint with statix
+    echo "  → Running statix"
+    if command -v statix &>/dev/null; then
+      if ! statix check "$FILE" 2>&1; then
+        if [[ "$AUTO_FIX" == true ]]; then
+          echo "    Auto-fixing..."
+          statix fix "$FILE" 2>&1 || true
+          echo "    ✓ Auto-fixed, re-checking..."
+          if ! statix check "$FILE" 2>&1; then
+            EXIT_CODE=1
+          fi
+        else
+          echo "    ✗ Issues found (auto-fix disabled)"
+          EXIT_CODE=1
+        fi
+      fi
+    else
+      warn "statix not available, skipping statix checks"
+    fi
+  fi
+
+  # Format and lint Lua files
+  if [[ "$FILE" == *.lua ]]; then
+    echo "  → Running stylua"
+    if command -v stylua &>/dev/null; then
+      if ! stylua --check "$FILE" 2>&1; then
+        if [[ "$AUTO_FIX" == true ]]; then
+          echo "    Formatting..."
+          stylua "$FILE" 2>&1 || true
+        else
+          echo "    ✗ Formatting needed (auto-fix disabled)"
+          EXIT_CODE=1
+        fi
+      fi
+    else
+      warn "stylua not available, skipping formatting"
+    fi
+
+    # Lint with selene
+    echo "  → Running selene"
+    if command -v selene &>/dev/null; then
+      if ! selene "$FILE" 2>&1; then
+        echo "    ✗ Linting issues found"
+        EXIT_CODE=1
+      fi
+    else
+      warn "selene not available, skipping linting"
+    fi
+  fi
+
+  return "$EXIT_CODE"
+}
+
+# Process all files
+for FILE in "${FILES[@]}"; do
+  if ! check_file "$FILE"; then
+    TOTAL_EXIT_CODE=1
+  fi
+  echo ""
+done
+
+# Summary
+if [[ $TOTAL_EXIT_CODE -eq 0 ]]; then
+  success "All checks passed!"
+else
+  error "Some checks failed"
+fi
+
+exit "$TOTAL_EXIT_CODE"

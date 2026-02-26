@@ -1,0 +1,33 @@
+# Pre-commit hooks configuration
+# Run: pre-commit install
+# Or via Nix: nix develop --command pre-commit install
+
+repos:
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: scripts/check-all
+        language: script
+        files: \.sh$
+        pass_filenames: true
+
+      - id: alejandra
+        name: alejandra
+        entry: scripts/check-all
+        language: script
+        files: \.nix$
+        pass_filenames: true
+
+      - id: stylua
+        name: stylua
+        entry: scripts/check-all
+        language: script
+        files: \.lua$
+        pass_filenames: true
+
+      - id: git-secrets
+        name: git-secrets
+        entry: git secrets --pre_commit_hook --
+        language: system
+        pass_filenames: true

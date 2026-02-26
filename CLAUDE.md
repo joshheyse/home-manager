@@ -16,7 +16,7 @@ The library exports:
 - **Check flake**: `nix flake check`
 - **Show flake outputs**: `nix flake show`
 - **Update flake inputs**: `nix flake update`
-- **Linting and formatting**: `scripts/check-all` (from parent nixos directory)
+- **Linting and formatting**: `scripts/check-all`
   - Runs appropriate linters/formatters for `.sh`, `.nix`, and `.lua` files
   - Automatically fixes issues when possible
   - When run with no arguments, checks all dirty files (modified, staged, untracked)
@@ -111,7 +111,7 @@ When modifying this library:
 
 ### Linting and Formatting
 
-The repository uses a unified linting and formatting system via `scripts/check-all` (located in the parent nixos directory).
+The repository uses a unified linting and formatting system via `scripts/check-all`.
 
 #### For Claude Code (AI Assistant)
 
@@ -121,7 +121,7 @@ The repository uses a unified linting and formatting system via `scripts/check-a
 
 1. After completing file edits, launch a Task sub-agent with `subagent_type: "general-purpose"`
 2. The sub-agent should:
-   - Run `scripts/check-all` (from parent directory if not available locally) on the edited files
+   - Run `scripts/check-all` on the edited files
    - **Parse and understand** the linter output in detail
    - Identify what was auto-fixed by the tools
    - **Apply additional fixes** for issues that the tools can't auto-fix but are mechanically fixable
@@ -196,7 +196,7 @@ The `scripts/check-all` script handles:
 #### Manual Usage
 
 ```bash
-# From parent nixos directory: check all dirty files
+# Check all dirty files (default)
 ./scripts/check-all
 
 # Check specific files
