@@ -115,6 +115,9 @@ in {
         # Set default command to use zsh (macOS fix)
         set -g default-command "${pkgs.zsh}/bin/zsh"
 
+        # Show directory basename as window name instead of process name
+        set -g automatic-rename-format '#{b:pane_current_path}'
+
         # Allow passthrough for Kitty graphics protocol (required for image.nvim)
         set -g allow-passthrough on
         set -ga update-environment TERM
