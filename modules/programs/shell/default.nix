@@ -13,7 +13,7 @@
     ./neovim
     ./ripgrep.nix
     ./starship.nix
-    ./tmux.nix
+    ./tmux
     ./zsh.nix
   ];
 
