@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 
 # ssh-fzf: Interactive SSH host selector using fzf and known_hosts
-# Usage: ./ssh-fzf [fzf-options]
+# Usage: ssh-fzf [--print] [fzf-options]
+#   --print  Output selected hostname and exit (no connection)
 
 set -euo pipefail
+
+print_only=false
+if [[ "${1:-}" == "--print" ]]; then
+    print_only=true
+    shift
+fi
 
 # Check if fzf is available
 if ! command -v fzf >/dev/null 2>&1; then
     echo "Error: fzf is not installed or not in PATH" >&2
-    exit 1
-fi
-
-# Check if tmux is available
-if ! command -v tmux >/dev/null 2>&1; then
-    echo "Error: tmux is not installed or not in PATH" >&2
     exit 1
 fi
 
@@ -84,13 +85,14 @@ host=$(extract_hosts | fzf \
     --preview="echo 'Host: {}'; echo; ssh -G {} 2>/dev/null | head -10 || echo 'No SSH config found for this host'" \
     "$@" | tail -1)
 
-# If a host was selected, connect to it in a new tmux window
+# If a host was selected, connect or print
 if [[ -n "$host" ]]; then
-    echo "Opening SSH connection to $host in new tmux window..."
-
-    # Create new tmux window with custom name and execute SSH directly
-    tmux new-window -n "ssh: $host" "ssh $host"
+    if [[ "$print_only" == "true" ]]; then
+        echo "$host"
+    else
+        exec ssh "$host"
+    fi
 else
-    echo "No host selected."
+    echo "No host selected." >&2
     exit 1
 fi
