@@ -141,6 +141,14 @@ in {
   };
 
   home = {
+    activation = {
+      tmuxReload = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        if ${pkgs.tmux}/bin/tmux info &>/dev/null; then
+          ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!" || true
+        fi
+      '';
+    };
+
     packages = [
       (pkgs.writeShellScriptBin "dev" ''
         inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")

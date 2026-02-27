@@ -3,9 +3,17 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
+    claude-code-nix = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = {nixpkgs, ...}: let
+  outputs = {
+    nixpkgs,
+    claude-code-nix,
+    ...
+  }: let
     # Define systems
     systems = ["x86_64-linux" "aarch64-darwin"];
 
@@ -45,8 +53,12 @@
 
     # Overlays
     overlays = {
-      default = import ./overlays/claude-code.nix;
-      claude-code = import ./overlays/claude-code.nix;
+      default = final: _prev: {
+        inherit (claude-code-nix.packages.${final.system}) claude-code;
+      };
+      claude-code = final: _prev: {
+        inherit (claude-code-nix.packages.${final.system}) claude-code;
+      };
     };
   };
 }
