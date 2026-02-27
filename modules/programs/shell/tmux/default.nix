@@ -136,7 +136,6 @@ in {
         bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devWorkspaceScript} --pick'
         bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
         bind-key -N "Show key bindings" ? display-popup -w80% -h80% -E "sh -c 'tmux list-keys -N | ''${PAGER:-less}'"
-
       '';
   };
 
