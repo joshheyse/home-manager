@@ -111,6 +111,24 @@ return {
   {
     "mfussenegger/nvim-dap",
     optional = true,
+    dependencies = {
+      "stevearc/overseer.nvim",
+      {
+        "AstroNvim/astrocore",
+        opts = {
+          mappings = {
+            n = {
+              ["<F5>"] = { function() require("dap").continue() end, desc = "Debugger: Continue" },
+              ["<S-F5>"] = { function() require("dap").terminate() end, desc = "Debugger: Stop" },
+              ["<F9>"] = { function() require("dap").toggle_breakpoint() end, desc = "Debugger: Toggle breakpoint" },
+              ["<F10>"] = { function() require("dap").step_over() end, desc = "Debugger: Step over" },
+              ["<F11>"] = { function() require("dap").step_into() end, desc = "Debugger: Step into" },
+              ["<S-F11>"] = { function() require("dap").step_out() end, desc = "Debugger: Step out" },
+            },
+          },
+        },
+      },
+    },
     config = function()
       if not has_lldb_dap then return end
 
@@ -144,6 +162,10 @@ return {
       -- Use same config for C and Rust
       dap.configurations.c = dap.configurations.cpp
       dap.configurations.rust = dap.configurations.cpp
+
+      -- Enable preLaunchTask support from launch.json via overseer.
+      -- Must be called before load_launchjs.
+      require("overseer").patch_dap(true)
 
       -- Load project-local .vscode/launch.json if present.
       -- Configs are appended after the fallback entries above.
