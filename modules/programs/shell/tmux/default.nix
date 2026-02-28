@@ -14,10 +14,6 @@
     export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux notifyPkg]}:$PATH"
     ${builtins.readFile ./claude-hook.sh}
   '';
-  claudeStatusScript = pkgs.writeShellScript "tmux-claude-status" ''
-    export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
-    ${builtins.readFile ./claude-status.sh}
-  '';
   claudeRespondScript = pkgs.writeShellScript "tmux-claude-respond" ''
     export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux]}:$PATH"
     ${builtins.readFile ./claude-respond.sh}
@@ -27,10 +23,14 @@
     ${builtins.readFile ./claude-has-prompt.sh}
   '';
   claudeSetupScript = pkgs.writeShellScript "tmux-claude-setup" ''
-    current=$(${pkgs.tmux}/bin/tmux show -gv status-right 2>/dev/null)
-    if [[ "$current" != *"claude-status"* ]]; then
-      ${pkgs.tmux}/bin/tmux set -g status-right "#(${claudeStatusScript}) $current"
-    fi
+    # Inject #{@claude_icon} into window-status-format (after #W) if not already present
+    for fmt_opt in window-status-format window-status-current-format; do
+      current=$(${pkgs.tmux}/bin/tmux show -gv "$fmt_opt" 2>/dev/null)
+      if [[ "$current" != *"@claude_icon"* ]]; then
+        updated="''${current//#W/#W#{@claude_icon}}"
+        ${pkgs.tmux}/bin/tmux set -g "$fmt_opt" "$updated"
+      fi
+    done
   '';
 
   # Claude settings with hooks configuration
@@ -218,6 +218,10 @@ in {
         set -ga update-environment TERM
         set -ga update-environment TERM_PROGRAM
 
+        # Enable extended keys (CSI u / kitty keyboard protocol) for proper F-key support
+        set -g extended-keys on
+        set -as terminal-features 'xterm*:extkeys'
+
         # Unbind keys
         unbind-key "}"
         unbind-key "v"
@@ -262,7 +266,7 @@ in {
         bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
         bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
 
-        # Claude Code integration: status bar (runs after tokyo-night theme sets status-right)
+        # Claude Code integration: inject icon into window tab (runs after tokyo-night theme sets formats)
         run-shell '${claudeSetupScript}'
 
         # Faster status refresh for Claude icon responsiveness

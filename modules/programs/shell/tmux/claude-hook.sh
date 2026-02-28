@@ -25,6 +25,27 @@ set_state() {
   echo "$1" > "$STATE_FILE"
 }
 
+# Update the window tab icon/color based on Claude state
+set_window_icon() {
+  local state="$1"
+  local window_id
+  window_id=$(tmux display-message -t "$PANE_ID" -p '#{window_id}' 2>/dev/null) || return
+  case "$state" in
+    permission|question)
+      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#e0af68,blink]✦#[noblink,fg=default] "
+      ;;
+    running)
+      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#9ece6a]✦#[fg=default] "
+      ;;
+    idle)
+      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#565f89]✦#[fg=default] "
+      ;;
+    *)
+      tmux set-option -wu -t "$window_id" @claude_icon 2>/dev/null || true
+      ;;
+  esac
+}
+
 cleanup() {
   rm -f "$STATE_FILE" "$DETAIL_FILE" "$RESPONSE_FILE"
 }
@@ -70,10 +91,12 @@ wait_for_response() {
 case "$EVENT" in
   start)
     set_state "idle"
+    set_window_icon "idle"
     ;;
 
   submit)
     set_state "running"
+    set_window_icon "running"
     ;;
 
   permission)
@@ -83,6 +106,7 @@ case "$EVENT" in
     tool_input_summary=$(echo "$input" | jq -c '.tool_input // {}' | head -c 200)
 
     set_state "permission"
+    set_window_icon "permission"
     echo "{\"tool_name\": \"$tool_name\", \"tool_input\": $tool_input_summary}" > "$DETAIL_FILE"
 
     send_notification "Claude Code" "${tool_name} needs permission"
@@ -115,6 +139,7 @@ case "$EVENT" in
     message=$(echo "$input" | jq -r '.message // "Question"')
 
     set_state "question"
+    set_window_icon "question"
     echo "$input" > "$DETAIL_FILE"
 
     send_notification "Claude Code" "$message"
@@ -125,19 +150,23 @@ case "$EVENT" in
     current=$(cat "$STATE_FILE" 2>/dev/null || echo "")
     if [[ "$current" != "permission" && "$current" != "question" ]]; then
       set_state "running"
+      set_window_icon "running"
     fi
     ;;
 
   idle)
     set_state "idle"
+    set_window_icon "idle"
     send_notification "Claude Code" "Ready for input"
     ;;
 
   stop)
     set_state "idle"
+    set_window_icon "idle"
     ;;
 
   end)
+    set_window_icon "clear"
     cleanup
     ;;
 
