@@ -13,7 +13,9 @@
       fd
       gcc
       gnumake
+      (imagemagick.override {ghostscriptSupport = true;})
       luajitPackages.luarocks
+      poppler_utils
       python3
       python3Packages.pip
       ripgrep
