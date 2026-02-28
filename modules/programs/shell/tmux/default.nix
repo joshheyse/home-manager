@@ -27,7 +27,7 @@
     for fmt_opt in window-status-format window-status-current-format; do
       current=$(${pkgs.tmux}/bin/tmux show -gv "$fmt_opt" 2>/dev/null)
       if [[ "$current" != *"@claude_icon"* ]]; then
-        updated="''${current//#W/#W#{@claude_icon}}"
+        updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed 's/#W/#W#{@claude_icon}/g')
         ${pkgs.tmux}/bin/tmux set -g "$fmt_opt" "$updated"
       fi
     done
