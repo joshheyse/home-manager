@@ -8,7 +8,7 @@
 #   3. Default terminal icon
 
 # Icon characters (Nerd Font)
-I_SSH=$(printf '\U000f08c0')
+I_SSH=$(printf '\U000f1616')
 I_MON=$(printf '\U000f04c5')
 I_TERM=$(printf '\ue795')
 

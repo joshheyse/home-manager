@@ -8,15 +8,15 @@
 #   pane-icon.sh icon [type]              - Print icon character for a type
 
 # Icon characters (Nerd Font codepoints)
-# ssh:     󰣀  U+F08C0  nf-md-ssh
-# dev:     󰅩  U+F0169  nf-md-code_braces  (U+F0205)
+# ssh:     󱘖  U+F1616  nf-md-console_network
+# dev:     󰅩  U+F0169  nf-md-code_braces
 # monitor: 󰓅  U+F04C5  nf-md-speedometer
 # default:   U+E795   nf-dev-terminal
 
 icon_for_type() {
   case "$1" in
-    ssh) printf '\U000f08c0' ;;
-    dev) printf '\U000f0205' ;;
+    ssh) printf '\U000f1616' ;;
+    dev) printf '\U000f0169' ;;
     monitor) printf '\U000f04c5' ;;
     *) printf '\ue795' ;;
   esac
