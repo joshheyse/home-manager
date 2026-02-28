@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Check for available flake input updates without modifying flake.lock
+# Analogous to 'dnf check-update' — shows what would change if you ran 'nix flake update'
+#
+# Usage:
+#   check-updates [--all] [INPUT...]
+#
+# Options:
+#   --all    Include transitive (indirect) dependencies
+#
+# If no inputs specified, checks all direct flake inputs.
+# Examples:
+#   check-updates                  # check direct inputs
+#   check-updates nixpkgs          # check only nixpkgs
+#   check-updates --all            # include transitive deps
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/colors
+source "${SCRIPT_DIR}/lib/colors"
+
+FLAKE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+LOCK_FILE="${FLAKE_DIR}/flake.lock"
+
+# Parse arguments
+SHOW_ALL=false
+FILTER_INPUTS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --all)
+      SHOW_ALL=true
+      shift
+      ;;
+    --help | -h)
+      echo "Usage: check-updates [--all] [INPUT...]"
+      echo ""
+      echo "Check for available flake input updates without modifying flake.lock."
+      echo ""
+      echo "Options:"
+      echo "  --all    Include transitive (indirect) dependencies"
+      echo "  -h       Show this help"
+      echo ""
+      echo "If no inputs specified, checks all direct flake inputs."
+      exit 0
+      ;;
+    *)
+      FILTER_INPUTS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Check dependencies
+for cmd in jq gh; do
+  if ! command -v "$cmd" &>/dev/null; then
+    error_and_exit "$cmd is required but not installed"
+  fi
+done
+
+if [[ ! -f "$LOCK_FILE" ]]; then
+  error_and_exit "No flake.lock found at $LOCK_FILE"
+fi
+
+# Get direct input names from the root node
+mapfile -t DIRECT_INPUTS < <(jq -r '.nodes.root.inputs | to_entries[] | .value' "$LOCK_FILE")
+
+# Get all GitHub-hosted inputs from flake.lock
+mapfile -t ALL_INPUTS < <(jq -r '
+  .nodes | to_entries[] |
+  select(.key != "root") |
+  select(.value.locked != null) |
+  select(.value.locked.type == "github") |
+  .key
+' "$LOCK_FILE")
+
+is_direct_input() {
+  local name="$1"
+  for di in "${DIRECT_INPUTS[@]}"; do
+    if [[ "$di" == "$name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+matches_filter() {
+  local name="$1"
+  if [[ ${#FILTER_INPUTS[@]} -eq 0 ]]; then
+    return 0
+  fi
+  for fi_name in "${FILTER_INPUTS[@]}"; do
+    if [[ "$fi_name" == "$name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Format epoch timestamp portably (GNU date -d vs BSD date -r)
+format_epoch() {
+  local epoch="$1"
+  date -d "@${epoch}" '+%Y-%m-%d' 2>/dev/null ||
+    date -r "${epoch}" '+%Y-%m-%d' 2>/dev/null ||
+    echo "unknown"
+}
+
+HAS_UPDATES=false
+CHECKED=0
+
+for INPUT in "${ALL_INPUTS[@]}"; do
+  # Filter: skip transitive deps unless --all or explicitly named
+  if [[ ${#FILTER_INPUTS[@]} -eq 0 ]] && [[ "$SHOW_ALL" != "true" ]]; then
+    if ! is_direct_input "$INPUT"; then
+      continue
+    fi
+  fi
+
+  # Filter: skip if specific inputs were requested and this isn't one
+  if ! matches_filter "$INPUT"; then
+    continue
+  fi
+
+  OWNER=$(jq -r ".nodes.\"${INPUT}\".locked.owner" "$LOCK_FILE")
+  REPO=$(jq -r ".nodes.\"${INPUT}\".locked.repo" "$LOCK_FILE")
+  LOCKED_REV=$(jq -r ".nodes.\"${INPUT}\".locked.rev" "$LOCK_FILE")
+  LOCKED_EPOCH=$(jq -r ".nodes.\"${INPUT}\".locked.lastModified" "$LOCK_FILE")
+  REF=$(jq -r ".nodes.\"${INPUT}\".original.ref // empty" "$LOCK_FILE")
+
+  LABEL="${INPUT} (${OWNER}/${REPO})"
+  if [[ -n "$REF" ]]; then
+    LABEL="${LABEL} [${REF}]"
+  fi
+  step "$LABEL"
+
+  # Query GitHub for the latest commit on the tracked ref
+  TARGET_REF="${REF:-HEAD}"
+  LATEST_JSON=$(gh api "repos/${OWNER}/${REPO}/commits/${TARGET_REF}" \
+    --jq '{ rev: .sha, date: .commit.committer.date }' 2>/dev/null || echo "")
+
+  if [[ -z "$LATEST_JSON" ]]; then
+    warn "  Could not fetch latest commit (API error or rate limit)"
+    echo ""
+    continue
+  fi
+
+  LATEST_REV=$(echo "$LATEST_JSON" | jq -r '.rev')
+  LATEST_DATE=$(echo "$LATEST_JSON" | jq -r '.date')
+  LOCKED_DATE_FMT=$(format_epoch "$LOCKED_EPOCH")
+
+  if [[ "$LOCKED_REV" == "$LATEST_REV" ]]; then
+    info "  Up to date (${LOCKED_REV:0:12}, ${LOCKED_DATE_FMT})"
+  else
+    HAS_UPDATES=true
+    echo -e "  ${YELLOW}Update available${NC}"
+    echo "    Locked:  ${LOCKED_REV:0:12} (${LOCKED_DATE_FMT})"
+    echo "    Latest:  ${LATEST_REV:0:12} (${LATEST_DATE})"
+
+    # Try to get the number of commits between locked and latest
+    BEHIND=$(gh api "repos/${OWNER}/${REPO}/compare/${LOCKED_REV:0:12}...${LATEST_REV:0:12}" \
+      --jq '.ahead_by' 2>/dev/null || echo "")
+    if [[ -n "$BEHIND" && "$BEHIND" != "null" ]]; then
+      echo "    Behind:  ${BEHIND} commit(s)"
+    fi
+
+    echo "    Compare: https://github.com/${OWNER}/${REPO}/compare/${LOCKED_REV:0:12}...${LATEST_REV:0:12}"
+  fi
+  echo ""
+  CHECKED=$((CHECKED + 1))
+done
+
+if [[ $CHECKED -eq 0 ]]; then
+  warn "No inputs matched"
+  exit 1
+fi
+
+# Summary
+echo "---"
+if [[ "$HAS_UPDATES" == "true" ]]; then
+  info "To apply updates:"
+  echo "  nix flake update              # update all inputs"
+  echo "  nix flake update <input>      # update specific input"
+else
+  success "All inputs are up to date"
+fi
