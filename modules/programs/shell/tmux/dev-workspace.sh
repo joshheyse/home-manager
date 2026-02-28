@@ -66,11 +66,11 @@ create_workspace() {
     "zsh -i -c 'eval \"\$(direnv export zsh 2>/dev/null)\" && claude'"
 
   # Terminal pane (bottom-left, 30% height)
-  tmux select-pane -t 0
+  tmux select-pane -t '{left}'
   tmux split-window -v -l 30% -c "$project_dir"
 
   # Focus nvim/main pane
-  tmux select-pane -t 0
+  tmux select-pane -t '{top-left}'
 
   if [[ "$inplace" == "true" ]]; then
     # Signal to wrapper to exec nvim
