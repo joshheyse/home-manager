@@ -48,6 +48,7 @@
     in {
       ssh-agent-switcher = pkgs.callPackage ./pkgs/ssh-agent-switcher {};
       ssh-fzf = pkgs.callPackage ./pkgs/ssh-fzf {};
+      notify = pkgs.callPackage ./pkgs/notify {};
       kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
     });
 

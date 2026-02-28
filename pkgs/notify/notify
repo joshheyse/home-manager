@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# notify - Send desktop notifications via kitty OSC 99 through tmux
+# https://sw.kovidgoyal.net/kitty/desktop-notifications/
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: notify [OPTIONS] [MESSAGE]
+
+Send a desktop notification via kitty OSC 99 escape sequences.
+Works through tmux with allow-passthrough enabled.
+
+Options:
+  -i, --id ID              Notification identifier for updating/closing
+                            (default: "notify")
+  -p, --payload TYPE       Payload type: title, body (default: body)
+  -t, --title TITLE        Set notification title (sends a title+body pair)
+  -e, --encoding ENC       0 = UTF-8 (default), 1 = base64
+  -f, --urgency LEVEL      0 = low, 1 = normal (default), 2 = critical
+  -a, --action ACTION      Click action (comma-separated): focus, report, -focus
+                            e.g. -a focus,report (focus window AND notify app)
+                            Default: focus
+  -o, --only-if WHEN       always (default), unfocused
+  -c, --close-report       Enable close event reporting (c=1)
+  -C, --close              Close an existing notification (requires --id)
+  -T, --no-tmux            Send raw OSC 99 without tmux DCS passthrough
+
+  -h, --help               Show this help
+
+Examples:
+  notify "Build complete"
+  notify -t "Claude Code" "Needs your input"
+  notify -t "Claude Code" -f 2 -o unfocused "Permission required"
+  notify -C -i mynotif                          # close a notification
+  notify -T "Hello"                             # outside tmux
+EOF
+    exit 0
+}
+
+# Defaults
+id="notify"
+title=""
+body=""
+encoding=""
+urgency=""
+action=""
+only_if=""
+close_report=""
+close_mode=""
+use_tmux=1
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i|--id)            id="$2"; shift 2 ;;
+        -p|--payload)       shift 2 ;; # handled implicitly via title/body
+        -t|--title)         title="$2"; shift 2 ;;
+        -e|--encoding)      encoding="$2"; shift 2 ;;
+        -f|--urgency)       urgency="$2"; shift 2 ;;
+        -a|--action)        action="$2"; shift 2 ;;
+        -o|--only-if)       only_if="$2"; shift 2 ;;
+        -c|--close-report)  close_report=1; shift ;;
+        -C|--close)         close_mode=1; shift ;;
+        -T|--no-tmux)       use_tmux=0; shift ;;
+        -h|--help)          usage ;;
+        --)                 shift; body="$*"; break ;;
+        -*)                 echo "Unknown option: $1" >&2; exit 1 ;;
+        *)                  body="$*"; break ;;
+    esac
+done
+
+# Validation
+die() { echo "Error: $1" >&2; exit 1; }
+
+# id: only [a-zA-Z0-9_-+./,(){}*&^%$#@!`~] allowed
+[[ "$id" =~ ^[a-zA-Z0-9_.+,/\(\)\{\}\[\}\*\&\^\%\$\#\@!\`~-]+$ ]] \
+    || die "invalid --id '${id}': must be alphanumeric with limited punctuation"
+
+# encoding: 0 or 1
+[[ -z "$encoding" || "$encoding" =~ ^[01]$ ]] \
+    || die "invalid --encoding '${encoding}': must be 0 (UTF-8) or 1 (base64)"
+
+# urgency: 0, 1, or 2
+[[ -z "$urgency" || "$urgency" =~ ^[012]$ ]] \
+    || die "invalid --urgency '${urgency}': must be 0 (low), 1 (normal), or 2 (critical)"
+
+# action: comma-separated list of focus, report, -focus
+if [[ -n "$action" ]]; then
+    IFS=',' read -ra action_parts <<< "$action"
+    for part in "${action_parts[@]}"; do
+        [[ "$part" =~ ^(-?focus|report)$ ]] \
+            || die "invalid --action '${part}': must be focus, report, or -focus"
+    done
+fi
+
+# only-if: always or unfocused
+[[ -z "$only_if" || "$only_if" =~ ^(always|unfocused)$ ]] \
+    || die "invalid --only-if '${only_if}': must be 'always' or 'unfocused'"
+
+# close mode requires an explicit id
+[[ -z "$close_mode" || "$id" != "notify" ]] \
+    || echo "Warning: --close without explicit --id will close the default 'notify' notification" >&2
+
+# Build metadata string from options
+build_meta() {
+    local meta="i=${id}"
+    local payload_type="${1:-}"
+    local done_flag="${2:-1}"
+
+    meta+=":d=${done_flag}"
+
+    [[ -n "$payload_type" ]] && meta+=":p=${payload_type}"
+    [[ -n "$encoding" ]]     && meta+=":e=${encoding}"
+    [[ -n "$urgency" ]]      && meta+=":f=${urgency}"
+    [[ -n "$action" ]]       && meta+=":a=${action}"
+    [[ -n "$only_if" ]]      && meta+=":o=${only_if}"
+    [[ -n "$close_report" ]] && meta+=":c=1"
+
+    echo "$meta"
+}
+
+# Send a single OSC 99 sequence
+send_osc99() {
+    local meta="$1"
+    local payload="$2"
+
+    if [[ "$use_tmux" -eq 1 ]]; then
+        printf '\ePtmux;\e\e]99;%s;%s\e\e\\\e\\' "$meta" "$payload"
+    else
+        printf '\x1b]99;%s;%s\x1b\\' "$meta" "$payload"
+    fi
+}
+
+# Close mode
+if [[ -n "$close_mode" ]]; then
+    send_osc99 "i=${id}:p=close" ""
+    exit 0
+fi
+
+# Nothing to send
+if [[ -z "$title" && -z "$body" ]]; then
+    echo "Error: no message provided" >&2
+    exit 1
+fi
+
+# Title + body (two-part notification)
+if [[ -n "$title" && -n "$body" ]]; then
+    meta=$(build_meta "title" "0")
+    send_osc99 "$meta" "$title"
+    meta=$(build_meta "body" "1")
+    send_osc99 "$meta" "$body"
+# Title only
+elif [[ -n "$title" ]]; then
+    meta=$(build_meta "title" "1")
+    send_osc99 "$meta" "$title"
+# Body only (simple notification)
+else
+    meta=$(build_meta "" "1")
+    send_osc99 "$meta" "$body"
+fi

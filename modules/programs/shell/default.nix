@@ -21,6 +21,7 @@
     moar
 
     (pkgs.callPackage ../../../pkgs/ssh-fzf {})
+    (pkgs.callPackage ../../../pkgs/notify {})
 
     (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
 
