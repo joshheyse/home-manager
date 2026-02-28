@@ -39,7 +39,7 @@ return {
         -- listchars = { tab = " ", extends = "⟩", precedes = "⟨", trail = "·", eol = "﬋" },
         showbreak = "↪ ",
         exrc = true, -- enable project-local .nvim.lua
-        secur = true, -- prompt before loading untrusted files
+        secure = true, -- prompt before loading untrusted files
       },
       g = { -- vim.g.<key>
         -- configure global vim variables (vim.g)
