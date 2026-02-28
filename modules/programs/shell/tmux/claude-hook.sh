@@ -32,13 +32,13 @@ set_window_icon() {
   window_id=$(tmux display-message -t "$PANE_ID" -p '#{window_id}' 2>/dev/null) || return
   case "$state" in
     permission|question)
-      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#e0af68,blink]✦#[noblink,fg=default] "
+      tmux set-option -w -t "$window_id" @claude_icon " #[fg=#e0af68,blink]󰧑#[noblink,fg=default]"
       ;;
     running)
-      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#9ece6a]✦#[fg=default] "
+      tmux set-option -w -t "$window_id" @claude_icon " #[fg=#9ece6a]󰧑#[fg=default]"
       ;;
     idle)
-      tmux set-option -w -t "$window_id" @claude_icon "#[fg=#565f89]✦#[fg=default] "
+      tmux set-option -w -t "$window_id" @claude_icon " #[fg=#565f89]󰧑#[fg=default]"
       ;;
     *)
       tmux set-option -wu -t "$window_id" @claude_icon 2>/dev/null || true
