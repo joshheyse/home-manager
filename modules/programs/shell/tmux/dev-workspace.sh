@@ -1,4 +1,6 @@
 # shellcheck shell=bash
+# PANE_ICON is injected by the Nix wrapper (default.nix)
+# shellcheck disable=SC2154
 set -euo pipefail
 
 DEV_ROOT="${TMUX_DEV_ROOT:-$HOME/code}"
