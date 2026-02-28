@@ -124,7 +124,7 @@ return {
 
       dap.configurations.cpp = {
         {
-          name = "Launch",
+          name = "Launch (prompt)",
           type = "lldb",
           request = "launch",
           program = function() return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file") end,
@@ -144,6 +144,13 @@ return {
       -- Use same config for C and Rust
       dap.configurations.c = dap.configurations.cpp
       dap.configurations.rust = dap.configurations.cpp
+
+      -- Load project-local .vscode/launch.json if present.
+      -- Configs are appended after the fallback entries above.
+      -- Use "type": "lldb" in launch.json (compatible with VS Code CodeLLDB extension).
+      require("dap.ext.vscode").load_launchjs(nil, {
+        lldb = { "c", "cpp", "rust" },
+      })
     end,
   },
 }
