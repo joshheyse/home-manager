@@ -114,6 +114,7 @@ case "$EVENT" in
     # Block and wait for response from F-key handler
     if response=$(wait_for_response 300); then
       set_state "running"
+      set_window_icon "running"
       case "$response" in
         allow)
           echo '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
@@ -129,6 +130,7 @@ case "$EVENT" in
     else
       # Timeout or pane gone - exit 0 so normal dialog appears
       set_state "running"
+      set_window_icon "running"
       exit 0
     fi
     ;;
@@ -146,9 +148,10 @@ case "$EVENT" in
     ;;
 
   tool-done)
-    # Only update if not already in permission/question state
+    # Only skip if in permission state (permission hook is blocking and handles its own transition).
+    # Question state IS updated here: if a tool ran, the question was already answered.
     current=$(cat "$STATE_FILE" 2>/dev/null || echo "")
-    if [[ "$current" != "permission" && "$current" != "question" ]]; then
+    if [[ "$current" != "permission" ]]; then
       set_state "running"
       set_window_icon "running"
     fi
