@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# Check for available flake input updates without modifying flake.lock
-# Analogous to 'dnf check-update' — shows what would change if you ran 'nix flake update'
+# Check for available updates to flake inputs and custom packages
+# Analogous to 'dnf check-update' — shows what's available without changing anything
 #
 # Usage:
-#   check-updates [--all] [INPUT...]
+#   check-updates [OPTIONS] [NAME...]
 #
 # Options:
-#   --all    Include transitive (indirect) dependencies
+#   --all           Include transitive (indirect) flake dependencies
+#   --inputs-only   Only check flake inputs, skip custom packages
+#   --pkgs-only     Only check custom packages, skip flake inputs
 #
-# If no inputs specified, checks all direct flake inputs.
+# If no names specified, checks all direct flake inputs and custom packages.
 # Examples:
-#   check-updates                  # check direct inputs
-#   check-updates nixpkgs          # check only nixpkgs
+#   check-updates                  # check everything
+#   check-updates nixpkgs          # check only nixpkgs input
 #   check-updates --all            # include transitive deps
+#   check-updates --pkgs-only      # only check pkgs/ packages
 
 set -euo pipefail
 
@@ -25,7 +28,9 @@ LOCK_FILE="${FLAKE_DIR}/flake.lock"
 
 # Parse arguments
 SHOW_ALL=false
-FILTER_INPUTS=()
+INPUTS_ONLY=false
+PKGS_ONLY=false
+FILTER_NAMES=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,20 +38,30 @@ while [[ $# -gt 0 ]]; do
       SHOW_ALL=true
       shift
       ;;
+    --inputs-only)
+      INPUTS_ONLY=true
+      shift
+      ;;
+    --pkgs-only)
+      PKGS_ONLY=true
+      shift
+      ;;
     --help | -h)
-      echo "Usage: check-updates [--all] [INPUT...]"
+      echo "Usage: check-updates [OPTIONS] [NAME...]"
       echo ""
-      echo "Check for available flake input updates without modifying flake.lock."
+      echo "Check for available updates to flake inputs and custom packages."
       echo ""
       echo "Options:"
-      echo "  --all    Include transitive (indirect) dependencies"
-      echo "  -h       Show this help"
+      echo "  --all           Include transitive (indirect) flake dependencies"
+      echo "  --inputs-only   Only check flake inputs, skip custom packages"
+      echo "  --pkgs-only     Only check custom packages, skip flake inputs"
+      echo "  -h              Show this help"
       echo ""
-      echo "If no inputs specified, checks all direct flake inputs."
+      echo "If no names specified, checks all direct flake inputs and custom packages."
       exit 0
       ;;
     *)
-      FILTER_INPUTS+=("$1")
+      FILTER_NAMES+=("$1")
       shift
       ;;
   esac
@@ -87,15 +102,22 @@ is_direct_input() {
 
 matches_filter() {
   local name="$1"
-  if [[ ${#FILTER_INPUTS[@]} -eq 0 ]]; then
+  if [[ ${#FILTER_NAMES[@]} -eq 0 ]]; then
     return 0
   fi
-  for fi_name in "${FILTER_INPUTS[@]}"; do
+  for fi_name in "${FILTER_NAMES[@]}"; do
     if [[ "$fi_name" == "$name" ]]; then
       return 0
     fi
   done
   return 1
+}
+
+# Extract a nix attribute value: extract_nix_attr "owner" < file.nix
+extract_nix_attr() {
+  local attr="$1"
+  local file="$2"
+  grep -oP "${attr}\\s*=\\s*\"\\K[^\"]+" "$file" | head -1
 }
 
 # Format epoch timestamp portably (GNU date -d vs BSD date -r)
@@ -109,9 +131,15 @@ format_epoch() {
 HAS_UPDATES=false
 CHECKED=0
 
+# --- Flake inputs ---
+if [[ "$PKGS_ONLY" != "true" ]]; then
+
+info "Flake inputs"
+echo ""
+
 for INPUT in "${ALL_INPUTS[@]}"; do
   # Filter: skip transitive deps unless --all or explicitly named
-  if [[ ${#FILTER_INPUTS[@]} -eq 0 ]] && [[ "$SHOW_ALL" != "true" ]]; then
+  if [[ ${#FILTER_NAMES[@]} -eq 0 ]] && [[ "$SHOW_ALL" != "true" ]]; then
     if ! is_direct_input "$INPUT"; then
       continue
     fi
@@ -170,17 +198,147 @@ for INPUT in "${ALL_INPUTS[@]}"; do
   CHECKED=$((CHECKED + 1))
 done
 
+fi # end PKGS_ONLY guard
+
+# --- Custom packages in pkgs/ ---
+if [[ "$INPUTS_ONLY" != "true" ]]; then
+
+PKGS_DIR="${FLAKE_DIR}/pkgs"
+
+if [[ -d "$PKGS_DIR" ]]; then
+  info "Custom packages (pkgs/)"
+  echo ""
+
+  # Find all .nix files that use fetchFromGitHub
+  while IFS= read -r NIX_FILE; do
+    PKG_NAME=$(basename "$(dirname "$NIX_FILE")")
+    # For files not in a subdirectory (unlikely), use filename
+    if [[ "$PKG_NAME" == "pkgs" ]]; then
+      PKG_NAME=$(basename "$NIX_FILE" .nix)
+    fi
+
+    if ! matches_filter "$PKG_NAME"; then
+      continue
+    fi
+
+    OWNER=$(extract_nix_attr "owner" "$NIX_FILE")
+    REPO=$(extract_nix_attr "repo" "$NIX_FILE")
+    REV=$(extract_nix_attr "rev" "$NIX_FILE")
+
+    if [[ -z "$OWNER" || -z "$REPO" || -z "$REV" ]]; then
+      continue
+    fi
+
+    VERSION=$(extract_nix_attr "version" "$NIX_FILE")
+    step "${PKG_NAME} (${OWNER}/${REPO}) [${VERSION:-unknown}]"
+
+    # Determine the ref to check: if rev looks like a branch name, use it; otherwise check default branch
+    if [[ "$REV" =~ ^[0-9a-f]{7,40}$ ]]; then
+      # Rev is a commit hash — check the default branch for newer commits
+      TARGET_REF="HEAD"
+    else
+      # Rev is a branch/tag name (e.g., "main")
+      TARGET_REF="$REV"
+    fi
+
+    LATEST_JSON=$(gh api "repos/${OWNER}/${REPO}/commits/${TARGET_REF}" \
+      --jq '{ rev: .sha, date: .commit.committer.date }' 2>/dev/null || echo "")
+
+    if [[ -z "$LATEST_JSON" ]]; then
+      warn "  Could not fetch latest commit (API error or rate limit)"
+      echo ""
+      continue
+    fi
+
+    LATEST_REV=$(echo "$LATEST_JSON" | jq -r '.rev')
+    LATEST_DATE=$(echo "$LATEST_JSON" | jq -r '.date')
+
+    # For branch-pinned packages, the rev in the nix file is the branch name, not a hash.
+    # Compare the locked hash (from sha256/hash attr) indirectly — if latest commit differs, there may be updates.
+    if [[ "$REV" =~ ^[0-9a-f]{7,40}$ ]]; then
+      # Commit-pinned: direct comparison
+      if [[ "${LATEST_REV}" == "${REV}"* || "${REV}" == "${LATEST_REV}"* ]]; then
+        info "  Up to date (${REV:0:12})"
+      else
+        HAS_UPDATES=true
+        echo -e "  ${YELLOW}Update available${NC}"
+        echo "    Pinned:  ${REV:0:12}"
+        echo "    Latest:  ${LATEST_REV:0:12} (${LATEST_DATE})"
+
+        BEHIND=$(gh api "repos/${OWNER}/${REPO}/compare/${REV:0:12}...${LATEST_REV:0:12}" \
+          --jq '.ahead_by' 2>/dev/null || echo "")
+        if [[ -n "$BEHIND" && "$BEHIND" != "null" ]]; then
+          echo "    Behind:  ${BEHIND} commit(s)"
+        fi
+
+        echo "    Compare: https://github.com/${OWNER}/${REPO}/compare/${REV:0:12}...${LATEST_REV:0:12}"
+        echo "    File:    ${NIX_FILE#"${FLAKE_DIR}/"}"
+      fi
+    else
+      # Branch-pinned: can't compare hashes, just show latest commit info
+      echo -e "  ${YELLOW}Pinned to branch '${REV}' — cannot diff without rebuilding${NC}"
+      echo "    Latest commit: ${LATEST_REV:0:12} (${LATEST_DATE})"
+      echo "    File:          ${NIX_FILE#"${FLAKE_DIR}/"}"
+    fi
+    echo ""
+    CHECKED=$((CHECKED + 1))
+  done < <(grep -rl "fetchFromGitHub" "${PKGS_DIR}" --include="*.nix")
+
+  # Find all .nix files that use fetchPypi
+  while IFS= read -r NIX_FILE; do
+    PKG_NAME=$(extract_nix_attr "pname" "$NIX_FILE")
+    if [[ -z "$PKG_NAME" ]]; then
+      continue
+    fi
+
+    if ! matches_filter "$PKG_NAME"; then
+      continue
+    fi
+
+    CURRENT_VERSION=$(extract_nix_attr "version" "$NIX_FILE")
+    if [[ -z "$CURRENT_VERSION" ]]; then
+      continue
+    fi
+
+    step "${PKG_NAME} (PyPI) [${CURRENT_VERSION}]"
+
+    LATEST_VERSION=$(curl -sf "https://pypi.org/pypi/${PKG_NAME}/json" | jq -r '.info.version' 2>/dev/null || echo "")
+
+    if [[ -z "$LATEST_VERSION" ]]; then
+      warn "  Could not fetch from PyPI"
+      echo ""
+      continue
+    fi
+
+    if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
+      info "  Up to date (${CURRENT_VERSION})"
+    else
+      HAS_UPDATES=true
+      echo -e "  ${YELLOW}Update available${NC}"
+      echo "    Pinned:  ${CURRENT_VERSION}"
+      echo "    Latest:  ${LATEST_VERSION}"
+      echo "    PyPI:    https://pypi.org/project/${PKG_NAME}/"
+      echo "    File:    ${NIX_FILE#"${FLAKE_DIR}/"}"
+    fi
+    echo ""
+    CHECKED=$((CHECKED + 1))
+  done < <(grep -rl "fetchPypi" "${PKGS_DIR}" --include="*.nix")
+fi
+
+fi # end INPUTS_ONLY guard
+
 if [[ $CHECKED -eq 0 ]]; then
-  warn "No inputs matched"
+  warn "No items matched"
   exit 1
 fi
 
 # Summary
 echo "---"
 if [[ "$HAS_UPDATES" == "true" ]]; then
-  info "To apply updates:"
-  echo "  nix flake update              # update all inputs"
-  echo "  nix flake update <input>      # update specific input"
+  info "Updates available. To apply:"
+  echo "  nix flake update              # update flake inputs"
+  echo "  nix flake update <input>      # update specific flake input"
+  echo "  # For custom packages, update rev/version/hash in the .nix file"
 else
-  success "All inputs are up to date"
+  success "Everything is up to date"
 fi
