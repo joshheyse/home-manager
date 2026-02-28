@@ -21,8 +21,8 @@ return {
     lualine_bold = true, -- When `true`, section headers in the lualine theme will be bold|
     on_highlights = function(hl, c)
       hl.WinSeparator = { fg = c.blue, bold = true }
-      -- Dim inactive windows with a semi-transparent dark background
-      hl.NormalNC = { bg = "#1a1b2e" }
+      -- Dim inactive pane text (fg only, preserving transparency)
+      hl.NormalNC = { fg = c.dark5 }
     end,
   },
   config = function(_, opts)
