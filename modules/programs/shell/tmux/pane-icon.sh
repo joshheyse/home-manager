@@ -1,25 +1,47 @@
 # shellcheck shell=bash
-# Resolve a window icon based on @window_type (explicit) or pane_current_command (auto-detect).
-# Usage: pane-icon.sh <window_id>
-# Prints the appropriate Nerd Font icon for the given window.
+# Tmux window type and icon manager.
+# Centralizes the mapping between window types and Nerd Font icons.
+#
+# Usage:
+#   pane-icon.sh set <type> [window_id]   - Set @window_type and @pane_icon
+#   pane-icon.sh get [window_id]          - Print current @window_type
+#   pane-icon.sh icon [type]              - Print icon character for a type
 
-window_id="${1:-}"
-if [[ -z "$window_id" ]]; then
-  echo ""
-  exit 0
-fi
+# Icon characters (Nerd Font codepoints)
+# ssh:     󰣀  U+F08C0  nf-md-ssh
+# dev:     󰅩  U+F0169  nf-md-code_braces  (U+F0205)
+# monitor: 󰓅  U+F04C5  nf-md-speedometer
+# default:   U+E795   nf-dev-terminal
 
-# Prefer explicit window type if set
-window_type=$(tmux show-window-option -t "$window_id" -v @window_type 2>/dev/null) || true
+icon_for_type() {
+  case "$1" in
+    ssh) printf '\U000f08c0' ;;
+    dev) printf '\U000f0205' ;;
+    monitor) printf '\U000f04c5' ;;
+    *) printf '\ue795' ;;
+  esac
+}
 
-if [[ -z "$window_type" ]]; then
-  # Auto-detect from the active pane's command
-  window_type=$(tmux display-message -t "$window_id" -p '#{pane_current_command}')
-fi
-
-case "$window_type" in
-  ssh) echo "󰣀" ;;       # nf-md-ssh
-  dev) echo "" ;;       # nf-dev-code
-  btop | btm | htop | top) echo "󰄪" ;; # nf-md-chart_line
-  *) echo "" ;;         # nf-dev-terminal (default)
+case "${1:-}" in
+  set)
+    type="${2:?Usage: pane-icon.sh set <type> [window_id]}"
+    window_target="${3:-}"
+    icon=$(icon_for_type "$type")
+    # shellcheck disable=SC2086
+    tmux set-window-option ${window_target:+-t "$window_target"} @window_type "$type"
+    # shellcheck disable=SC2086
+    tmux set-window-option ${window_target:+-t "$window_target"} @pane_icon "$icon"
+    ;;
+  get)
+    window_target="${2:-}"
+    # shellcheck disable=SC2086
+    tmux show-window-option ${window_target:+-t "$window_target"} -v @window_type 2>/dev/null || true
+    ;;
+  icon)
+    icon_for_type "${2:-}"
+    ;;
+  *)
+    echo "Usage: pane-icon.sh {set|get|icon} [args...]" >&2
+    exit 1
+    ;;
 esac

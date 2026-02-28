@@ -1,15 +1,15 @@
 # shellcheck shell=bash
-# Get the current window name
-window_name=$(tmux display-message -p '#{window_name}')
+# Query the window type to determine split behavior
+window_type=$(tmux show-window-option -v @window_type 2>/dev/null) || true
 
-# Check if we're in an ssh: window
-if [[ "$window_name" =~ ^ssh:\ (.+)$ ]]; then
-  # Extract the hostname (everything after "ssh: ")
-  host="${BASH_REMATCH[1]}"
-
-  # Split with SSH to the same host, passing through split args
-  tmux split-window "$@" -c "#{pane_current_path}" "ssh $host"
+if [[ "$window_type" == "ssh" ]]; then
+  # SSH window: split and connect to the same host
+  host=$(tmux show-window-option -v @ssh_host 2>/dev/null) || true
+  if [[ -n "$host" ]]; then
+    tmux split-window "$@" -c "#{pane_current_path}" "ssh $host"
+  else
+    tmux split-window "$@" -c "#{pane_current_path}"
+  fi
 else
-  # Normal split for non-SSH windows
   tmux split-window "$@" -c "#{pane_current_path}"
 fi

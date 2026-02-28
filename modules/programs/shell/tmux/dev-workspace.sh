@@ -31,12 +31,12 @@ create_workspace() {
   local allow_inplace="${2:-false}"
   local project_name window_name
   project_name=$(basename "$project_dir")
-  window_name="dev: $project_name"
+  window_name="$project_name"
 
-  # Check if workspace already exists
+  # Check if workspace already exists (match by @window_type + window name)
   local existing_window
-  existing_window=$(tmux list-windows -F '#{window_index}:#{window_name}' 2>/dev/null \
-    | grep -F "$window_name" \
+  existing_window=$(tmux list-windows -F '#{window_index}:#{@window_type}:#{window_name}' 2>/dev/null \
+    | grep -F ":dev:${project_name}" \
     | head -1 \
     | cut -d: -f1) || true
 
@@ -60,6 +60,9 @@ create_workspace() {
     tmux new-window -n "$window_name" -c "$project_dir" \
       "zsh -i -c 'eval \"\$(direnv export zsh 2>/dev/null)\" && nvim'"
   fi
+
+  # Tag window as dev type for icon display and script queries
+  "$PANE_ICON" set dev
 
   # Claude pane (right, 40% width, full height)
   tmux split-window -h -l 40% -c "$project_dir" \
@@ -88,7 +91,7 @@ if [[ "${1:-}" == "--pick" ]]; then
       if [[ -n "$dir" && -d "$dir" ]]; then
         local name
         name=$(basename "$dir")
-        if tmux list-windows -F '#{window_name}' 2>/dev/null | grep -qF "dev: $name"; then
+        if tmux list-windows -F '#{@window_type}:#{window_name}' 2>/dev/null | grep -qF "dev:$name"; then
           echo "* $dir"
         else
           echo "  $dir"
@@ -103,7 +106,7 @@ if [[ "${1:-}" == "--pick" ]]; then
         if [[ -d "$dir" && -z "${seen[$dir]:-}" ]]; then
           local name
           name=$(basename "$dir")
-          if tmux list-windows -F '#{window_name}' 2>/dev/null | grep -qF "dev: $name"; then
+          if tmux list-windows -F '#{@window_type}:#{window_name}' 2>/dev/null | grep -qF "dev:$name"; then
             echo "* $dir"
           else
             echo "  $dir"

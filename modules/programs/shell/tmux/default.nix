@@ -3,10 +3,23 @@
   lib,
   ...
 }: let
+  # Window type icon system
+  paneIconScript = pkgs.writeShellScript "tmux-pane-icon" (builtins.readFile ./pane-icon.sh);
+  iconSetupScript = pkgs.writeShellScript "tmux-icon-setup" ''
+    export PATH="${lib.makeBinPath [pkgs.tmux pkgs.gawk]}:$PATH"
+    ${builtins.readFile ./icon-setup.sh}
+  '';
+
   claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
-  sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" (builtins.readFile ./ssh-fzf.sh);
-  devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" (builtins.readFile ./dev-workspace.sh);
+  sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
+    export PANE_ICON="${paneIconScript}"
+    ${builtins.readFile ./ssh-fzf.sh}
+  '';
+  devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
+    export PANE_ICON="${paneIconScript}"
+    ${builtins.readFile ./dev-workspace.sh}
+  '';
 
   # Claude Code tmux integration scripts
   notifyPkg = pkgs.callPackage ../../../../pkgs/notify {};
@@ -266,7 +279,11 @@ in {
         bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
         bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
 
-        # Claude Code integration: inject icon into window tab (runs after tokyo-night theme sets formats)
+        # Window type icons: replace theme's SSH-only conditional with expanded icon set
+        # (runs after tokyo-night theme sets formats)
+        run-shell '${iconSetupScript}'
+
+        # Claude Code integration: inject icon into window tab
         run-shell '${claudeSetupScript}'
 
         # Faster status refresh for Claude icon responsiveness
