@@ -107,6 +107,16 @@ return {
     ft = { "c", "cpp", "objc", "objcpp", "cuda", "proto" },
     opts = {},
   },
+  -- Register GTest adapter for neotest (discovers individual TEST/TEST_F macros)
+  {
+    "nvim-neotest/neotest",
+    optional = true,
+    dependencies = { "alfaix/neotest-gtest" },
+    opts = function(_, opts)
+      if not opts.adapters then opts.adapters = {} end
+      table.insert(opts.adapters, require "neotest-gtest")
+    end,
+  },
   -- Configure nvim-dap to use lldb-dap from PATH
   {
     "mfussenegger/nvim-dap",
