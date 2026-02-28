@@ -13,6 +13,7 @@
       fd
       gcc
       gnumake
+      ghostscript
       (imagemagick.override {ghostscriptSupport = true;})
       luajitPackages.luarocks
       poppler_utils
