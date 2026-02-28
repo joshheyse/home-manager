@@ -37,9 +37,9 @@ return {
         linebreak = true, -- linebreak soft wrap at words
         list = true, -- show whitespace characters
         -- listchars = { tab = " ", extends = "⟩", precedes = "⟨", trail = "·", eol = "﬋" },
-        showbreak = "﬌ ",
+        showbreak = "↪ ",
         exrc = true, -- enable project-local .nvim.lua
-        secure = true, -- prompt before loading untrusted files
+        secur = true, -- prompt before loading untrusted files
       },
       g = { -- vim.g.<key>
         -- configure global vim variables (vim.g)

@@ -17,8 +17,13 @@ return {
       floats = "transparent", -- style for sidebars, see below
     },
     hide_inactive_statusline = false, -- Enabling this option, will hide inactive statuslines and replace them with a thin border instead. Should work with the standard **StatusLine** and **LuaLine**. |
-    dim_inactive = true, -- dims inactive windows
+    dim_inactive = false,
     lualine_bold = true, -- When `true`, section headers in the lualine theme will be bold|
+    on_highlights = function(hl, c)
+      hl.WinSeparator = { fg = c.blue, bold = true }
+      -- Dim inactive windows with a semi-transparent dark background
+      hl.NormalNC = { bg = "#1a1b2e" }
+    end,
   },
   config = function(_, opts)
     local tokyonight = require "tokyonight"
