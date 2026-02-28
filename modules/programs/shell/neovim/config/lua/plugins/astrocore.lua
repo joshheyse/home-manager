@@ -54,6 +54,12 @@ return {
       n = {
         -- second key is the lefthand side of the map
 
+        -- window splits
+        ["<Leader>\\"] = { "<cmd>vsplit<cr>", desc = "Vertical split" },
+        ["<Leader>-"] = { "<cmd>split<cr>", desc = "Horizontal split" },
+        ["<Leader>|"] = { "<cmd>botright vsplit<cr>", desc = "Vertical split (outer)" },
+        ["<Leader>_"] = { "<cmd>botright split<cr>", desc = "Horizontal split (outer)" },
+
         -- navigate buffer tabs
         ["]b"] = {
           function() require("astrocore.buffer").nav(vim.v.count1) end,
