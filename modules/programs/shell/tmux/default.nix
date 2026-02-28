@@ -6,8 +6,19 @@
   # Window type icon system
   paneIconScript = pkgs.writeShellScript "tmux-pane-icon" (builtins.readFile ./pane-icon.sh);
   iconSetupScript = pkgs.writeShellScript "tmux-icon-setup" ''
-    export PATH="${lib.makeBinPath [pkgs.tmux pkgs.gawk]}:$PATH"
+    export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
     ${builtins.readFile ./icon-setup.sh}
+  '';
+
+  netspeedScript = pkgs.writeShellScript "tmux-netspeed" ''
+    export PATH="${lib.makeBinPath [pkgs.tmux pkgs.bc]}:$PATH"
+    ${builtins.readFile ./netspeed.sh}
+  '';
+  netspeedSetupScript = pkgs.writeShellScript "tmux-netspeed-setup" ''
+    # Swap the theme's netspeed.sh with our fixed-width version in status-right
+    current=$(${pkgs.tmux}/bin/tmux show -gv status-right 2>/dev/null) || exit 0
+    updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed "s|#([^)]*netspeed\.sh)|#(${netspeedScript})|g")
+    ${pkgs.tmux}/bin/tmux set -g status-right "$updated"
   '';
 
   claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
@@ -279,11 +290,11 @@ in {
         bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
         bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
 
-        # Window type icons: replace theme's SSH-only conditional with expanded icon set
-        # (runs after tokyo-night theme sets formats)
+        # Post-theme customizations (runs after tokyo-night theme sets formats)
         run-shell '${iconSetupScript}'
+        run-shell '${netspeedSetupScript}'
 
-        # Claude Code integration: inject icon into window tab
+        # Claude Code integration: inject icon into window tab (no-op if already present)
         run-shell '${claudeSetupScript}'
 
         # Faster status refresh for Claude icon responsiveness
