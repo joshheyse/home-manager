@@ -1,11 +1,10 @@
 -- C/C++ Development Configuration
 --
--- Uses clangd, compiler, and lldb-dap from PATH (Nix, Homebrew, system, etc.)
+-- Uses clangd and compiler from PATH (Nix, Homebrew, system, etc.)
 -- No Mason dependencies - all tools come from the system/Nix shell.
+-- DAP (debugger) configuration is in dap.lua.
 
--- Check if tools are available in PATH
 local has_clangd = vim.fn.exepath "clangd" ~= ""
-local has_lldb_dap = vim.fn.exepath "lldb-dap" ~= ""
 
 -- Find compiler path for --query-driver (prefer clang++ over g++)
 local function get_compiler_path()
@@ -107,82 +106,20 @@ return {
     ft = { "c", "cpp", "objc", "objcpp", "cuda", "proto" },
     opts = {},
   },
-  -- Register GTest adapter for neotest (discovers individual TEST/TEST_F macros)
+  -- Register C++ test adapters for neotest.
+  -- neotest-gtest: discovers individual TEST/TEST_F macros (GTest).
+  -- neotest-ctest: discovers all CTest targets (Catch2, doctest, and any other CMake-registered tests).
   {
     "nvim-neotest/neotest",
     optional = true,
-    dependencies = { "alfaix/neotest-gtest" },
+    dependencies = {
+      "alfaix/neotest-gtest",
+      "orjangj/neotest-ctest",
+    },
     opts = function(_, opts)
       if not opts.adapters then opts.adapters = {} end
       table.insert(opts.adapters, require "neotest-gtest")
-    end,
-  },
-  -- Configure nvim-dap to use lldb-dap from PATH
-  {
-    "mfussenegger/nvim-dap",
-    optional = true,
-    dependencies = {
-      "stevearc/overseer.nvim",
-      {
-        "AstroNvim/astrocore",
-        opts = {
-          mappings = {
-            n = {
-              ["<F5>"] = { function() require("dap").continue() end, desc = "Debugger: Continue" },
-              ["<S-F5>"] = { function() require("dap").terminate() end, desc = "Debugger: Stop" },
-              ["<F9>"] = { function() require("dap").toggle_breakpoint() end, desc = "Debugger: Toggle breakpoint" },
-              ["<F10>"] = { function() require("dap").step_over() end, desc = "Debugger: Step over" },
-              ["<F11>"] = { function() require("dap").step_into() end, desc = "Debugger: Step into" },
-              ["<S-F11>"] = { function() require("dap").step_out() end, desc = "Debugger: Step out" },
-            },
-          },
-        },
-      },
-    },
-    config = function()
-      if not has_lldb_dap then return end
-
-      local dap = require "dap"
-
-      dap.adapters.lldb = {
-        type = "executable",
-        command = "lldb-dap",
-        name = "lldb",
-      }
-
-      dap.configurations.cpp = {
-        {
-          name = "Launch (prompt)",
-          type = "lldb",
-          request = "launch",
-          program = function() return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file") end,
-          cwd = "${workspaceFolder}",
-          stopOnEntry = false,
-          args = {},
-        },
-        {
-          name = "Attach to process",
-          type = "lldb",
-          request = "attach",
-          pid = require("dap.utils").pick_process,
-          args = {},
-        },
-      }
-
-      -- Use same config for C and Rust
-      dap.configurations.c = dap.configurations.cpp
-      dap.configurations.rust = dap.configurations.cpp
-
-      -- Enable preLaunchTask support from launch.json via overseer.
-      -- Must be called before load_launchjs.
-      require("overseer").patch_dap(true)
-
-      -- Load project-local .vscode/launch.json if present.
-      -- Configs are appended after the fallback entries above.
-      -- Use "type": "lldb" in launch.json (compatible with VS Code CodeLLDB extension).
-      require("dap.ext.vscode").load_launchjs(nil, {
-        lldb = { "c", "cpp", "rust" },
-      })
+      table.insert(opts.adapters, require "neotest-ctest")
     end,
   },
 }
