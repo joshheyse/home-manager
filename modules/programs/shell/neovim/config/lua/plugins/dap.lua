@@ -59,11 +59,9 @@ return {
         dap.configurations.rust = dap.configurations.cpp
       end
 
-      -- Enable preLaunchTask / postDebugTask support via overseer.
-      -- Must be called before load_launchjs.
-      require("overseer").patch_dap(true)
-
       -- Load project-local .vscode/launch.json if present.
+      -- overseer.nvim enables preLaunchTask / postDebugTask support
+      -- automatically via its setup() call (dap = true by default).
       -- Maps VS Code debug adapter types to neovim filetypes so configs
       -- are available for the correct buffers. Adapters not installed are
       -- silently skipped.
