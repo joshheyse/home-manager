@@ -8,6 +8,7 @@
     ./bat.nix
     ./bottom.nix
     ./btop.nix
+    ./claude-code
     ./direnv.nix
     ./eza.nix
     ./fd.nix

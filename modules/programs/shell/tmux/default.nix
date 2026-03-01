@@ -338,7 +338,6 @@ in {
       '')
     ];
 
-    # Claude Code settings with hooks for tmux integration
     file.".claude/settings.json".text = claudeSettings;
 
     sessionVariables = {
