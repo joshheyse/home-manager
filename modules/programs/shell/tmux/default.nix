@@ -246,6 +246,9 @@ in {
         set -g extended-keys on
         set -as terminal-features 'xterm*:extkeys'
 
+        # Forward Shift+Enter to applications (tmux eats it otherwise)
+        bind-key -N "Shift+Enter newline" -n S-Enter send-keys Escape "[13;2u"
+
         # Unbind keys
         unbind-key "}"
         unbind-key "v"
