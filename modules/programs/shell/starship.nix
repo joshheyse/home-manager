@@ -49,7 +49,6 @@
         symbol = " ";
       };
       git_status = {
-        ignore_timeout = true;
         ahead = "⇡$count";
         behind = "⇣$count";
         conflicted = "=$count";
