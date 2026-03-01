@@ -27,6 +27,8 @@
         then "cmd"
         else "super"
       }+enter" = "toggle_fullscreen";
+      # Send CSI u sequence for Shift+Enter (ensures it works through tmux)
+      "shift+enter" = "send_text all \\x1b[13;2u";
     };
   };
 }

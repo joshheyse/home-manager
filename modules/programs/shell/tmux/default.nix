@@ -246,6 +246,13 @@ in {
         set -g extended-keys always
         set -as terminal-features 'xterm*:extkeys'
 
+        # Forward Shift+Enter (CSI u) to inner applications.
+        # tmux extended-keys uses modifyOtherKeys which excludes Enter/Tab/Backspace,
+        # so Kitty's send_text provides the CSI u sequence and user-keys forwards it.
+        # send-keys writes to the pane pty, not tmux input, so no loop occurs.
+        set -s user-keys[0] "\e[13;2u"
+        bind-key -n User0 send-keys "\e[13;2u"
+
         # Unbind keys
         unbind-key "}"
         unbind-key "v"

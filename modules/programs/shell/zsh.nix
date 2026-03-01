@@ -85,6 +85,11 @@
           source <(fzf --zsh)
         source ~/.config/zsh/functions.zsh
 
+        # Use kitten ssh for proper terminal/keyboard protocol propagation
+        if [[ "$TERM_PROGRAM" == "kitty" ]]; then
+          alias ssh="kitten ssh"
+        fi
+
         export DIRENV_LOG_FORMAT=""
 
         setopt nolistbeep
