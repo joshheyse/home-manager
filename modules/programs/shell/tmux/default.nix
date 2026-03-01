@@ -242,12 +242,9 @@ in {
         set -ga update-environment TERM
         set -ga update-environment TERM_PROGRAM
 
-        # Enable extended keys (CSI u / kitty keyboard protocol) for proper F-key support
-        set -g extended-keys on
+        # Enable extended keys (CSI u) - 'always' sends CSI u to apps without requiring opt-in
+        set -g extended-keys always
         set -as terminal-features 'xterm*:extkeys'
-
-        # Forward Shift+Enter to applications (tmux eats it otherwise)
-        bind-key -N "Shift+Enter newline" -n S-Enter send-keys Escape "[13;2u"
 
         # Unbind keys
         unbind-key "}"
