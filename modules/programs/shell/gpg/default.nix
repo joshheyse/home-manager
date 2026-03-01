@@ -29,6 +29,11 @@ in {
   };
 
   home = {
+    # Use GPG agent for SSH (YubiKey support)
+    sessionVariables = {
+      SSH_AUTH_SOCK = "$HOME/.gnupg/S.gpg-agent.ssh";
+    };
+
     # Configure SSH authentication via GPG
     file.".gnupg/sshcontrol".text = ''
       # Authentication subkey keygrip for SSH

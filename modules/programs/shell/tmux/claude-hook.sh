@@ -148,10 +148,10 @@ case "$EVENT" in
     ;;
 
   tool-done)
-    # Only skip if in permission state (permission hook is blocking and handles its own transition).
-    # Question state IS updated here: if a tool ran, the question was already answered.
+    # Only transition to running from active states (question/running).
+    # Skip if idle (late PostToolUse after Stop) or permission (blocking handler).
     current=$(cat "$STATE_FILE" 2>/dev/null || echo "")
-    if [[ "$current" != "permission" ]]; then
+    if [[ "$current" == "running" || "$current" == "question" ]]; then
       set_state "running"
       set_window_icon "running"
     fi

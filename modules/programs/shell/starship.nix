@@ -33,7 +33,7 @@
         "$character"
       ];
       add_newline = false;
-      command_timeout = 1000;
+      command_timeout = 500;
       line_break = {
         disabled = false;
       };
@@ -49,6 +49,7 @@
         symbol = " ";
       };
       git_status = {
+        ignore_timeout = true;
         ahead = "⇡$count";
         behind = "⇣$count";
         conflicted = "=$count";

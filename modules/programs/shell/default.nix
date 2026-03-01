@@ -1,4 +1,9 @@
 {pkgs, ...}: {
+  home.sessionVariables = {
+    PAGER = "moar";
+    MANPAGER = "moar";
+  };
+
   imports = [
     ./bat.nix
     ./bottom.nix
@@ -31,6 +36,8 @@
     pandoc
     hexyl
     lesspipe
+    gh
+    glab
 
     claude-code
   ];

@@ -31,7 +31,7 @@ ICON+=",${I_TERM} "
 ICON+="}}}}}}"
 
 # Current (focused) window: green icon on dark bg, bold name
-tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#W#{@claude_icon}#[nobold] "
+tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#I:#W#{@claude_icon} #[nobold] "
 
 # Unfocused window: muted icon, dim name
-tmux set -g window-status-format "${RESET}#[fg=${FG}] ${ICON}${RESET}#W#{@claude_icon}#[nobold,dim] "
+tmux set -g window-status-format "${RESET}#[fg=${FG}] ${ICON}${RESET}#I:#W#{@claude_icon} #[nobold,dim] "

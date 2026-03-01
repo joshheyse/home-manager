@@ -1,4 +1,8 @@
 {pkgs, ...}: {
+  home.sessionVariables = {
+    SHELL = "${pkgs.zsh}/bin/zsh";
+  };
+
   home.file.".config/zsh/functions.zsh".text =
     # bash
     ''

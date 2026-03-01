@@ -47,6 +47,18 @@ return {
         -- This can be found in the `lua/lazy_setup.lua` file
       },
     },
+    -- Autocommands
+    autocmds = {
+      -- TODO: Remove when Claude Code respects $EDITOR/$VISUAL for Ctrl+G (issue #18990)
+      -- Enable word wrap for Claude Code Ctrl+G editor (claude-prompt-*.md in $TMPDIR)
+      claude_prompt_wrap = {
+        {
+          event = "BufReadPost",
+          pattern = "*/claude-prompt-*.md",
+          callback = function() vim.opt_local.wrap = true end,
+        },
+      },
+    },
     -- Mappings can be configured through AstroCore as well.
     -- NOTE: keycodes follow the casing in the vimdocs. For example, `<Leader>` must be capitalized
     mappings = {
