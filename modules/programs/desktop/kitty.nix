@@ -27,7 +27,7 @@
         then "cmd"
         else "super"
       }+enter" = "toggle_fullscreen";
-      # Send CSI u sequence for Shift+Enter (ensures it works through tmux)
+      # Send CSI u for Shift+Enter so tmux can recognize it (Kitty's native protocol isn't understood by tmux)
       "shift+enter" = "send_text all \\x1b[13;2u";
     };
   };

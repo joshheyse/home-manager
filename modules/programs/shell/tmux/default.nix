@@ -246,12 +246,9 @@ in {
         set -g extended-keys always
         set -as terminal-features 'xterm*:extkeys'
 
-        # Forward Shift+Enter (CSI u) to inner applications.
-        # tmux extended-keys uses modifyOtherKeys which excludes Enter/Tab/Backspace,
-        # so Kitty's send_text provides the CSI u sequence and user-keys forwards it.
-        # send-keys writes to the pane pty, not tmux input, so no loop occurs.
-        set -s user-keys[0] "\e[13;2u"
-        bind-key -n User0 send-keys "\e[13;2u"
+        # Send Shift+Enter as CSI u format instead of modifyOtherKeys format.
+        # tmux extended-keys encodes as \e[27;2;13~ but Claude Code expects \e[13;2u.
+        bind-key -n S-Enter send-keys Escape "[13;2u"
 
         # Unbind keys
         unbind-key "}"
@@ -334,7 +331,9 @@ in {
         inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")
         if [[ -n "''${inplace_dir:-}" ]]; then
           cd "$inplace_dir" || exit 1
-          exec zsh -i -c 'eval "$(direnv export zsh 2>/dev/null)" && nvim'
+          eval "$(direnv export zsh 2>/dev/null)"
+          nvim
+          exec zsh -i
         fi
       '')
     ];
