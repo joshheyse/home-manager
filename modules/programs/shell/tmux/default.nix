@@ -29,6 +29,7 @@
   '';
   devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
     export PANE_ICON="${paneIconScript}"
+    export PATH="${lib.makeBinPath [pkgs.git]}:$PATH"
     ${builtins.readFile ./dev-workspace.sh}
   '';
 
