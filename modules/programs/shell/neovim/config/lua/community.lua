@@ -18,5 +18,6 @@ return {
   { import = "astrocommunity.pack.typescript" },
   { import = "astrocommunity.git.blame-nvim" },
   { import = "astrocommunity.media.image-nvim" },
+  { import = "astrocommunity.pack.quarto" },
   { import = "astrocommunity.test.neotest" },
 }

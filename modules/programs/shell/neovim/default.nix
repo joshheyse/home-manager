@@ -15,6 +15,7 @@
       gnumake
       ghostscript
       (imagemagick.override {ghostscriptSupport = true;})
+      jupytext
       luajitPackages.luarocks
       poppler_utils
       python3
@@ -23,6 +24,16 @@
       rustc
       tree-sitter
     ];
+    extraPython3Packages = ps:
+      with ps; [
+        pynvim
+        jupyter-client
+        cairosvg
+        ipython
+        nbformat
+        pyperclip
+      ];
+    extraLuaPackages = ps: [ps.magick];
   };
 
   # Link neovim config files to ~/.config/nvim/
