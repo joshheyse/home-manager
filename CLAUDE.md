@@ -206,30 +206,81 @@ The `scripts/check-all` script handles:
 ./scripts/check-all --check-only path/to/file.nix
 ```
 
-## Custom Packages
+## Where Things Go: modules/ vs pkgs/ vs overlays/
 
-Packages in `/pkgs/` are custom-built utilities. When adding new packages:
+This flake has three top-level directories for code. Each serves a distinct purpose.
 
-1. Create a directory in `/pkgs/` with a `default.nix`
-2. Follow Nix package conventions (meta, src, buildInputs, etc.)
-3. Export the package in `flake.nix` outputs.packages
-4. Test with `nix build .#packageName`
+### `/modules/` — Configuration (How programs behave)
 
-Current packages:
-- **ssh-agent-switcher**: Utility for switching SSH agents
-- **ssh-fzf**: Fuzzy finder for SSH connections
+Modules declare *how programs are configured* for the user. They set options, write dotfiles, define keybindings, install packages into `home.packages`, and wire things together. A module's scope determines its subdirectory:
 
-## Custom Overlays
+| Directory | Scope | Imported on | Examples |
+|-----------|-------|-------------|----------|
+| `modules/programs/shell/` | TUI programs (all systems) | desktop, homelab, mac | zsh, tmux, neovim, git, fzf |
+| `modules/programs/desktop/` | GUI programs (display required) | desktop, mac | kitty, hyprland, yabai, kicad |
+| `modules/services/` | User systemd services | explicitly enabled per-host | ssh-agent-switcher |
+| `modules/base.nix` | Shared base settings | everywhere | stateVersion, home-manager |
 
-Overlays in `/overlays/` modify package definitions. Currently includes:
+**Decision rule:** If the thing you're adding is *configuration for a program or service* — options, dotfiles, keybindings, integration scripts — it goes in a module.
 
-- `claude-code.nix`: Updates claude-code to specific version
+#### Colocated scripts within modules
 
-When creating new overlays:
-1. Create a `.nix` file in `/overlays/`
-2. Follow the existing pattern (final: prev: {...})
-3. Export in `flake.nix` outputs.overlays
-4. Consuming flakes can apply with `nixpkgs.overlays = [ inputs.home-manager.overlays.overlayName ];`
+Scripts that are tightly coupled to a single module live alongside it, not in `/pkgs/`. Use `writeShellScript` or `writeShellApplication` inline in the module's `default.nix` and read the `.sh` file with `builtins.readFile`.
+
+**Examples:**
+- `tmux/claude-toggle.sh`, `tmux/pane-icon.sh`, `tmux/netspeed.sh` — only used by tmux config
+- `claude-code/claude-sandbox.sh` — only meaningful alongside the claude-code module
+
+**When to colocate:** The script is an implementation detail of one module. Nobody else imports it. It wouldn't make sense as a standalone command without the module's configuration.
+
+**Pattern:**
+```nix
+# In the module's default.nix:
+myScript = pkgs.writeShellScript "my-script" ''
+  export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux]}:$PATH"
+  ${builtins.readFile ./my-script.sh}
+'';
+```
+
+### `/pkgs/` — Packages (Standalone, reusable tools)
+
+Packages are *self-contained derivations* that build a binary or script with no opinion about how it's configured. They are exported via `flake.nix` so other flakes can consume them, and can be built independently with `nix build .#packageName`.
+
+**Current packages:**
+- **ssh-agent-switcher** — Rust binary (`buildRustPackage` from GitHub)
+- **ssh-fzf** — Shell script (standalone SSH fuzzy finder)
+- **notify** — Shell script (kitty OSC 99 notifications through tmux)
+- **kicad-parts-manager** — Python app (`buildPythonApplication`)
+- **landrun** — Go binary (`buildGoModule`, Linux Landlock CLI)
+- **kvantum-tokyo-night** — Qt theme files
+
+**Decision rule:** If the thing you're adding is a *standalone tool with its own identity* — it has a name, could be used outside this config, and other flakes might want to import it — it goes in `/pkgs/`.
+
+**When to add a new package:**
+1. Create `/pkgs/<name>/default.nix`
+2. Export in `flake.nix` under `packages`
+3. Reference from modules via `pkgs.callPackage ../../../pkgs/<name> {}`
+4. Test with `nix build .#<name>`
+
+### `/overlays/` — Overlays (Modify existing nixpkgs packages)
+
+Overlays modify or replace packages that already exist in nixpkgs. They change the *package set itself*, not how packages are configured. Use sparingly — overlays affect all consumers of the package set and can invalidate the binary cache.
+
+**Current overlays (in `flake.nix`):**
+- **claude-code** — Re-exports claude-code from the claude-code-nix input
+
+**Decision rule:** If you need to *change the version, patches, or build of an existing nixpkgs package* across the whole system, use an overlay. If you're adding something new, use `/pkgs/` instead.
+
+### Quick reference
+
+| I want to... | Put it in... |
+|---------------|-------------|
+| Configure a program (dotfiles, options, keybindings) | `modules/programs/{shell,desktop}/` |
+| Add a user systemd service | `modules/services/` |
+| Write a helper script for one module | Colocate as `.sh` in the module directory |
+| Package a standalone tool or upstream project | `pkgs/` |
+| Override a nixpkgs package version/build | `overlays/` |
+| Add a command that's useful across modules | `pkgs/` (then reference from modules) |
 
 ## Security
 

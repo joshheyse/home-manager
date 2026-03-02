@@ -45,12 +45,16 @@
         inherit system;
         config.allowUnfree = true;
       };
-    in {
-      ssh-agent-switcher = pkgs.callPackage ./pkgs/ssh-agent-switcher {};
-      ssh-fzf = pkgs.callPackage ./pkgs/ssh-fzf {};
-      notify = pkgs.callPackage ./pkgs/notify {};
-      kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
-    });
+    in
+      {
+        ssh-agent-switcher = pkgs.callPackage ./pkgs/ssh-agent-switcher {};
+        ssh-fzf = pkgs.callPackage ./pkgs/ssh-fzf {};
+        notify = pkgs.callPackage ./pkgs/notify {};
+        kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
+      }
+      // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+        landrun = pkgs.callPackage ./pkgs/landrun {};
+      });
 
     # Overlays
     overlays = {
