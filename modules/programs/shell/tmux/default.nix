@@ -243,12 +243,14 @@ in {
         set -ga update-environment TERM
         set -ga update-environment TERM_PROGRAM
 
-        # Enable extended keys (CSI u) - 'always' sends CSI u to apps without requiring opt-in
-        set -g extended-keys always
+        # Enable extended keys (CSI u) - 'on' lets apps opt-in via XTMODKEYS.
+        # Using 'always' would re-encode ALL modified keys (breaking Shift+Tab etc).
+        set -g extended-keys on
         set -as terminal-features 'xterm*:extkeys'
 
-        # Send Shift+Enter as CSI u format instead of modifyOtherKeys format.
-        # tmux extended-keys encodes as \e[27;2;13~ but Claude Code expects \e[13;2u.
+        # Forward Shift+Enter as CSI u format to applications.
+        # Kitty sends \e[13;2u via its keybinding, tmux recognizes it as S-Enter
+        # and we forward it in the same CSI u format that Claude Code expects.
         bind-key -n S-Enter send-keys Escape "[13;2u"
 
         # Unbind keys
