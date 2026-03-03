@@ -20,6 +20,7 @@
       confirm_os_window_close = "0";
       background_opacity = "0.9";
       text_blink_duration = "0.5";
+      clipboard_control = "write-clipboard write-primary read-clipboard read-primary";
     };
     keybindings = {
       "${
