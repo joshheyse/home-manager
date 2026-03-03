@@ -15,14 +15,17 @@ local function log_to_file(msg, level)
   end
 end
 
+local wrapped = {}
+
 local function wrap_notify()
   local current = vim.notify
-  if current._notify_logged then return end
-  vim.notify = function(msg, level, opts)
+  if wrapped[current] then return end
+  local wrapper = function(msg, level, opts)
     log_to_file(msg, level)
     return current(msg, level, opts)
   end
-  vim.notify._notify_logged = true
+  wrapped[wrapper] = true
+  vim.notify = wrapper
 end
 
 -- Wrap immediately for early startup notifications
