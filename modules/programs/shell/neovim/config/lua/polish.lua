@@ -1,5 +1,7 @@
 -- Persistent notification log
 -- Writes all vim.notify calls to ~/.local/state/nvim/notifications.log
+-- Hooks into Snacks.notifier.notify rather than replacing vim.notify,
+-- so noice.nvim and snacks.nvim keep working normally.
 local log_path = vim.fn.stdpath "state" .. "/notifications.log"
 vim.fn.mkdir(vim.fn.fnamemodify(log_path, ":h"), "p")
 
@@ -15,25 +17,19 @@ local function log_to_file(msg, level)
   end
 end
 
-local wrapped = {}
-
-local function wrap_notify()
-  local current = vim.notify
-  if wrapped[current] then return end
-  local wrapper = function(msg, level, opts)
-    log_to_file(msg, level)
-    return current(msg, level, opts)
-  end
-  wrapped[wrapper] = true
-  vim.notify = wrapper
-end
-
--- Wrap immediately for early startup notifications
-wrap_notify()
-
--- Re-wrap after VeryLazy so we sit on top of noice.nvim's replacement
 vim.api.nvim_create_autocmd("User", {
   pattern = "VeryLazy",
   once = true,
-  callback = function() vim.schedule(wrap_notify) end,
+  callback = function()
+    vim.schedule(function()
+      local ok, notifier = pcall(function() return Snacks.notifier end)
+      if ok and notifier and notifier.notify then
+        local original = notifier.notify
+        notifier.notify = function(msg, level, opts)
+          log_to_file(msg, level)
+          return original(msg, level, opts)
+        end
+      end
+    end)
+  end,
 })
