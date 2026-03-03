@@ -15,7 +15,7 @@
       gnumake
       ghostscript
       (imagemagick.override {ghostscriptSupport = true;})
-      jupytext
+      python3Packages.jupytext
       luajitPackages.luarocks
       poppler_utils
       python3
