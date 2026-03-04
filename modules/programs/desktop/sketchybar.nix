@@ -5,6 +5,10 @@
   ...
 }: let
   inherit (pkgs.stdenv) isDarwin;
+  theme = config.theme.tokyoNight;
+
+  # Convert "#rrggbb" to "0xffrrggbb" for sketchybar
+  toSketchybar = hex: "0xff${builtins.substring 1 6 hex}";
 
   sketchybarConfig = ''
     # bash
@@ -14,18 +18,18 @@
     # Use full path to sketchybar CLI
     SKETCHYBAR="${pkgs.sketchybar}/bin/sketchybar"
 
-    # Tokyo Night Storm color scheme
-    export BG_PRIMARY=0xff24283b
+    # Tokyo Night color scheme (from centralized palette)
+    export BG_PRIMARY=${toSketchybar theme.bgHighlight}
     export BG_TRANSPARENT=0x00000000
-    export FG=0xffa9b1d6
-    export ACCENT=0xff7aa2f7
-    export RED=0xfff7768e
-    export ORANGE=0xffff9e64
-    export YELLOW=0xffe0af68
-    export GREEN=0xff9ece6a
-    export CYAN=0xff73daca
-    export PURPLE=0xffbb9af7
-    export GREY=0xff565f89
+    export FG=${toSketchybar theme.fgDark}
+    export ACCENT=${toSketchybar theme.blue}
+    export RED=${toSketchybar theme.red}
+    export ORANGE=${toSketchybar theme.orange}
+    export YELLOW=${toSketchybar theme.yellow}
+    export GREEN=${toSketchybar theme.green}
+    export CYAN=${toSketchybar theme.green1}
+    export PURPLE=${toSketchybar theme.magenta}
+    export GREY=${toSketchybar theme.comment}
 
     # Bar appearance
     $SKETCHYBAR --bar \
@@ -211,9 +215,9 @@ in {
 
           # Check if we have an active network connection (excluding loopback)
           if ifconfig | grep -q "inet.*broadcast"; then
-            $SKETCHYBAR --set wifi label="Connected" icon.color=0xff73daca
+            $SKETCHYBAR --set wifi label="Connected" icon.color=${toSketchybar theme.green1}
           else
-            $SKETCHYBAR --set wifi label="Disconnected" icon.color=0xfff7768e
+            $SKETCHYBAR --set wifi label="Disconnected" icon.color=${toSketchybar theme.red}
           fi
         '';
         executable = true;
@@ -229,20 +233,20 @@ in {
 
           if [ -n "$CHARGING" ]; then
             ICON="󰂄"
-            COLOR=0xff9ece6a
+            COLOR=${toSketchybar theme.green}
           else
             if [ "$PERCENTAGE" -lt 20 ]; then
               ICON="󰂎"
-              COLOR=0xfff7768e
+              COLOR=${toSketchybar theme.red}
             elif [ "$PERCENTAGE" -lt 50 ]; then
               ICON="󰁾"
-              COLOR=0xffff9e64
+              COLOR=${toSketchybar theme.orange}
             elif [ "$PERCENTAGE" -lt 80 ]; then
               ICON="󰂀"
-              COLOR=0xffe0af68
+              COLOR=${toSketchybar theme.yellow}
             else
               ICON="󰁹"
-              COLOR=0xff9ece6a
+              COLOR=${toSketchybar theme.green}
             fi
           fi
 

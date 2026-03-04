@@ -2,13 +2,23 @@
   pkgs,
   config,
   ...
-}: {
+}: let
+  theme = config.theme.tokyoNight;
+
+  # Convert "#rrggbb" hex to "r;g;b" decimal for ANSI escape sequences
+  hexToRgb = hex: let
+    hexStr = builtins.substring 1 6 hex;
+    r = builtins.fromTOML "v = 0x${builtins.substring 0 2 hexStr}";
+    g = builtins.fromTOML "v = 0x${builtins.substring 2 2 hexStr}";
+    b = builtins.fromTOML "v = 0x${builtins.substring 4 2 hexStr}";
+  in "${toString r.v};${toString g.v};${toString b.v}";
+in {
   home.sessionVariables = {
     PAGER = "moar";
     MANPAGER = "moar";
     MOAR = "--style=tokyonight-night --statusbar=bold --terminal-fg";
-    # Tokyo Night statusbar: blue (#7aa2f7) bg with dark (#1a1b26) fg
-    LESS_TERMCAP_so = "\\e[38;2;26;27;38;48;2;122;162;247m";
+    # Tokyo Night statusbar: blue bg with dark fg
+    LESS_TERMCAP_so = "\\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m";
     LESS_TERMCAP_se = "\\e[0m";
     CPM_SOURCE_CACHE = "${config.home.homeDirectory}/.cache/CPM";
   };

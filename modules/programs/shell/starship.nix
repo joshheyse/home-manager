@@ -1,25 +1,28 @@
 {
   pkgs,
   lib,
+  config,
   ...
-}: {
+}: let
+  theme = config.theme.tokyoNight;
+in {
   programs.starship = {
     enable = true;
     package = pkgs.starship;
     enableZshIntegration = true;
     settings = {
       format = lib.concatStrings [
-        "[$os](bg:#a3aed2 fg:#090c0c)"
-        "[$username](bg:#a3aed2 fg:#090c0c)[$hostname](bg:#a3aed2 fg:#090c0c)"
-        "[](bg:#769ff0 fg:#a3aed2)"
+        "[$os](bg:${theme.dark5} fg:${theme.bgDarkest})"
+        "[$username](bg:${theme.dark5} fg:${theme.bgDarkest})[$hostname](bg:${theme.dark5} fg:${theme.bgDarkest})"
+        "[](bg:${theme.blue} fg:${theme.dark5})"
         "$directory"
-        "[](fg:#769ff0 bg:#394260)"
+        "[](fg:${theme.blue} bg:${theme.fgGutter})"
         "$git_branch"
         "$git_state"
         "$git_status"
-        "[](fg:#394260)"
+        "[](fg:${theme.fgGutter})"
         "$fill"
-        "[](fg:#1d2230)"
+        "[](fg:${theme.bgDark})"
         "$status"
         "$cmd_duration"
         "$nix_shell"
@@ -39,11 +42,11 @@
       };
       status = {
         disabled = false;
-        format = "[$status ](bg:#1d2230)";
+        format = "[$status ](bg:${theme.bgDark})";
       };
       cmd_duration = {
         min_time = 500;
-        format = "[$duration ](bold yellow bg:#1d2230)";
+        format = "[$duration ](bold yellow bg:${theme.bgDark})";
       };
       fill = {
         symbol = " ";
@@ -54,48 +57,48 @@
         conflicted = "=$count";
         deleted = "✘$count";
         diverged = "⇕⇡$ahead_count⇣$behind_count";
-        format = "[[($all_status $ahead_behind )](fg:#769ff0 bg:#394260)]($style)";
+        format = "[[($all_status $ahead_behind )](fg:${theme.blue} bg:${theme.fgGutter})]($style)";
         modified = "!$count";
         renamed = "»$count";
         staged = "+$count";
         stashed = "\\$$count";
-        style = "bg:#394260";
+        style = "bg:${theme.fgGutter}";
         untracked = "?$count";
       };
       directory = {
-        read_only = " ";
-        style = "fg:#e3e5e5 bg:#769ff0";
+        read_only = " ";
+        style = "fg:${theme.fg} bg:${theme.blue}";
         format = "[ $path ]($style)";
         truncation_length = 4;
         truncation_symbol = "…/";
         substitutions = {
           Documents = "󰈙 ";
-          Downloads = " ";
-          Music = " ";
-          Pictures = " ";
+          Downloads = " ";
+          Music = " ";
+          Pictures = " ";
         };
       };
       time = {
         disabled = false;
         time_format = "%R"; # Hour:Minute Format
-        format = "[[ $time ](fg:#a0a9cb bg:#1d2230)]($style)";
+        format = "[[ $time ](fg:${theme.fgDark} bg:${theme.bgDark})]($style)";
       };
       aws = {
-        symbol = " ";
+        symbol = " ";
       };
       buf = {
-        symbol = " ";
+        symbol = " ";
       };
       c = {
-        symbol = " ";
+        symbol = " ";
       };
       conda = {
-        symbol = " ";
+        symbol = " ";
         ignore_base = false;
         format = "[$symbol$environment](dimmed green) ";
       };
       dart = {
-        symbol = " ";
+        symbol = " ";
       };
       direnv = {
         symbol = "󱁿 ";
@@ -107,44 +110,44 @@
         allowed_msg = "";
       };
       docker_context = {
-        symbol = " ";
+        symbol = " ";
       };
       elixir = {
-        symbol = " ";
+        symbol = " ";
       };
       elm = {
-        symbol = " ";
+        symbol = " ";
       };
       git_branch = {
-        symbol = " ";
-        style = "bg:#394260";
-        format = "[[ $symbol $branch ](fg:#769ff0 bg:#394260)]($style)";
+        symbol = " ";
+        style = "bg:${theme.fgGutter}";
+        format = "[[ $symbol $branch ](fg:${theme.blue} bg:${theme.fgGutter})]($style)";
       };
       golang = {
-        symbol = " ";
-        style = "bg:#212736";
-        format = "[[ $symbol ($version) ](fg:#769ff0 bg:#212736)]($style)";
+        symbol = " ";
+        style = "bg:${theme.bgHighlight}";
+        format = "[[ $symbol ($version) ](fg:${theme.blue} bg:${theme.bgHighlight})]($style)";
       };
       guix_shell = {
-        symbol = " ";
+        symbol = " ";
       };
       haskell = {
-        symbol = " ";
+        symbol = " ";
       };
       haxe = {
         symbol = "⌘ ";
       };
       hg_branch = {
-        symbol = " ";
+        symbol = " ";
       };
       java = {
-        symbol = " ";
+        symbol = " ";
       };
       julia = {
-        symbol = " ";
+        symbol = " ";
       };
       lua = {
-        symbol = " ";
+        symbol = " ";
       };
       memory_usage = {
         symbol = "󰍛 ";
@@ -156,15 +159,15 @@
         symbol = "󰆥 ";
       };
       nix_shell = {
-        symbol = " ";
+        symbol = " ";
         format = "[$symbol$name ]($style)";
         pure_msg = "";
         impure_msg = "";
       };
       nodejs = {
-        symbol = " ";
-        style = "bg:#212736";
-        format = "[[ $symbol ($version) ](fg:#769ff0 bg:#212736)]($style)";
+        symbol = " ";
+        style = "bg:${theme.bgHighlight}";
+        format = "[[ $symbol ($version) ](fg:${theme.blue} bg:${theme.bgHighlight})]($style)";
       };
       hostname = {
         format = "@$hostname";
@@ -178,41 +181,41 @@
         disabled = false;
         format = "$symbol";
         symbols = {
-          Alpine = " ";
-          Amazon = " ";
-          Android = " ";
-          Arch = " ";
-          CentOS = " ";
-          Debian = " ";
-          DragonFly = " ";
-          Emscripten = " ";
-          EndeavourOS = " ";
-          Fedora = " ";
-          FreeBSD = " ";
+          Alpine = " ";
+          Amazon = " ";
+          Android = " ";
+          Arch = " ";
+          CentOS = " ";
+          Debian = " ";
+          DragonFly = " ";
+          Emscripten = " ";
+          EndeavourOS = " ";
+          Fedora = " ";
+          FreeBSD = " ";
           Garuda = "﯑ ";
-          Gentoo = " ";
+          Gentoo = " ";
           HardenedBSD = "ﲊ ";
-          Illumos = " ";
-          Linux = " ";
-          Macos = " ";
-          Manjaro = " ";
-          Mariner = " ";
-          MidnightBSD = " ";
-          Mint = " ";
-          NetBSD = " ";
-          NixOS = " ";
-          OpenBSD = " ";
-          openSUSE = " ";
-          OracleLinux = " ";
-          Pop = " ";
-          Raspbian = " ";
-          Redhat = " ";
-          RedHatEnterprise = " ";
-          Redox = " ";
+          Illumos = " ";
+          Linux = " ";
+          Macos = " ";
+          Manjaro = " ";
+          Mariner = " ";
+          MidnightBSD = " ";
+          Mint = " ";
+          NetBSD = " ";
+          NixOS = " ";
+          OpenBSD = " ";
+          openSUSE = " ";
+          OracleLinux = " ";
+          Pop = " ";
+          Raspbian = " ";
+          Redhat = " ";
+          RedHatEnterprise = " ";
+          Redox = " ";
           Solus = "ﴱ ";
-          SUSE = " ";
-          Ubuntu = " ";
-          Unknown = " ";
+          SUSE = " ";
+          Ubuntu = " ";
+          Unknown = " ";
           Windows = "󰍲 ";
         };
       };
@@ -220,21 +223,21 @@
         symbol = "󰏗 ";
       };
       python = {
-        symbol = " ";
+        symbol = " ";
       };
       rlang = {
         symbol = "ﳒ ";
       };
       ruby = {
-        symbol = " ";
+        symbol = " ";
       };
       rust = {
-        symbol = " ";
-        style = "bg:#212736";
-        format = "[[ $symbol ($version) ](fg:#769ff0 bg:#212736)]($style)";
+        symbol = " ";
+        style = "bg:${theme.bgHighlight}";
+        format = "[[ $symbol ($version) ](fg:${theme.blue} bg:${theme.bgHighlight})]($style)";
       };
       scala = {
-        symbol = " ";
+        symbol = " ";
       };
       spack = {
         symbol = "🅢 ";

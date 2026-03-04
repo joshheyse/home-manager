@@ -1,22 +1,28 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  config,
+  ...
+}: let
+  theme = config.theme.tokyoNight;
+in {
   programs.fzf = {
     enable = true;
     package = pkgs.fzf;
     enableZshIntegration = true;
 
     colors = {
-      "fg" = "#f8f8f2";
-      "bg" = "#282a36";
-      "hl" = "#bd93f9";
-      "fg+" = "#f8f8f2";
-      "bg+" = "#44475a";
-      "hl+" = "#bd93f9";
-      "info" = "#ffb86c";
-      "prompt" = "#50fa7b";
-      "pointer" = "#ff79c6";
-      "marker" = "#ff79c6";
-      "spinner" = "#ffb86c";
-      "header" = "#6272a4";
+      "fg" = theme.fg;
+      "bg" = theme.bg;
+      "hl" = theme.magenta;
+      "fg+" = theme.fg;
+      "bg+" = theme.bgHighlight;
+      "hl+" = theme.cyan;
+      "info" = theme.blue;
+      "prompt" = theme.green;
+      "pointer" = theme.red;
+      "marker" = theme.orange;
+      "spinner" = theme.yellow;
+      "header" = theme.comment;
     };
 
     defaultCommand = "fd --type f --exclude .git --hidden --follow";

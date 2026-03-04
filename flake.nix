@@ -25,6 +25,7 @@
       # Default module exports everything
       default = {
         imports = [
+          ./modules/theme.nix
           ./modules/base.nix
           ./modules/programs/shell
           ./modules/programs/desktop
