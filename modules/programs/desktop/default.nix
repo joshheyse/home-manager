@@ -2,6 +2,7 @@
   inherit (pkgs.stdenv) isDarwin;
 in {
   imports = [
+    ./firefox.nix
     ./keybindings.nix
     ./kitty.nix
     ./ghostty

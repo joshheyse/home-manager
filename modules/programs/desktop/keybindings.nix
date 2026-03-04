@@ -39,10 +39,11 @@
       if [[ "$focused_idx" -ge 0 ]]; then
         next_idx=$(((focused_idx + 1) % count))
         next_id=$(${pkgs.jq}/bin/jq -r ".[$next_idx].id" <<< "$windows")
-        yabai -m window --focus "$next_id"
+        # Fall back to open -a if yabai can't focus (no accessibility reference)
+        yabai -m window --focus "$next_id" 2>/dev/null || open -a "$APP_ID"
       else
         first_id=$(${pkgs.jq}/bin/jq -r '.[0].id' <<< "$windows")
-        yabai -m window --focus "$first_id"
+        yabai -m window --focus "$first_id" 2>/dev/null || open -a "$APP_ID"
       fi
     fi
   '';
@@ -243,9 +244,15 @@
       {
         key = "f";
         mods = ["Super"];
-        desc = "Fullscreen";
+        desc = "Maximize";
         hyprlandAction = "fullscreen";
         skhdAction = "yabai -m window --toggle zoom-fullscreen";
+      }
+      {
+        key = "f";
+        mods = ["Super" "Shift"];
+        desc = "Native fullscreen";
+        skhdAction = "yabai -m window --toggle native-fullscreen";
       }
       {
         key = "v";
@@ -318,6 +325,9 @@
   # Workspace bindings (1-9, plus 0 for 10)
   workspaceNums = lib.range 1 10;
 
+  # Workspace bindings — Hyprland only
+  # On macOS, yabai space commands require the scripting addition (SIP disabled).
+  # Use native Mission Control shortcuts (Ctrl+1-9) configured in System Settings instead.
   workspaceBinds =
     builtins.concatMap (ws: let
       key =
@@ -329,33 +339,30 @@
         inherit key;
         mods = ["Super"];
         hyprlandAction = "workspace, ${toString ws}";
-        skhdAction = "yabai -m space --focus ${toString ws}";
         desc = "Focus workspace ${toString ws}";
       }
       {
         inherit key;
         mods = ["Super" "Shift"];
         hyprlandAction = "movetoworkspace, ${toString ws}";
-        skhdAction = "yabai -m window --space ${toString ws}";
         desc = "Move to workspace ${toString ws}";
       }
     ])
     workspaceNums;
 
   # Previous/next space (Ctrl + arrow, no Super)
+  # macOS: let native Mission Control Ctrl+Left/Right work unintercepted
   spaceNavBinds = [
     {
       key = "Left";
       mods = ["Ctrl"];
       hyprlandAction = "workspace, e-1";
-      skhdAction = "yabai -m space --focus prev || yabai -m space --focus last";
       desc = "Previous workspace";
     }
     {
       key = "Right";
       mods = ["Ctrl"];
       hyprlandAction = "workspace, e+1";
-      skhdAction = "yabai -m space --focus next || yabai -m space --focus first";
       desc = "Next workspace";
     }
   ];
@@ -455,8 +462,8 @@
   cheatsheetText = lib.concatStringsSep "\n" (
     # Regular bindings (not workspace or nav)
     (map formatKeybind keybinds)
-    ++ [
-      # Summarize workspace bindings
+    ++ lib.optionals isLinux [
+      # Workspace bindings (Hyprland only — macOS uses native Mission Control)
       (let
         prefix = modsToDisplay ["Super"];
       in "${padRight 30 "${prefix} + 1-0"}Workspace 1-10")
@@ -464,7 +471,7 @@
         prefix = modsToDisplay ["Super" "Shift"];
       in "${padRight 30 "${prefix} + 1-0"}Move to workspace 1-10")
     ]
-    ++ (map formatKeybind spaceNavBinds)
+    ++ lib.optionals isLinux (map formatKeybind spaceNavBinds)
     ++ [
       (let
         prefix = modsToDisplay ["Super"];
