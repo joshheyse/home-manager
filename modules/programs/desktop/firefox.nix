@@ -9,7 +9,7 @@
 in {
   options.programs.firefox-profile.enable = lib.mkEnableOption "Nix-managed Firefox profile";
 
-  config = {
+  config = lib.mkIf cfg.enable {
     programs.firefox = {
       enable = true;
 

@@ -26,11 +26,9 @@ in {
 
       yubikey-manager
 
-      ghidra
       vscode
 
       aichat
-      weechat
 
       podman
       # Note: podman-desktop GUI installed via Homebrew on macOS
