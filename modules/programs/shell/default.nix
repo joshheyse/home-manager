@@ -43,6 +43,11 @@ in {
   ];
 
   home.packages = with pkgs; [
+    # Fonts for terminal and neovim icons
+    noto-fonts
+    nerd-fonts.meslo-lg
+    nerd-fonts.noto
+
     moar
 
     (pkgs.callPackage ../../../pkgs/ssh-fzf {})
@@ -51,14 +56,22 @@ in {
     (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
 
     jq
+    yq-go
+    pqrs
     dust
     timg
     pandoc
+    graphviz
     hexyl
     lesspipe
+    rsync
+    wget
+    curl
     gh
     glab
+    git-extras
 
     claude-code
+    aichat
   ];
 }

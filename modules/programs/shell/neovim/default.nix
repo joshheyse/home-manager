@@ -17,7 +17,7 @@
       (imagemagick.override {ghostscriptSupport = true;})
       python3Packages.jupytext
       luajitPackages.luarocks
-      poppler_utils
+      poppler-utils
       python3
       python3Packages.pip
       ripgrep
