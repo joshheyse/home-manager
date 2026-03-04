@@ -38,7 +38,7 @@ in {
     ++ pkgs.lib.optionals isDarwin [
       # macOS-only packages
       # sketchybar installed and configured via sketchybar.nix module
-      raycast
+      # raycast installed and configured via raycast.nix module
     ]
     ++ pkgs.lib.optionals (!isDarwin) [
       # Linux-only packages (not available or don't work well on macOS via Nix)

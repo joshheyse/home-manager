@@ -8,7 +8,7 @@
 }: let
   inherit (pkgs.stdenv) isDarwin isLinux;
 
-  cfg = config.programs.desktop-keybindings;
+  cfg = config.programs.tiling-wm;
 
   # --- Smart-focus scripts (platform-specific) ---
 
@@ -504,8 +504,8 @@
   cheatsheetSkhdLine = "shift + alt - 0x2C : ${showKeybinds}"; # 0x2C is / (slash), shift+/ = ?
   cheatsheetHyprlandLine = "$mod SHIFT, slash, exec, ${showKeybinds}";
 in {
-  options.programs.desktop-keybindings = {
-    enable = lib.mkEnableOption "shared desktop keybindings";
+  options.programs.tiling-wm = {
+    enable = lib.mkEnableOption "tiling window manager (yabai/skhd on macOS, Hyprland on Linux)";
 
     apps = {
       terminal = lib.mkOption {
