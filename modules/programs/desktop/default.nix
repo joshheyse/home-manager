@@ -1,5 +1,16 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   inherit (pkgs.stdenv) isDarwin;
+
+  fontPackages = with pkgs; [
+    font-awesome
+    noto-fonts
+    nerd-fonts.meslo-lg
+    nerd-fonts.noto
+  ];
 in {
   imports = [
     ./firefox.nix
@@ -17,13 +28,23 @@ in {
   # Enable fontconfig for proper font discovery
   fonts.fontconfig.enable = true;
 
-  home.packages = with pkgs;
-    [
-      font-awesome
-      noto-fonts
-      nerd-fonts.meslo-lg
-      nerd-fonts.noto
+  # On macOS, symlink font files into ~/Library/Fonts/Nix so apps can discover them
+  home.activation.installNixFonts = lib.mkIf isDarwin (
+    lib.hm.dag.entryAfter ["writeBoundary"] ''
+      fontDir="$HOME/Library/Fonts/Nix"
+      run rm -rf "$fontDir"
+      run mkdir -p "$fontDir"
+      for pkg in ${lib.concatMapStringsSep " " toString fontPackages}; do
+        if [ -d "$pkg/share/fonts" ]; then
+          find "$pkg/share/fonts" -type f \( -name '*.ttf' -o -name '*.otf' \) -exec ln -sf {} "$fontDir/" \;
+        fi
+      done
+    ''
+  );
 
+  home.packages = with pkgs;
+    fontPackages
+    ++ [
       yubikey-manager
 
       vscode
