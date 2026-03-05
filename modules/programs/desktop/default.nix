@@ -13,6 +13,7 @@
   ];
 in {
   imports = [
+    ../../theme.nix
     ./firefox.nix
     ./keybindings.nix
     ./kitty.nix

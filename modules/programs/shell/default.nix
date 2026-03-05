@@ -24,6 +24,7 @@ in {
   };
 
   imports = [
+    ../../theme.nix
     ./bat.nix
     ./bottom.nix
     ./btop.nix
