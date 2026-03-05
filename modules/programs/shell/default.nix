@@ -74,5 +74,39 @@ in {
 
     claude-code
     aichat
+
+    # GNU core utilities
+    tree
+    unzip
+    coreutils
+    findutils
+    gnugrep
+    gawk
+    gnused
+    gnutar
+
+    # Modern CLI tools
+    tealdeer
+    tokei
+    sd
+    procs
+    hyperfine
+    grex
+
+    # Compression
+    zstd
+    lz4
+    p7zip
+    xz
+    brotli
+
+    # Security
+    yubikey-personalization
+
+    # Network
+    inetutils
+
+    # Image manipulation
+    imagemagick
   ];
 }

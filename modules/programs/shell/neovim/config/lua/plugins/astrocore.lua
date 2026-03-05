@@ -158,9 +158,19 @@ return {
         -- Path yank functions
         ["<Leader>y"] = { desc = "Yank Paths" },
 
-        ["<Leader>yp"] = {
+        ["<Leader>yr"] = {
           function() require("paths").yank_path() end,
           desc = "Yank relative path to clipboard",
+        },
+
+        ["<Leader>ya"] = {
+          function() require("paths").yank_absolute_path() end,
+          desc = "Yank absolute path to clipboard",
+        },
+
+        ["<Leader>yp"] = {
+          function() require("paths").yank_repo_path() end,
+          desc = "Yank git repo absolute path to clipboard",
         },
 
         ["<Leader>yu"] = {

@@ -58,6 +58,11 @@
         landrun = pkgs.callPackage ./pkgs/landrun {};
       });
 
+    # Shared nix-darwin modules
+    darwinModules = {
+      default = ./modules/darwin;
+    };
+
     # Overlays
     overlays = {
       default = final: _prev: {

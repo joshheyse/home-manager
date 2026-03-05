@@ -175,4 +175,28 @@ function M.yank_url_with_branch_selector(start_line, end_line)
   end)
 end
 
+-- Yank the absolute path of current buffer
+function M.yank_absolute_path()
+  local filepath = vim.fn.expand "%:p"
+  if filepath == "" then
+    vim.notify("No file in current buffer", vim.log.levels.WARN)
+    return
+  end
+
+  vim.fn.setreg("+", filepath)
+  vim.notify("Yanked absolute path: " .. filepath, vim.log.levels.INFO)
+end
+
+-- Yank the absolute path of the git repo root
+function M.yank_repo_path()
+  local git_root = get_git_root()
+  if not git_root then
+    vim.notify("Not in a git repository", vim.log.levels.WARN)
+    return
+  end
+
+  vim.fn.setreg("+", git_root)
+  vim.notify("Yanked repo path: " .. git_root, vim.log.levels.INFO)
+end
+
 return M
