@@ -34,6 +34,7 @@
       };
 
       # Individual module exports for granular control
+      theme = ./modules/theme.nix;
       base = ./modules/base.nix;
       shell = ./modules/programs/shell;
       desktop = ./modules/programs/desktop;
