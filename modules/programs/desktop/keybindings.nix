@@ -640,9 +640,22 @@ in {
           /usr/bin/sudo /usr/bin/killall tccd 2>/dev/null || true
           echo "TCC permissions updated."
 
-          # Reload skhd launchd agent to clear stale failure state
-          /bin/launchctl bootout "gui/$(/usr/bin/id -u)/com.koekeishiya.skhd" 2>/dev/null || true
-          /bin/launchctl bootstrap "gui/$(/usr/bin/id -u)" "$HOME/Library/LaunchAgents/com.koekeishiya.skhd.plist" 2>/dev/null || true
+          # Restart all managed services to pick up new binaries and TCC permissions.
+          # This is critical because nix-darwin restarts yabai BEFORE this activation
+          # script runs, so yabai will have failed (exit 78) due to stale TCC entries.
+          # Restarting here ensures all services start with correct permissions.
+          UID_NUM=$(/usr/bin/id -u)
+          for svc in org.nixos.yabai org.nix-community.home.skhd org.nix-community.home.sketchybar; do
+            /bin/launchctl bootout "gui/$UID_NUM/$svc" 2>/dev/null || true
+          done
+          sleep 1
+          for svc in org.nixos.yabai org.nix-community.home.skhd org.nix-community.home.sketchybar; do
+            plist="$HOME/Library/LaunchAgents/$svc.plist"
+            if [ -f "$plist" ]; then
+              /bin/launchctl bootstrap "gui/$UID_NUM" "$plist" 2>/dev/null || true
+            fi
+          done
+          echo "Services restarted."
         ''
     );
   };
