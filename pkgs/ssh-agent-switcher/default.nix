@@ -2,8 +2,7 @@
   lib,
   rustPlatform,
   fetchFromGitHub,
-}:
-let
+}: let
   cargoLock = ./Cargo.lock;
 in
   rustPlatform.buildRustPackage {
@@ -14,7 +13,7 @@ in
       owner = "jmmv";
       repo = "ssh-agent-switcher";
       rev = "main";
-      sha256 = "sha256-QsWngp0z7yNOamItmlLJp1K+drdXuAtuIQXcSDkDiQs=";
+      sha256 = "sha256-p9W0H25pWDB+GCrwLwuVruX9p8b8kICpp+6I11ym1aw=";
     };
 
     cargoLock = {

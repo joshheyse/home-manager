@@ -26,9 +26,6 @@ in {
     ./hyprland
   ];
 
-  # Enable fontconfig for proper font discovery
-  fonts.fontconfig.enable = true;
-
   # On macOS, symlink font files into ~/Library/Fonts/Nix so apps can discover them
   home.activation.installNixFonts = lib.mkIf isDarwin (
     lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -44,8 +41,7 @@ in {
   );
 
   home.packages = with pkgs;
-    fontPackages
-    ++ [
+    [
       yubikey-manager
 
       vscode
