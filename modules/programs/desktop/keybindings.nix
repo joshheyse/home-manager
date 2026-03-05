@@ -634,15 +634,15 @@ in {
       in
         lib.hm.dag.entryAfter ["writeBoundary"] ''
           echo "Updating macOS TCC permissions for skhd, yabai${lib.optionalString raycastEnabled ", raycast"}..."
-          sudo sqlite3 "${tccDb}" "DELETE FROM access WHERE ${deleteClauses};"
-          sudo sqlite3 "${tccDb}" "${accessibilityInserts}"
-          ${lib.optionalString (screenCaptureInserts != "") ''sudo sqlite3 "${tccDb}" "${screenCaptureInserts}"''}
-          sudo killall tccd 2>/dev/null || true
+          /usr/bin/sudo /usr/bin/sqlite3 "${tccDb}" "DELETE FROM access WHERE ${deleteClauses};"
+          /usr/bin/sudo /usr/bin/sqlite3 "${tccDb}" "${accessibilityInserts}"
+          ${lib.optionalString (screenCaptureInserts != "") ''/usr/bin/sudo /usr/bin/sqlite3 "${tccDb}" "${screenCaptureInserts}"''}
+          /usr/bin/sudo /usr/bin/killall tccd 2>/dev/null || true
           echo "TCC permissions updated."
 
           # Reload skhd launchd agent to clear stale failure state
-          launchctl bootout "gui/$(id -u)/com.koekeishiya.skhd" 2>/dev/null || true
-          launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.koekeishiya.skhd.plist" 2>/dev/null || true
+          /bin/launchctl bootout "gui/$(/usr/bin/id -u)/com.koekeishiya.skhd" 2>/dev/null || true
+          /bin/launchctl bootstrap "gui/$(/usr/bin/id -u)" "$HOME/Library/LaunchAgents/com.koekeishiya.skhd.plist" 2>/dev/null || true
         ''
     );
   };
