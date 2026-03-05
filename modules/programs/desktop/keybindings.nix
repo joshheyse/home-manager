@@ -601,5 +601,49 @@ in {
         ProcessType = "Interactive";
       };
     };
+
+    # macOS: Grant TCC (Accessibility/Screen Recording) permissions for current nix store paths.
+    # After every `hms`, nix store paths change and macOS TCC permissions break.
+    # This activation script updates the TCC database so skhd/yabai/raycast work immediately.
+    home.activation.grantAccessibility = lib.mkIf isDarwin (
+      let
+        raycastEnabled = config.programs.raycast.enable;
+        raycastBin = "${pkgs.raycast}/Applications/Raycast.app/Contents/MacOS/Raycast";
+        tccDb = "/Library/Application Support/com.apple.TCC/TCC.db";
+
+        # Build DELETE clause for all managed apps
+        deleteClauses =
+          "client LIKE '%/bin/skhd' OR client LIKE '%/bin/yabai'"
+          + lib.optionalString raycastEnabled " OR client LIKE '%Raycast%'";
+
+        # Build INSERT statements for Accessibility
+        accessibilityInserts = lib.concatStringsSep "\n" (
+          [
+            "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceAccessibility', '${pkgs.skhd}/bin/skhd', 1, 2, 3, 1);"
+            "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceAccessibility', '${pkgs.yabai}/bin/yabai', 1, 2, 3, 1);"
+          ]
+          ++ lib.optionals raycastEnabled [
+            "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceAccessibility', '${raycastBin}', 1, 2, 3, 1);"
+          ]
+        );
+
+        # Build INSERT statements for Screen Recording (raycast only)
+        screenCaptureInserts =
+          lib.optionalString raycastEnabled
+          "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceScreenCapture', '${raycastBin}', 1, 2, 3, 1);";
+      in
+        lib.hm.dag.entryAfter ["writeBoundary"] ''
+          echo "Updating macOS TCC permissions for skhd, yabai${lib.optionalString raycastEnabled ", raycast"}..."
+          sudo sqlite3 "${tccDb}" "DELETE FROM access WHERE ${deleteClauses};"
+          sudo sqlite3 "${tccDb}" "${accessibilityInserts}"
+          ${lib.optionalString (screenCaptureInserts != "") ''sudo sqlite3 "${tccDb}" "${screenCaptureInserts}"''}
+          sudo killall tccd 2>/dev/null || true
+          echo "TCC permissions updated."
+
+          # Reload skhd launchd agent to clear stale failure state
+          launchctl bootout "gui/$(id -u)/com.koekeishiya.skhd" 2>/dev/null || true
+          launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.koekeishiya.skhd.plist" 2>/dev/null || true
+        ''
+    );
   };
 }
