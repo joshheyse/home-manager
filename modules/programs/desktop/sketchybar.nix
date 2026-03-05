@@ -11,8 +11,6 @@
   toSketchybar = hex: "0xff${builtins.substring 1 6 hex}";
 
   sketchybarConfig = ''
-    # bash
-
     #!/bin/bash
 
     # Use full path to sketchybar CLI
@@ -71,7 +69,7 @@
           background.corner_radius=5 \
           background.height=24 \
           script="$SKETCHYBAR --set \$NAME background.color=\$([ \$SELECTED = true ] && echo $ACCENT || echo $GREY)" \
-          click_script="yabai -m space --focus $sid"
+          click_script="${pkgs.yabai}/bin/yabai -m space --focus $sid"
     done
 
     # Media (Spotify/Music)
