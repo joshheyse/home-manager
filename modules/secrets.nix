@@ -20,12 +20,12 @@ in {
       "anthropic/api_key" = {};
     };
 
-    # Default to age decryption with platform-conditional key path.
+    # User-level age key for decryption (separate from the system key).
     # macOS hosts that use gnupg should override with sops.gnupg.home.
     sops.age.keyFile =
       if pkgs.stdenv.isDarwin
       then "/Users/joshheyse/.config/sops/age/keys.txt"
-      else "/persist/var/lib/sops-nix/key.txt";
+      else "/home/josh/.config/sops/age/keys.txt";
 
     # Export secrets as environment variables
     programs.zsh.initContent = lib.mkAfter ''
