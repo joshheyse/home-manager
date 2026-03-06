@@ -30,6 +30,14 @@ return {
             show_path = "relative",
           },
         },
+        ["<Leader>aT"] = {
+          function() vim.cmd "ClaudeCodeTreeAdd" end,
+          desc = "Add to Claude context",
+        },
+        ["<Leader>aD"] = {
+          function() vim.cmd "ClaudeCodeTreeDrop" end,
+          desc = "Drop from Claude context",
+        },
       },
     },
     filesystem = {
