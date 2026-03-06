@@ -39,6 +39,7 @@
       shell = ./modules/programs/shell;
       desktop = ./modules/programs/desktop;
       ssh-agent-switcher = ./modules/services/ssh-agent-switcher.nix;
+      secrets = ./modules/secrets.nix;
     };
 
     # Custom packages
