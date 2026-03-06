@@ -13,7 +13,7 @@ in {
   config = lib.mkIf (cfg.enable && isLinux) {
     programs.rofi = {
       enable = true;
-      package = pkgs.rofi-wayland;
+      package = pkgs.rofi;
       terminal = "${pkgs.kitty}/bin/kitty";
       theme = let
         inherit (config.lib.formats.rasi) mkLiteral;

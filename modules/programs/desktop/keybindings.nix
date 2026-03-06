@@ -490,7 +490,7 @@
   '';
 
   showKeybindsLinux = pkgs.writeShellScript "show-keybinds" ''
-    ${pkgs.rofi-wayland}/bin/rofi -dmenu -i -no-custom -p "Keybindings" \
+    ${pkgs.rofi}/bin/rofi -dmenu -i -no-custom -p "Keybindings" \
       -theme-str 'window {width: 50%;} listview {lines: 20;}' \
       < ${cheatsheetFile}
   '';
