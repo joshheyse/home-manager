@@ -66,6 +66,9 @@ return {
       n = {
         -- second key is the lefthand side of the map
 
+        -- AI group
+        ["<Leader>a"] = { desc = "󰧑 AI" },
+
         -- window splits
         ["<Leader>\\"] = { "<cmd>vsplit<cr>", desc = "Vertical split" },
         ["<Leader>-"] = { "<cmd>split<cr>", desc = "Horizontal split" },
