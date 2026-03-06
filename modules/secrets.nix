@@ -21,11 +21,12 @@ in {
     };
 
     # User-level age key for decryption (separate from the system key).
+    # On NixOS, system sops provisions this to /run/secrets/ (tmpfs) at boot.
     # macOS hosts that use gnupg should override with sops.gnupg.home.
     sops.age.keyFile =
       if pkgs.stdenv.isDarwin
       then "/Users/joshheyse/.config/sops/age/keys.txt"
-      else "/home/josh/.config/sops/age/keys.txt";
+      else "/run/secrets/josh_age_key";
 
     # Export secrets as environment variables
     programs.zsh.initContent = lib.mkAfter ''
