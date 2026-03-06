@@ -7,13 +7,13 @@
 in
   rustPlatform.buildRustPackage {
     pname = "ssh-agent-switcher";
-    version = "unstable-2025-10-02";
+    version = "1.0.0";
 
     src = fetchFromGitHub {
       owner = "jmmv";
       repo = "ssh-agent-switcher";
-      rev = "main";
-      sha256 = "sha256-p9W0H25pWDB+GCrwLwuVruX9p8b8kICpp+6I11ym1aw=";
+      rev = "ssh-agent-switcher-1.0.0";
+      sha256 = "sha256-QsWngp0z7yNOamItmlLJp1K+drdXuAtuIQXcSDkDiQs=";
     };
 
     cargoLock = {
