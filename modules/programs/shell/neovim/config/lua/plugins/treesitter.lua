@@ -50,5 +50,7 @@ return {
     injections = {
       enable = true,
     },
+    -- latex grammar requires --no-bindings flag removed in newer tree-sitter CLI
+    ignore_install = { "latex" },
   },
 }
