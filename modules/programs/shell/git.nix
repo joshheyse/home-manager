@@ -6,10 +6,14 @@
   programs.git = {
     enable = true;
     package = pkgs.git;
-    userEmail = lib.mkDefault "josh@heyse.us";
-    userName = lib.mkDefault "Josh Heyse";
 
-    extraConfig = {
+    settings = {
+      alias = {
+        stash = "stash --all";
+        blame = "blame -M -C -C";
+        push = "push --force-with-lease";
+      };
+
       blame = {
         coloring = "repeatedLines";
       };
@@ -48,14 +52,10 @@
       };
 
       user = {
+        email = lib.mkDefault "josh@heyse.us";
+        name = lib.mkDefault "Josh Heyse";
         signingkey = lib.mkDefault "0xBC7AFA55FFD62335";
       };
-    };
-
-    aliases = {
-      stash = "stash --all";
-      blame = "blame -M -C -C";
-      push = "push --force-with-lease";
     };
   };
 
