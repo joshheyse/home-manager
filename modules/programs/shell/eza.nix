@@ -7,7 +7,7 @@
   };
 
   home.shellAliases = {
-    l = "eza -la";
+    l = "eza -l";
     la = "eza -la";
     lt = "eza --tree";
   };
