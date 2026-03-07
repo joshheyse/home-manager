@@ -5,12 +5,7 @@
   ...
 }: let
   theme = config.theme.tokyoNight;
-  # Package was renamed moar -> moor in nixpkgs v2.0.0; support both versions
-  pagerPkg = pkgs.moor or pkgs.moar;
-  pagerBin =
-    if pkgs ? moor
-    then "moor"
-    else "moar";
+  pagerPkg = pkgs.moor;
 
   # Convert "#rrggbb" hex to "r;g;b" decimal for ANSI escape sequences
   hexToRgb = hex: let
@@ -21,8 +16,8 @@
   in "${toString r.v};${toString g.v};${toString b.v}";
 in {
   home.sessionVariables = {
-    PAGER = pagerBin;
-    MANPAGER = pagerBin;
+    PAGER = "moor";
+    MANPAGER = "moor";
     MOAR = "--style=tokyonight-night --statusbar=bold --terminal-fg";
     # Tokyo Night statusbar: blue bg with dark fg
     LESS_TERMCAP_so = "\\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m";
