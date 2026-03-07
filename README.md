@@ -20,8 +20,8 @@ Add to your `flake.nix`:
 ```nix
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
-    home-manager.url = "github:nix-community/home-manager/release-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/release-25.11";
+    home-manager.url = "github:nix-community/home-manager/release-25.11";
 
     # Add this repository as an input
     home-modules = {
@@ -138,8 +138,8 @@ Fuzzy finder integration for SSH hosts from your SSH config.
 ## Requirements
 
 - Nix with flakes enabled
-- Home Manager (release-25.05)
-- nixpkgs release-25.05
+- Home Manager (release-25.11)
+- nixpkgs release-25.11
 
 ## License
 

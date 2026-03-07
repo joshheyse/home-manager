@@ -51,7 +51,7 @@ The library exports:
 
 ### Important Details
 
-- Uses nixpkgs release 25.05
+- Uses nixpkgs release 25.11
 - Supports x86_64-linux and aarch64-darwin systems
 - Custom overlay modifies claude-code package version
 - Modules designed for portability and reusability
