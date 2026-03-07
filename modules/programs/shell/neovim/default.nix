@@ -22,7 +22,6 @@
       python3Packages.pip
       ripgrep
       rustc
-      tree-sitter
     ];
     extraPython3Packages = ps:
       with ps; [
