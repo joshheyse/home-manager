@@ -207,6 +207,16 @@
     hyprlandAction = "exec, ${appConfig.${role}.launch}";
   };
 
+  # Toggle yabai tiling (macOS only)
+  toggleYabai = pkgs.writeShellScript "toggle-yabai" ''
+    layout=$(yabai -m query --spaces --space | ${pkgs.jq}/bin/jq -r '.type')
+    if [ "$layout" = "bsp" ]; then
+      yabai -m space --layout float
+    else
+      yabai -m space --layout bsp
+    fi
+  '';
+
   # Lock screen commands
   lockCmd =
     if isDarwin
@@ -267,6 +277,14 @@
         desc = "Balance layout";
         hyprlandAction = "exec, hyprctl keyword dwindle:force_split 0";
         skhdAction = "yabai -m space --balance";
+      }
+
+      # Toggle yabai tiling (macOS only)
+      {
+        key = "y";
+        mods = ["Super"];
+        desc = "Toggle tiling";
+        skhdAction = "${toggleYabai}";
       }
 
       # Lock screen

@@ -92,6 +92,7 @@ in {
     gnutar
 
     # Modern CLI tools
+    fastfetch
     tealdeer
     tokei
     sd
