@@ -268,13 +268,14 @@
         key = "f";
         mods = ["Super"];
         desc = "Maximize";
-        hyprlandAction = "fullscreen";
+        hyprlandAction = "fullscreen, 1";
         skhdAction = "yabai -m window --toggle zoom-fullscreen";
       }
       {
         key = "f";
         mods = ["Super" "Shift"];
-        desc = "Native fullscreen";
+        desc = "Fullscreen";
+        hyprlandAction = "fullscreen, 0";
         skhdAction = "yabai -m window --toggle native-fullscreen";
       }
       {
