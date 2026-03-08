@@ -92,6 +92,7 @@ in {
     gnutar
 
     # Modern CLI tools
+    watch
     fastfetch
     tealdeer
     tokei

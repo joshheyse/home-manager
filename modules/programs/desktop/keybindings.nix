@@ -207,13 +207,26 @@
     hyprlandAction = "exec, ${appConfig.${role}.launch}";
   };
 
-  # Toggle yabai tiling (macOS only)
+  # Toggle yabai tiling on current space (macOS only)
   toggleYabai = pkgs.writeShellScript "toggle-yabai" ''
     layout=$(yabai -m query --spaces --space | ${pkgs.jq}/bin/jq -r '.type')
     if [ "$layout" = "bsp" ]; then
       yabai -m space --layout float
     else
       yabai -m space --layout bsp
+    fi
+  '';
+
+  # Toggle yabai service on/off (macOS only)
+  toggleYabaiService = pkgs.writeShellScript "toggle-yabai-service" ''
+    UID_NUM=$(/usr/bin/id -u)
+    SVC="gui/$UID_NUM/org.nixos.yabai"
+    PLIST="$HOME/Library/LaunchAgents/org.nixos.yabai.plist"
+
+    if /bin/launchctl print "$SVC" &>/dev/null; then
+      /bin/launchctl bootout "$SVC"
+    else
+      /bin/launchctl bootstrap "gui/$UID_NUM" "$PLIST"
     fi
   '';
 
@@ -285,6 +298,12 @@
         mods = ["Super"];
         desc = "Toggle tiling";
         skhdAction = "${toggleYabai}";
+      }
+      {
+        key = "y";
+        mods = ["Super" "Shift"];
+        desc = "Toggle yabai service";
+        skhdAction = "${toggleYabaiService}";
       }
 
       # Lock screen
