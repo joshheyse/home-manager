@@ -22,7 +22,6 @@ in {
         "$git_status"
         "[](fg:${theme.fgGutter})"
         "$fill"
-        "[](fg:${theme.bgDark})"
         "$status"
         "$cmd_duration"
         "$nix_shell"
@@ -42,11 +41,11 @@ in {
       };
       status = {
         disabled = false;
-        format = "[$status ](bg:${theme.bgDark})";
+        format = "[$status ]($style)";
       };
       cmd_duration = {
         min_time = 500;
-        format = "[$duration ](bold yellow bg:${theme.bgDark})";
+        format = "[$duration ](bold yellow)";
       };
       fill = {
         symbol = " ";
@@ -81,7 +80,7 @@ in {
       time = {
         disabled = false;
         time_format = "%R"; # Hour:Minute Format
-        format = "[[ $time ](fg:${theme.fgDark} bg:${theme.bgDark})]($style)";
+        format = "[ $time ](fg:${theme.fgDark})";
       };
       aws = {
         symbol = " ";
