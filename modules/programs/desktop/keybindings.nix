@@ -339,25 +339,14 @@
       (mkAppLauncherNew "c" "claude" "New Claude")
     ]
     ++ lib.optionals isLinux [
-      # Linux-only: app launcher (rofi) and screenshots
+      # Linux-only: app launcher (rofi)
       {
         key = "R";
         mods = ["Super"];
         desc = "App launcher (rofi)";
         hyprlandAction = "exec, rofi -show drun";
       }
-      {
-        key = "Print";
-        mods = [];
-        desc = "Screenshot region to clipboard";
-        hyprlandAction = ''exec, grim -g "$(slurp)" - | wl-copy'';
-      }
-      {
-        key = "Print";
-        mods = ["Shift"];
-        desc = "Screenshot full to clipboard";
-        hyprlandAction = "exec, grim - | wl-copy";
-      }
+      # Screenshots handled by screenshots.nix chord (Super+P → R/F/W/V/D)
     ];
 
   # Workspace bindings (1-9, plus 0 for 10)
