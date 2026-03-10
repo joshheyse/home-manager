@@ -21,10 +21,31 @@
     ${pkgs.tmux}/bin/tmux set -g status-right "$updated"
   '';
 
+  claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
     ${builtins.readFile ./ssh-fzf.sh}
+  '';
+  devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
+    export PANE_ICON="${paneIconScript}"
+    export PATH="${lib.makeBinPath [pkgs.git]}:$PATH"
+    ${builtins.readFile ./dev-workspace.sh}
+  '';
+
+  # Claude Code tmux integration scripts
+  notifyPkg = pkgs.callPackage ../../../../pkgs/notify {};
+  claudeHookScript = pkgs.writeShellScript "tmux-claude-hook" ''
+    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux notifyPkg]}:$PATH"
+    ${builtins.readFile ./claude-hook.sh}
+  '';
+  claudeRespondScript = pkgs.writeShellScript "tmux-claude-respond" ''
+    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux]}:$PATH"
+    ${builtins.readFile ./claude-respond.sh}
+  '';
+  claudeHasPromptScript = pkgs.writeShellScript "tmux-claude-has-prompt" ''
+    export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
+    ${builtins.readFile ./claude-has-prompt.sh}
   '';
   claudeSetupScript = pkgs.writeShellScript "tmux-claude-setup" ''
     # Inject #{@claude_icon} into window-status-format (after #W) if not already present
@@ -37,7 +58,105 @@
     done
   '';
 
-  devmux = "${pkgs.devmux}/bin/devmux";
+  # Claude settings with hooks configuration
+  claudeSettings = builtins.toJSON {
+    enabledPlugins = {
+      "clangd-lsp@claude-plugins-official" = true;
+    };
+    hooks = {
+      SessionStart = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} start";
+            }
+          ];
+        }
+      ];
+      UserPromptSubmit = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} submit";
+            }
+          ];
+        }
+      ];
+      PermissionRequest = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} permission";
+              timeout = 300;
+            }
+          ];
+        }
+      ];
+      Notification = [
+        {
+          matcher = "elicitation_dialog";
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} question";
+            }
+          ];
+        }
+        {
+          matcher = "idle_prompt";
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} idle";
+            }
+          ];
+        }
+      ];
+      PostToolUse = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} tool-done";
+            }
+          ];
+        }
+      ];
+      PostToolUseFailure = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} tool-done";
+            }
+          ];
+        }
+      ];
+      Stop = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} stop";
+            }
+          ];
+        }
+      ];
+      SessionEnd = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} end";
+            }
+          ];
+        }
+      ];
+    };
+  };
 in {
   programs.tmux = {
     enable = true;
@@ -174,8 +293,8 @@ in {
 
         bind-key -N "Open lazygit in popup" g display-popup -d '#{pane_current_path}' -w90% -h90% -E lazygit
         bind-key -N "Launch ssh-fzf in popup" s display-popup -d '#{pane_current_path}' -w80% -h60% -E '${sshFzfScript}'
-        bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devmux} pick'
-        bind-key -N "Open/focus claude-code pane" a run-shell '${devmux} claude-toggle'
+        bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devWorkspaceScript} --pick'
+        bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
         bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
 
         # Post-theme customizations (runs after tokyo-night theme sets formats)
@@ -189,14 +308,14 @@ in {
         set -g status-interval 3
 
         # F-key bindings: active when Claude has a prompt, otherwise pass through
-        bind-key -N "Claude: Allow / Option 1" -T root F1 if-shell '${devmux} claude-has-prompt' \
-          'run-shell "${devmux} claude-respond 1"' 'send-keys F1'
-        bind-key -N "Claude: Allow always / Option 2" -T root F2 if-shell '${devmux} claude-has-prompt' \
-          'run-shell "${devmux} claude-respond 2"' 'send-keys F2'
-        bind-key -N "Claude: Deny / Option 3" -T root F3 if-shell '${devmux} claude-has-prompt' \
-          'run-shell "${devmux} claude-respond 3"' 'send-keys F3'
-        bind-key -N "Claude: Focus Claude pane" -T root F4 if-shell '${devmux} claude-has-prompt' \
-          'run-shell "${devmux} claude-respond focus"' 'send-keys F4'
+        bind-key -N "Claude: Allow / Option 1" -T root F1 if-shell '${claudeHasPromptScript}' \
+          'run-shell "${claudeRespondScript} 1"' 'send-keys F1'
+        bind-key -N "Claude: Allow always / Option 2" -T root F2 if-shell '${claudeHasPromptScript}' \
+          'run-shell "${claudeRespondScript} 2"' 'send-keys F2'
+        bind-key -N "Claude: Deny / Option 3" -T root F3 if-shell '${claudeHasPromptScript}' \
+          'run-shell "${claudeRespondScript} 3"' 'send-keys F3'
+        bind-key -N "Claude: Focus Claude pane" -T root F4 if-shell '${claudeHasPromptScript}' \
+          'run-shell "${claudeRespondScript} focus"' 'send-keys F4'
 
       '';
   };
@@ -212,9 +331,17 @@ in {
 
     packages = [
       (pkgs.writeShellScriptBin "dev" ''
-        ${devmux} open "''${1:-$(basename $(pwd))}"
+        inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")
+        if [[ -n "''${inplace_dir:-}" ]]; then
+          cd "$inplace_dir" || exit 1
+          eval "$(direnv export zsh 2>/dev/null)"
+          nvim
+          exec zsh -i
+        fi
       '')
     ];
+
+    file.".claude/settings.json".text = claudeSettings;
 
     sessionVariables = {
       TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
