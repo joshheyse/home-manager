@@ -78,7 +78,6 @@ in {
     glab
     git-extras
 
-    claude-code
     aichat
 
     # GNU core utilities
