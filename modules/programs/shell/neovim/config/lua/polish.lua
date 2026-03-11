@@ -1,3 +1,9 @@
+-- Auto-reload files changed on disk (silent unless buffer has unsaved edits)
+vim.o.autoread = true
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
+  command = "silent! checktime",
+})
+
 -- Persistent notification log
 -- Writes all vim.notify calls to ~/.local/state/nvim/notifications.log
 -- Hooks into Snacks.notifier.notify rather than replacing vim.notify,

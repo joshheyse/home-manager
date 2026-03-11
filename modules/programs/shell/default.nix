@@ -78,7 +78,6 @@ in {
     glab
     git-extras
 
-    claude-code
     aichat
 
     # GNU core utilities
@@ -92,6 +91,8 @@ in {
     gnutar
 
     # Modern CLI tools
+    watch
+    fastfetch
     tealdeer
     tokei
     sd

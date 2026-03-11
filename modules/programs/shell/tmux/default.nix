@@ -57,106 +57,6 @@
       fi
     done
   '';
-
-  # Claude settings with hooks configuration
-  claudeSettings = builtins.toJSON {
-    enabledPlugins = {
-      "clangd-lsp@claude-plugins-official" = true;
-    };
-    hooks = {
-      SessionStart = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} start";
-            }
-          ];
-        }
-      ];
-      UserPromptSubmit = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} submit";
-            }
-          ];
-        }
-      ];
-      PermissionRequest = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} permission";
-              timeout = 300;
-            }
-          ];
-        }
-      ];
-      Notification = [
-        {
-          matcher = "elicitation_dialog";
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} question";
-            }
-          ];
-        }
-        {
-          matcher = "idle_prompt";
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} idle";
-            }
-          ];
-        }
-      ];
-      PostToolUse = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} tool-done";
-            }
-          ];
-        }
-      ];
-      PostToolUseFailure = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} tool-done";
-            }
-          ];
-        }
-      ];
-      Stop = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} stop";
-            }
-          ];
-        }
-      ];
-      SessionEnd = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} end";
-            }
-          ];
-        }
-      ];
-    };
-  };
 in {
   programs.tmux = {
     enable = true;
@@ -341,8 +241,6 @@ in {
       '')
     ];
 
-    file.".claude/settings.json".text = claudeSettings;
-
     sessionVariables = {
       TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
     };
@@ -350,5 +248,99 @@ in {
     shellAliases = {
       rc = "reset && tmux clear-history";
     };
+  };
+
+  programs.claude-code.settings.hooks = {
+    SessionStart = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} start";
+          }
+        ];
+      }
+    ];
+    UserPromptSubmit = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} submit";
+          }
+        ];
+      }
+    ];
+    PermissionRequest = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} permission";
+            timeout = 300;
+          }
+        ];
+      }
+    ];
+    Notification = [
+      {
+        matcher = "elicitation_dialog";
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} question";
+          }
+        ];
+      }
+      {
+        matcher = "idle_prompt";
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} idle";
+          }
+        ];
+      }
+    ];
+    PostToolUse = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} tool-done";
+          }
+        ];
+      }
+    ];
+    PostToolUseFailure = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} tool-done";
+          }
+        ];
+      }
+    ];
+    Stop = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} stop";
+          }
+        ];
+      }
+    ];
+    SessionEnd = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${claudeHookScript} end";
+          }
+        ];
+      }
+    ];
   };
 }

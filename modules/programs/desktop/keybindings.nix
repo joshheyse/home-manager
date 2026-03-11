@@ -207,6 +207,29 @@
     hyprlandAction = "exec, ${appConfig.${role}.launch}";
   };
 
+  # Toggle yabai tiling on current space (macOS only)
+  toggleYabai = pkgs.writeShellScript "toggle-yabai" ''
+    layout=$(yabai -m query --spaces --space | ${pkgs.jq}/bin/jq -r '.type')
+    if [ "$layout" = "bsp" ]; then
+      yabai -m space --layout float
+    else
+      yabai -m space --layout bsp
+    fi
+  '';
+
+  # Toggle yabai service on/off (macOS only)
+  toggleYabaiService = pkgs.writeShellScript "toggle-yabai-service" ''
+    UID_NUM=$(/usr/bin/id -u)
+    SVC="gui/$UID_NUM/org.nixos.yabai"
+    PLIST="$HOME/Library/LaunchAgents/org.nixos.yabai.plist"
+
+    if /bin/launchctl print "$SVC" &>/dev/null; then
+      /bin/launchctl bootout "$SVC"
+    else
+      /bin/launchctl bootstrap "gui/$UID_NUM" "$PLIST"
+    fi
+  '';
+
   # Lock screen commands
   lockCmd =
     if isDarwin
@@ -245,13 +268,14 @@
         key = "f";
         mods = ["Super"];
         desc = "Maximize";
-        hyprlandAction = "fullscreen";
+        hyprlandAction = "fullscreen, 1";
         skhdAction = "yabai -m window --toggle zoom-fullscreen";
       }
       {
         key = "f";
         mods = ["Super" "Shift"];
-        desc = "Native fullscreen";
+        desc = "Fullscreen";
+        hyprlandAction = "fullscreen, 0";
         skhdAction = "yabai -m window --toggle native-fullscreen";
       }
       {
@@ -267,6 +291,20 @@
         desc = "Balance layout";
         hyprlandAction = "exec, hyprctl keyword dwindle:force_split 0";
         skhdAction = "yabai -m space --balance";
+      }
+
+      # Toggle yabai tiling (macOS only)
+      {
+        key = "y";
+        mods = ["Super"];
+        desc = "Toggle tiling";
+        skhdAction = "${toggleYabai}";
+      }
+      {
+        key = "y";
+        mods = ["Super" "Shift"];
+        desc = "Toggle yabai service";
+        skhdAction = "${toggleYabaiService}";
       }
 
       # Lock screen
@@ -301,25 +339,14 @@
       (mkAppLauncherNew "c" "claude" "New Claude")
     ]
     ++ lib.optionals isLinux [
-      # Linux-only: app launcher (rofi) and screenshots
+      # Linux-only: app launcher (rofi)
       {
         key = "R";
         mods = ["Super"];
         desc = "App launcher (rofi)";
         hyprlandAction = "exec, rofi -show drun";
       }
-      {
-        key = "Print";
-        mods = [];
-        desc = "Screenshot region to clipboard";
-        hyprlandAction = ''exec, grim -g "$(slurp)" - | wl-copy'';
-      }
-      {
-        key = "Print";
-        mods = ["Shift"];
-        desc = "Screenshot full to clipboard";
-        hyprlandAction = "exec, grim - | wl-copy";
-      }
+      # Screenshots handled by screenshots.nix chord (Super+P → R/F/W/V/D)
     ];
 
   # Workspace bindings (1-9, plus 0 for 10)

@@ -22,6 +22,7 @@ in {
     ./kicad
     ./sketchybar.nix
     ./raycast.nix
+    ./screenshots.nix
     ./yabai.nix
     ./hyprland
   ];
