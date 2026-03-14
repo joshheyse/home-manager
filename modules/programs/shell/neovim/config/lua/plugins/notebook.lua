@@ -44,7 +44,7 @@ end
 local function run_cell()
   local start, finish = get_cell_range()
   if start > finish then return end
-  vim.cmd(("MoltenEvaluateRange %d %d"):format(start, finish))
+  vim.fn.MoltenEvaluateRange(start, finish)
 end
 
 --- Navigate to the next `# %%` cell marker.
