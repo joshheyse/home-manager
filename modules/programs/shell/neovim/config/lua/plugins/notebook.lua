@@ -1,5 +1,86 @@
--- Notebook / REPL stack: molten-nvim + jupytext.nvim + quarto-nvim
--- Provides inline Jupyter output, .ipynb editing, and code-cell execution.
+-- Notebook / REPL stack: molten-nvim + jupytext.nvim
+-- Provides inline Jupyter output and .ipynb editing via hydrogen cell markers (# %%).
+
+--- Find the start and end lines of the current `# %%` cell.
+--- Returns (start, end) as 1-indexed line numbers, where start is the line
+--- after the `# %%` marker and end is the last line before the next marker (or EOF).
+local function get_cell_range()
+  local buf = vim.api.nvim_get_current_buf()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row = cursor[1] -- 1-indexed
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local total = #lines
+
+  -- Find cell start: search upward for `# %%`
+  local cell_start = 1
+  for i = row, 1, -1 do
+    if lines[i]:match "^# %%%%" then
+      cell_start = i + 1
+      break
+    end
+  end
+
+  -- Find cell end: search downward for next `# %%`
+  local cell_end = total
+  for i = row + 1, total do
+    if lines[i]:match "^# %%%%" then
+      cell_end = i - 1
+      break
+    end
+  end
+
+  -- Skip leading/trailing blank lines
+  while cell_start <= cell_end and lines[cell_start]:match "^%s*$" do
+    cell_start = cell_start + 1
+  end
+  while cell_end >= cell_start and lines[cell_end]:match "^%s*$" do
+    cell_end = cell_end - 1
+  end
+
+  return cell_start, cell_end
+end
+
+--- Run the current `# %%` cell with MoltenEvaluateRange.
+local function run_cell()
+  local start, finish = get_cell_range()
+  if start > finish then return end
+  vim.cmd(("MoltenEvaluateRange %d %d"):format(start, finish))
+end
+
+--- Navigate to the next `# %%` cell marker.
+local function next_cell()
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  for i = row + 1, #lines do
+    if lines[i]:match "^# %%%%" then
+      vim.api.nvim_win_set_cursor(0, { i + 1, 0 })
+      return
+    end
+  end
+end
+
+--- Navigate to the previous `# %%` cell marker.
+local function prev_cell()
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  -- Find the marker for the current cell first, then the one before it
+  local current_marker = nil
+  for i = row, 1, -1 do
+    if lines[i]:match "^# %%%%" then
+      current_marker = i
+      break
+    end
+  end
+  if not current_marker then return end
+  for i = current_marker - 1, 1, -1 do
+    if lines[i]:match "^# %%%%" then
+      vim.api.nvim_win_set_cursor(0, { i + 1, 0 })
+      return
+    end
+  end
+  -- No previous marker; jump to top of file
+  vim.api.nvim_win_set_cursor(0, { 1, 0 })
+end
 
 return {
   -- molten-nvim: Jupyter kernel integration with inline output
@@ -16,16 +97,26 @@ return {
       vim.g.molten_output_win_max_height = 20
     end,
     keys = {
-      { ",mi", "<cmd>MoltenInit<cr>", desc = "Molten init kernel" },
-      { ",md", "<cmd>MoltenDeinit<cr>", desc = "Molten deinit kernel" },
-      { ",mR", "<cmd>MoltenRestart!<cr>", desc = "Molten restart kernel" },
-      { ",mI", "<cmd>MoltenInterrupt<cr>", desc = "Molten interrupt kernel" },
-      { ",ms", "<cmd>MoltenShowOutput<cr>", desc = "Molten show output" },
-      { ",mh", "<cmd>MoltenHideOutput<cr>", desc = "Molten hide output" },
-      { ",mo", "<cmd>noautocmd MoltenEnterOutput<cr>", desc = "Molten enter output" },
-      { ",rl", "<cmd>MoltenEvaluateLine<cr>", desc = "Evaluate line" },
-      { ",re", "<cmd>MoltenReevaluateCell<cr>", desc = "Re-evaluate cell" },
-      { ",r", ":<C-u>MoltenEvaluateVisual<cr>gv", mode = "v", desc = "Evaluate selection" },
+      -- Kernel management: <Space>m
+      { "<leader>mi", "<cmd>MoltenInit<cr>", desc = "Init kernel" },
+      { "<leader>md", "<cmd>MoltenDeinit<cr>", desc = "Deinit kernel" },
+      { "<leader>mr", "<cmd>MoltenRestart!<cr>", desc = "Restart kernel" },
+      { "<leader>mx", "<cmd>MoltenInterrupt<cr>", desc = "Interrupt kernel" },
+
+      -- Output
+      { "<leader>ms", "<cmd>MoltenShowOutput<cr>", desc = "Show output" },
+      { "<leader>mh", "<cmd>MoltenHideOutput<cr>", desc = "Hide output" },
+      { "<leader>mo", "<cmd>noautocmd MoltenEnterOutput<cr>", desc = "Enter output window" },
+
+      -- Run code
+      { "<leader>mc", run_cell, desc = "Run cell" },
+      { "<leader>ml", "<cmd>MoltenEvaluateLine<cr>", desc = "Run line" },
+      { "<leader>mv", ":<C-u>MoltenEvaluateVisual<cr>gv", mode = "v", desc = "Run selection" },
+      { "<leader>me", "<cmd>MoltenReevaluateCell<cr>", desc = "Re-evaluate cell" },
+
+      -- Cell navigation
+      { "]c", next_cell, desc = "Next cell" },
+      { "[c", prev_cell, desc = "Previous cell" },
     },
   },
 
@@ -37,30 +128,6 @@ return {
       style = "hydrogen",
       output_extension = "auto",
       force_ft = nil,
-    },
-  },
-
-  -- quarto-nvim: code-cell runner and LSP in fenced blocks (merges with community pack)
-  {
-    "quarto-dev/quarto-nvim",
-    optional = true,
-    opts = {
-      codeRunner = {
-        enabled = true,
-        default_method = "molten",
-      },
-      lspFeatures = {
-        enabled = true,
-        languages = { "python", "bash", "r" },
-      },
-    },
-    keys = {
-      { ",rc", function() require("quarto.runner").run_cell() end, desc = "Run cell" },
-      { ",ra", function() require("quarto.runner").run_above() end, desc = "Run cell and above" },
-      { ",rA", function() require("quarto.runner").run_all() end, desc = "Run all cells" },
-      { ",rb", function() require("quarto.runner").run_below() end, desc = "Run cell and below" },
-      { "]c", function() require("quarto.runner").next_cell() end, desc = "Next cell" },
-      { "[c", function() require("quarto.runner").prev_cell() end, desc = "Previous cell" },
     },
   },
 }

@@ -69,6 +69,9 @@ return {
         -- AI group
         ["<Leader>a"] = { desc = "󰧑 AI" },
 
+        -- Molten / Notebook group
+        ["<Leader>m"] = { desc = " Notebook" },
+
         -- window splits
         ["<Leader>\\"] = { "<cmd>vsplit<cr>", desc = "Vertical split" },
         ["<Leader>-"] = { "<cmd>split<cr>", desc = "Horizontal split" },
