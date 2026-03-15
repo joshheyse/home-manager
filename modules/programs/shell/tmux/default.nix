@@ -140,6 +140,9 @@ in {
 
         # Allow passthrough for Kitty graphics protocol (required for image.nvim)
         set -g allow-passthrough on
+        set -g visual-activity off
+        set -g visual-bell off
+
         set -ga update-environment TERM
         set -ga update-environment TERM_PROGRAM
 

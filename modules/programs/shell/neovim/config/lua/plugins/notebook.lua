@@ -47,6 +47,45 @@ local function run_cell()
   vim.fn.MoltenEvaluateRange(start, finish)
 end
 
+--- Run all `# %%` cells in the buffer sequentially.
+local function run_all()
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local total = #lines
+  local i = 1
+  while i <= total do
+    -- Find next cell marker
+    if lines[i]:match "^# %%%%" then
+      local cell_start = i + 1
+      -- Skip blank lines at start
+      while cell_start <= total and lines[cell_start]:match "^%s*$" do
+        cell_start = cell_start + 1
+      end
+      -- Find cell end
+      local cell_end = total
+      for j = i + 1, total do
+        if lines[j]:match "^# %%%%" then
+          cell_end = j - 1
+          break
+        end
+      end
+      -- Skip trailing blank lines
+      while cell_end >= cell_start and lines[cell_end]:match "^%s*$" do
+        cell_end = cell_end - 1
+      end
+      if cell_start <= cell_end then vim.fn.MoltenEvaluateRange(cell_start, cell_end) end
+      i = cell_end + 1
+    else
+      i = i + 1
+    end
+  end
+end
+
+--- Restart the kernel and run all cells.
+local function restart_and_run_all()
+  vim.cmd "MoltenRestart!"
+  vim.defer_fn(run_all, 500)
+end
+
 --- Navigate to the next `# %%` cell marker.
 local function next_cell()
   local row = vim.api.nvim_win_get_cursor(0)[1]
@@ -113,6 +152,8 @@ return {
       { "<leader>ml", "<cmd>MoltenEvaluateLine<cr>", desc = "Run line" },
       { "<leader>mv", ":<C-u>MoltenEvaluateVisual<cr>gv", mode = "v", desc = "Run selection" },
       { "<leader>me", "<cmd>MoltenReevaluateCell<cr>", desc = "Re-evaluate cell" },
+      { "<leader>ma", run_all, desc = "Run all cells" },
+      { "<leader>mR", restart_and_run_all, desc = "Restart kernel & run all" },
 
       -- Cell navigation
       { "]c", next_cell, desc = "Next cell" },
