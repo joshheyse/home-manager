@@ -80,10 +80,13 @@ local function run_all()
   end
 end
 
---- Restart the kernel and run all cells.
+--- Init kernel, restart, and run all cells.
 local function restart_and_run_all()
-  vim.cmd "MoltenRestart!"
-  vim.defer_fn(run_all, 500)
+  vim.cmd "MoltenInit"
+  vim.defer_fn(function()
+    vim.cmd "MoltenRestart!"
+    vim.defer_fn(run_all, 500)
+  end, 500)
 end
 
 --- Navigate to the next `# %%` cell marker.
