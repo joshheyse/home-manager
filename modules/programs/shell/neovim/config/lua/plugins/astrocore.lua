@@ -38,6 +38,10 @@ return {
         list = true, -- show whitespace characters
         -- listchars = { tab = " ", extends = "⟩", precedes = "⟨", trail = "·", eol = "﬋" },
         showbreak = "↪ ",
+        tabstop = 2,
+        shiftwidth = 2,
+        softtabstop = 2,
+        expandtab = true,
         exrc = true, -- enable project-local .nvim.lua
         secure = true, -- prompt before loading untrusted files
       },
