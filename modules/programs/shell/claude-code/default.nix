@@ -14,14 +14,7 @@
         excludedCommands = ["ssh"];
         network = {
           allowedDomains = [
-            "github.com"
-            "api.github.com"
-            "*.nixos.org"
-            "cache.nixos.org"
-            "*.docker.io"
-            "*.docker.com"
-            "ghcr.io"
-            "quay.io"
+            "*"
           ];
           allowLocalBinding = false;
         };
