@@ -21,6 +21,14 @@
       };
 
       permissions = {
+        allow = [
+          "WebFetch"
+          "WebSearch"
+          "Edit"
+          "Write"
+          "Bash"
+        ];
+
         deny = [
           "Bash(rm -rf /*:*)"
           "Bash(rm -rf /:*)"
