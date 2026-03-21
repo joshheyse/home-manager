@@ -21,6 +21,25 @@
         glab ci status --branch "$tag" | grep "Pipeline state:" | sed "s/Pipeline state: \(.*\)/\1/"
       }
 
+      function pbcopy() {
+        local input
+        input=$(cat)
+        if command -v kitten &>/dev/null; then
+          printf '%s' "$input" | kitten clipboard
+        else
+          printf '\e]52;c;%s\a' "$(printf '%s' "$input" | base64)"
+        fi
+      }
+
+      function pbpaste() {
+        if command -v kitten &>/dev/null; then
+          kitten clipboard --get-clipboard
+        else
+          echo "pbpaste: OSC 52 does not support reading clipboard" >&2
+          return 1
+        fi
+      }
+
       function waitForCi() {
         local ci_status
         tag=$1
