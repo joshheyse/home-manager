@@ -53,6 +53,7 @@
         ssh-agent-switcher = pkgs.callPackage ./pkgs/ssh-agent-switcher {};
         ssh-fzf = pkgs.callPackage ./pkgs/ssh-fzf {};
         notify = pkgs.callPackage ./pkgs/notify {};
+        jupyter-bridge = pkgs.callPackage ./pkgs/jupyter-bridge {};
         kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
       }
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {

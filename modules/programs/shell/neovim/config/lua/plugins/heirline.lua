@@ -2,6 +2,7 @@ return {
   "rebelot/heirline.nvim",
   opts = function(_, opts)
     local status = require "astroui.status"
+    local ks = require "util.kernel-status"
 
     opts.statusline = { -- statusline
       hl = { fg = "fg", bg = "bg" },
@@ -17,6 +18,23 @@ return {
       status.component.cmd_info(),
       status.component.fill(),
       status.component.lsp(),
+      -- Kernel status: molten + jupyter-bridge
+      status.component.builder {
+        {
+          provider = function() return ks.provider() end,
+        },
+        condition = function() return ks.condition() end,
+        hl = function()
+          if ks.molten_busy or ks.bridge_busy then
+            return { fg = "#e0af68", bold = true } -- tokyo night yellow when busy
+          end
+          return { fg = "#9ece6a" } -- tokyo night green when idle
+        end,
+        surround = {
+          separator = "right",
+          condition = function() return ks.condition() end,
+        },
+      },
       status.component.virtual_env(),
       status.component.treesitter(),
       status.component.nav(),

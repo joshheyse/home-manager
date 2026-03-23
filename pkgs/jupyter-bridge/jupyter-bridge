@@ -1,0 +1,378 @@
+#!/usr/bin/env bash
+# jupyter-bridge - CLI for the Jupyter kernel bridge daemon
+# Orchestrates Jupyter Lab + cell-bridge with a shared kernel.
+# Subcommands: start, stop, logs, status, exec, info
+
+set -euo pipefail
+
+CELL_BRIDGE_PY="@CELL_BRIDGE_PY@"
+
+usage() {
+    cat <<'EOF'
+Usage: jupyter-bridge <command> [options]
+
+Commands:
+  start                  Start Jupyter Lab and bridge (connects when kernel appears)
+  stop                   Stop bridge daemon and Jupyter Lab
+  logs [-f]              Show daemon logs (default: follow)
+  status                 Show Lab URL, connection file, bridge PID
+  exec                   Execute code from stdin on the kernel
+  info                   Print CLAUDE.md-ready snippet with pipe paths
+
+Options:
+  -h, --help             Show this help
+EOF
+    exit 0
+}
+
+# Compute per-repo runtime directory
+get_runtime_dir() {
+    local repo_root
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        echo "Error: not in a git repository" >&2
+        exit 1
+    }
+    local hash
+    hash="$(echo -n "${repo_root}" | sha256sum | cut -c1-8)"
+    echo "/tmp/jupyter-bridge-${hash}"
+}
+
+# Find the most recent kernel connection file in Jupyter's runtime dir.
+# Returns the path to the connection file, or empty string if none found.
+find_connection_file() {
+    local jupyter_runtime
+    jupyter_runtime="$(jupyter --runtime-dir 2>/dev/null)" || return 1
+    # Find the newest kernel-*.json file
+    local newest=""
+    local newest_time=0
+    for f in "${jupyter_runtime}"/kernel-*.json; do
+        [[ -f "${f}" ]] || continue
+        local mtime
+        mtime="$(stat -c %Y "${f}" 2>/dev/null)" || continue
+        if [[ "${mtime}" -gt "${newest_time}" ]]; then
+            newest="${f}"
+            newest_time="${mtime}"
+        fi
+    done
+    echo "${newest}"
+}
+
+# Set up JUPYTER_PATH to include venv kernelspecs
+setup_jupyter_path() {
+    local repo_root
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+    local extra_paths=""
+
+    for venv_dir in "${repo_root}"/.venv*/share/jupyter; do
+        if [[ -d "${venv_dir}" ]]; then
+            if [[ -n "${extra_paths}" ]]; then
+                extra_paths="${extra_paths}:${venv_dir}"
+            else
+                extra_paths="${venv_dir}"
+            fi
+        fi
+    done
+
+    if [[ -n "${extra_paths}" ]]; then
+        if [[ -n "${JUPYTER_PATH:-}" ]]; then
+            export JUPYTER_PATH="${extra_paths}:${JUPYTER_PATH}"
+        else
+            export JUPYTER_PATH="${extra_paths}"
+        fi
+    fi
+}
+
+cmd_start() {
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+
+    # Check if already running
+    if [[ -f "${runtime_dir}/pid" ]]; then
+        local old_pid
+        old_pid="$(cat "${runtime_dir}/pid")"
+        if kill -0 "${old_pid}" 2>/dev/null; then
+            echo "Bridge already running (PID ${old_pid})"
+            cmd_status
+            exit 0
+        fi
+        # Stale PID file, clean up
+        rm -rf "${runtime_dir}"
+    fi
+
+    # Create runtime directory and FIFO
+    mkdir -p "${runtime_dir}"
+    mkfifo "${runtime_dir}/pipe.in"
+
+    # Set up JUPYTER_PATH for venv kernelspecs
+    setup_jupyter_path
+
+    # Record connection files that exist BEFORE we start Lab
+    local jupyter_runtime
+    jupyter_runtime="$(jupyter --runtime-dir 2>/dev/null)" || {
+        echo "Error: could not determine Jupyter runtime dir" >&2
+        exit 1
+    }
+    local pre_existing_kernels=""
+    for f in "${jupyter_runtime}"/kernel-*.json; do
+        [[ -f "${f}" ]] || continue
+        pre_existing_kernels="${pre_existing_kernels}|${f}"
+    done
+
+    # Start Jupyter Lab in the background
+    local repo_root
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+    jupyter lab --no-browser --notebook-dir="${repo_root}/notebooks" \
+        > "${runtime_dir}/bridge.log" 2>&1 &
+    local lab_pid=$!
+    echo "${lab_pid}" > "${runtime_dir}/lab.pid"
+
+    echo "Starting Jupyter Lab (PID ${lab_pid})..."
+
+    # Wait for Lab to print its URL (poll the log)
+    local lab_url=""
+    local elapsed=0
+    while [[ -z "${lab_url}" ]]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if [[ ${elapsed} -ge 30 ]]; then
+            echo "Error: timed out waiting for Jupyter Lab to start" >&2
+            kill "${lab_pid}" 2>/dev/null || true
+            rm -rf "${runtime_dir}"
+            exit 1
+        fi
+        if ! kill -0 "${lab_pid}" 2>/dev/null; then
+            echo "Error: Jupyter Lab exited unexpectedly. Check ${runtime_dir}/bridge.log" >&2
+            rm -rf "${runtime_dir}"
+            exit 1
+        fi
+        lab_url="$(grep -oP 'http://[^ ]*token=[^ ]*' "${runtime_dir}/bridge.log" 2>/dev/null | head -1)" || true
+    done
+    echo "${lab_url}" > "${runtime_dir}/lab.url"
+    echo "Lab: ${lab_url}"
+
+    # Wait for a NEW kernel connection file to appear (user opens a notebook)
+    echo "Watching for kernel..."
+    elapsed=0
+    local connection_file=""
+    while [[ -z "${connection_file}" ]]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if [[ ${elapsed} -ge 120 ]]; then
+            echo "Timeout: no kernel started within 120s. Lab is still running." >&2
+            echo "Open a notebook in Lab to start a kernel, then run: jupyter-bridge start" >&2
+            exit 0
+        fi
+        # Check for new kernel files
+        for f in "${jupyter_runtime}"/kernel-*.json; do
+            [[ -f "${f}" ]] || continue
+            # Skip pre-existing kernels
+            if [[ "${pre_existing_kernels}" == *"|${f}"* ]]; then
+                continue
+            fi
+            connection_file="${f}"
+            break
+        done
+    done
+
+    echo "${connection_file}" > "${runtime_dir}/connection"
+
+    # Extract kernel display name from connection file
+    local kernel_name
+    kernel_name="$(basename "${connection_file}" .json)"
+    echo "Connected to kernel at ${kernel_name}"
+
+    # Launch cell-bridge daemon
+    python3 "${CELL_BRIDGE_PY}" \
+        --runtime-dir "${runtime_dir}" \
+        --connection-file "${connection_file}" &
+    local bridge_pid=$!
+    echo "${bridge_pid}" > "${runtime_dir}/pid"
+
+    echo "Bridge ready (PID ${bridge_pid})"
+    echo "Exec via: echo \"print(42)\" | jupyter-bridge exec"
+}
+
+cmd_stop() {
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+
+    local stopped_something=false
+
+    # Stop bridge daemon
+    if [[ -f "${runtime_dir}/pid" ]]; then
+        local pid
+        pid="$(cat "${runtime_dir}/pid")"
+        if kill -0 "${pid}" 2>/dev/null; then
+            kill "${pid}"
+            echo "Stopped bridge (PID ${pid})"
+            stopped_something=true
+        fi
+    fi
+
+    # Stop Jupyter Lab
+    if [[ -f "${runtime_dir}/lab.pid" ]]; then
+        local lab_pid
+        lab_pid="$(cat "${runtime_dir}/lab.pid")"
+        if kill -0 "${lab_pid}" 2>/dev/null; then
+            kill "${lab_pid}"
+            echo "Stopped Jupyter Lab (PID ${lab_pid})"
+            stopped_something=true
+        fi
+    fi
+
+    if [[ "${stopped_something}" == false ]]; then
+        echo "Nothing running"
+    fi
+
+    rm -rf "${runtime_dir}"
+}
+
+cmd_logs() {
+    local follow=1
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -f|--follow) follow=1; shift ;;
+            --no-follow) follow=0; shift ;;
+            *) shift ;;
+        esac
+    done
+
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+    local log_file="${runtime_dir}/bridge.log"
+
+    if [[ ! -f "${log_file}" ]]; then
+        echo "No log file found at ${log_file}" >&2
+        exit 1
+    fi
+
+    if [[ "${follow}" -eq 1 ]]; then
+        tail -f "${log_file}"
+    else
+        cat "${log_file}"
+    fi
+}
+
+cmd_status() {
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+
+    if [[ ! -d "${runtime_dir}" ]]; then
+        echo "Not running"
+        exit 1
+    fi
+
+    echo "Runtime dir: ${runtime_dir}"
+
+    # Lab status
+    if [[ -f "${runtime_dir}/lab.pid" ]]; then
+        local lab_pid
+        lab_pid="$(cat "${runtime_dir}/lab.pid")"
+        if kill -0 "${lab_pid}" 2>/dev/null; then
+            echo "Lab:         running (PID ${lab_pid})"
+        else
+            echo "Lab:         stopped (stale PID ${lab_pid})"
+        fi
+    else
+        echo "Lab:         not started"
+    fi
+
+    # Lab URL
+    if [[ -f "${runtime_dir}/lab.url" ]]; then
+        echo "Lab URL:     $(cat "${runtime_dir}/lab.url")"
+    fi
+
+    # Connection file
+    if [[ -f "${runtime_dir}/connection" ]]; then
+        echo "Connection:  $(cat "${runtime_dir}/connection")"
+    else
+        echo "Connection:  waiting for kernel..."
+    fi
+
+    # Bridge status
+    if [[ -f "${runtime_dir}/pid" ]]; then
+        local pid
+        pid="$(cat "${runtime_dir}/pid")"
+        if kill -0 "${pid}" 2>/dev/null; then
+            echo "Bridge:      running (PID ${pid})"
+        else
+            echo "Bridge:      stopped (stale PID ${pid})"
+        fi
+    else
+        echo "Bridge:      not started"
+    fi
+
+    echo "Pipe:        ${runtime_dir}/pipe.in"
+    echo "Output:      ${runtime_dir}/out.json"
+    echo "Log:         ${runtime_dir}/bridge.log"
+}
+
+cmd_exec() {
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+
+    if [[ ! -p "${runtime_dir}/pipe.in" ]]; then
+        echo "Error: bridge not running (no FIFO at ${runtime_dir}/pipe.in)" >&2
+        exit 1
+    fi
+
+    # Remove old output
+    rm -f "${runtime_dir}/out.json"
+
+    # Read code from stdin and write to FIFO
+    cat > "${runtime_dir}/pipe.in"
+
+    # Poll for output (timeout after 120s)
+    local elapsed=0
+    while [[ ! -f "${runtime_dir}/out.json" ]]; do
+        sleep 0.1
+        elapsed=$((elapsed + 1))
+        if [[ ${elapsed} -ge 1200 ]]; then
+            echo '{"status": "error", "error": "timeout waiting for output"}' >&2
+            exit 1
+        fi
+    done
+
+    cat "${runtime_dir}/out.json"
+}
+
+cmd_info() {
+    local runtime_dir
+    runtime_dir="$(get_runtime_dir)"
+
+    cat <<EOF
+## Jupyter Bridge
+
+A kernel bridge is available for executing Python code on the project's Jupyter kernel.
+
+\`\`\`bash
+# Execute code on the kernel
+echo "print(42)" | jupyter-bridge exec
+
+# Multi-line execution
+jupyter-bridge exec <<'PYEOF'
+import numpy as np
+arr = np.arange(10)
+print(arr.mean())
+PYEOF
+\`\`\`
+
+Runtime directory: \`${runtime_dir}\`
+EOF
+}
+
+# Main dispatch
+if [[ $# -eq 0 ]]; then
+    usage
+fi
+
+case "$1" in
+    start)  shift; cmd_start "$@" ;;
+    stop)   shift; cmd_stop "$@" ;;
+    logs)   shift; cmd_logs "$@" ;;
+    status) shift; cmd_status "$@" ;;
+    exec)   shift; cmd_exec "$@" ;;
+    info)   shift; cmd_info "$@" ;;
+    -h|--help) usage ;;
+    *) echo "Unknown command: $1" >&2; usage ;;
+esac
