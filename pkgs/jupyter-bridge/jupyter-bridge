@@ -87,15 +87,28 @@ cmd_start() {
     runtime_dir="$(get_runtime_dir)"
 
     # Check if already running
-    if [[ -f "${runtime_dir}/pid" ]]; then
-        local old_pid
-        old_pid="$(cat "${runtime_dir}/pid")"
-        if kill -0 "${old_pid}" 2>/dev/null; then
-            echo "Bridge already running (PID ${old_pid})"
+    if [[ -d "${runtime_dir}" ]]; then
+        local still_running=false
+        if [[ -f "${runtime_dir}/pid" ]]; then
+            local old_pid
+            old_pid="$(cat "${runtime_dir}/pid")"
+            if kill -0 "${old_pid}" 2>/dev/null; then
+                still_running=true
+            fi
+        fi
+        if [[ -f "${runtime_dir}/lab.pid" ]] && [[ "${still_running}" == false ]]; then
+            local old_lab_pid
+            old_lab_pid="$(cat "${runtime_dir}/lab.pid")"
+            if kill -0 "${old_lab_pid}" 2>/dev/null; then
+                still_running=true
+            fi
+        fi
+        if [[ "${still_running}" == true ]]; then
+            echo "Bridge already running"
             cmd_status
             exit 0
         fi
-        # Stale PID file, clean up
+        # Stale runtime dir, clean up
         rm -rf "${runtime_dir}"
     fi
 
@@ -121,7 +134,7 @@ cmd_start() {
     # Start Jupyter Lab in the background
     local repo_root
     repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
-    jupyter lab --no-browser --notebook-dir="${repo_root}/notebooks" \
+    jupyter lab --no-browser --ip=0.0.0.0 --notebook-dir="${repo_root}/notebooks" \
         > "${runtime_dir}/bridge.log" 2>&1 &
     local lab_pid=$!
     echo "${lab_pid}" > "${runtime_dir}/lab.pid"
