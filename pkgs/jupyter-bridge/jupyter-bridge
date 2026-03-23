@@ -119,17 +119,15 @@ cmd_start() {
     # Set up JUPYTER_PATH for venv kernelspecs
     setup_jupyter_path
 
-    # Record connection files that exist BEFORE we start Lab
     local jupyter_runtime
     jupyter_runtime="$(jupyter --runtime-dir 2>/dev/null)" || {
         echo "Error: could not determine Jupyter runtime dir" >&2
         exit 1
     }
-    local pre_existing_kernels=""
-    for f in "${jupyter_runtime}"/kernel-*.json; do
-        [[ -f "${f}" ]] || continue
-        pre_existing_kernels="${pre_existing_kernels}|${f}"
-    done
+
+    # Record timestamp before starting Lab
+    local start_time
+    start_time="$(date +%s)"
 
     # Start Jupyter Lab in the background
     local repo_root
@@ -163,7 +161,7 @@ cmd_start() {
     echo "${lab_url}" > "${runtime_dir}/lab.url"
     echo "Lab: ${lab_url}"
 
-    # Wait for a NEW kernel connection file to appear (user opens a notebook)
+    # Wait for a kernel connection file newer than start_time
     echo "Watching for kernel..."
     elapsed=0
     local connection_file=""
@@ -175,15 +173,15 @@ cmd_start() {
             echo "Open a notebook in Lab to start a kernel, then run: jupyter-bridge start" >&2
             exit 0
         fi
-        # Check for new kernel files
+        # Check for kernel files newer than when we started
         for f in "${jupyter_runtime}"/kernel-*.json; do
             [[ -f "${f}" ]] || continue
-            # Skip pre-existing kernels
-            if [[ "${pre_existing_kernels}" == *"|${f}"* ]]; then
-                continue
+            local mtime
+            mtime="$(stat -c %Y "${f}" 2>/dev/null)" || continue
+            if [[ "${mtime}" -ge "${start_time}" ]]; then
+                connection_file="${f}"
+                break
             fi
-            connection_file="${f}"
-            break
         done
     done
 

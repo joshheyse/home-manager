@@ -31,8 +31,8 @@ def setup_logging(log_file: Path) -> None:
     logger.setLevel(logging.INFO)
 
 
-def collect_output(kc) -> dict:  # noqa: ANN001
-    """Collect all iopub messages until execution is idle."""
+def collect_output(kc, msg_id: str) -> dict:  # noqa: ANN001
+    """Collect iopub messages for a specific execution until idle."""
     outputs: list[dict] = []
     status = "ok"
     error = None
@@ -43,6 +43,10 @@ def collect_output(kc) -> dict:  # noqa: ANN001
             msg = kc.get_iopub_msg(timeout=120)
         except Exception:
             break
+
+        # Only process messages from our execution
+        if msg["parent_header"].get("msg_id") != msg_id:
+            continue
 
         msg_type = msg["header"]["msg_type"]
         content = msg["content"]
@@ -118,8 +122,8 @@ def main() -> None:
                 continue
 
             logger.info("Executing %d chars of code", len(code))
-            kc.execute(code)
-            result = collect_output(kc)
+            msg_id = kc.execute(code)
+            result = collect_output(kc, msg_id)
             logger.info("Execution complete: status=%s", result["status"])
 
             # Write output atomically
