@@ -179,6 +179,12 @@ for cmd in gpg ykman expect; do
   command -v "$cmd" &>/dev/null || error "Missing dependency: $cmd"
 done
 
+# Check pcscd is running (required for YubiKey communication)
+if command -v systemctl &>/dev/null; then
+  systemctl is-active --quiet pcscd.service 2>/dev/null || systemctl is-active --quiet pcscd.socket 2>/dev/null ||
+    error "pcscd is not running. Enable it with: services.pcscd.enable = true"
+fi
+
 # Helper function to run ykman with --device flag if serial is available
 ykman_run() {
   if [[ -n "$YUBIKEY_SERIAL" ]]; then
