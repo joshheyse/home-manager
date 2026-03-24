@@ -46,8 +46,9 @@ in {
       $DRY_RUN_CMD chmod 700 $HOME/.gnupg/public-keys.d
     '';
 
-    # GPG testing script
+    # GPG testing script and YubiKey provisioning dependencies
     packages = [
+      pkgs.expect
       (pkgs.writeShellScriptBin "gpg-rt" ''
         echo "test message" | gpg --encrypt --recipient ${gpgKeyId} | gpg --decrypt
       '')
