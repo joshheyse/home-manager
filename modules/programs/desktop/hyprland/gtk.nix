@@ -23,7 +23,8 @@ in {
         package = pkgs.papirus-icon-theme;
       };
       cursorTheme = {
-        name = "Adwaita";
+        name = "Bibata-Modern-Classic";
+        package = pkgs.bibata-cursors;
         size = 24;
       };
     };

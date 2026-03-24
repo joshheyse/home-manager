@@ -4,7 +4,7 @@ set -euo pipefail
 # Yubikey OpenPGP Provisioning Script
 # Imports GPG private key and moves subkeys to Yubikey
 
-DEFAULT_TOUCH_POLICY="cached"
+DEFAULT_TOUCH_POLICY="off"
 DEFAULT_PIN_RETRIES=8
 DEFAULT_RESET_RETRIES=8
 DEFAULT_ADMIN_RETRIES=8

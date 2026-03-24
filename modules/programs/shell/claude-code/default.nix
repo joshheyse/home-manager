@@ -1,8 +1,14 @@
 {
   pkgs,
   lib,
+  config,
   ...
 }: {
+  # Symlink ~/.claude.json into the ~/.claude/ directory so it's covered by
+  # directory-level impermanence rather than needing a separate file mount
+  # (which breaks during nixos-rebuild switch).
+  home.file.".claude.json".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.claude/claude.json";
   programs.claude-code = {
     enable = true;
 

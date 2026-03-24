@@ -14,6 +14,7 @@ in {
     services.mako = {
       enable = true;
       settings = {
+        width = 600;
         background-color = theme.bg;
         text-color = theme.fg;
         border-color = theme.blue;
