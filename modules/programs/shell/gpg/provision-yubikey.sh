@@ -10,6 +10,10 @@ DEFAULT_RESET_RETRIES=8
 DEFAULT_ADMIN_RETRIES=8
 FACTORY_USER_PIN="123456"
 FACTORY_ADMIN_PIN="12345678"
+MIN_USER_PIN_LEN=6
+MIN_ADMIN_PIN_LEN=8
+MIN_RESET_CODE_LEN=8
+MIN_PASSPHRASE_LEN=8
 
 # Colors
 red=$'\e[1;31m'
@@ -43,7 +47,7 @@ Options:
     --touch-aut POLICY      Touch policy for authentication slot
     --user-pin PIN          User PIN (min 6 chars, prompted if not set)
     --admin-pin PIN         Admin PIN (min 8 chars, prompted if not set)
-    --reset-code CODE       Reset code (min 8 chars, optional)
+    --reset-code CODE       Reset code (min 8 chars, prompted if not set)
     --key-passphrase PASS   Passphrase for the GPG key (prompted if needed)
     --pin-retries N         User PIN retry count (default: 8, max: 127)
     --reset-retries N       Reset code retry count (default: 8, max: 127)
@@ -161,6 +165,9 @@ ADMIN_RETRIES="${ADMIN_RETRIES:-$DEFAULT_ADMIN_RETRIES}"
 # Validation
 [[ -n "$PRIVATE_KEY_FILE" ]] || error "Private key file required. Use -h for help."
 [[ -f "$PRIVATE_KEY_FILE" ]] || error "File not found: $PRIVATE_KEY_FILE"
+[[ -s "$PRIVATE_KEY_FILE" ]] || error "Key file is empty: $PRIVATE_KEY_FILE"
+gpg --batch --import-options show-only --import "$PRIVATE_KEY_FILE" &>/dev/null ||
+  error "Not a valid GPG key file: $PRIVATE_KEY_FILE"
 
 for policy in "$TOUCH_SIG" "$TOUCH_ENC" "$TOUCH_AUT"; do
   case "$policy" in
@@ -184,6 +191,9 @@ if command -v systemctl &>/dev/null; then
   systemctl is-active --quiet pcscd.service 2>/dev/null || systemctl is-active --quiet pcscd.socket 2>/dev/null ||
     error "pcscd is not running. Enable it with: services.pcscd.enable = true"
 fi
+
+# Release CCID connection held by gpg-agent
+gpgconf --kill gpg-agent 2>/dev/null || true
 
 # Helper function to run ykman with --device flag if serial is available
 ykman_run() {
@@ -237,6 +247,10 @@ if [[ -z "$YUBIKEY_SERIAL" ]]; then
   info "Operating on single YubiKey (serial number hidden)"
 fi
 
+# Verify OpenPGP applet is accessible before prompting for PINs
+ykman_run openpgp info &>/dev/null ||
+  error "Cannot connect to OpenPGP applet. Try unplugging and replugging the YubiKey."
+
 # Prompt for PINs if not provided
 prompt_secret() {
   local name="$1" minlen="$2" varname="$3"
@@ -259,13 +273,14 @@ prompt_secret() {
   printf -v "$varname" '%s' "$val"
 }
 
-[[ -n "$USER_PIN" ]] || prompt_secret "User PIN" 6 USER_PIN
-[[ -n "$ADMIN_PIN" ]] || prompt_secret "Admin PIN" 8 ADMIN_PIN
+[[ -n "$USER_PIN" ]] || prompt_secret "User PIN" "$MIN_USER_PIN_LEN" USER_PIN
+[[ -n "$ADMIN_PIN" ]] || prompt_secret "Admin PIN" "$MIN_ADMIN_PIN_LEN" ADMIN_PIN
+[[ -n "$RESET_CODE" ]] || prompt_secret "Reset Code" "$MIN_RESET_CODE_LEN" RESET_CODE
 
-if [[ -z "$RESET_CODE" && $YES -eq 0 ]]; then
-  read -rp "Set a reset code? (recommended) [y/N] " yn
-  [[ "$yn" =~ ^[Yy]$ ]] && prompt_secret "Reset Code" 8 RESET_CODE
-fi
+# Validate PIN/code lengths (catches bad values passed via flags)
+[[ ${#USER_PIN} -ge $MIN_USER_PIN_LEN ]] || error "User PIN must be at least $MIN_USER_PIN_LEN characters (got ${#USER_PIN})"
+[[ ${#ADMIN_PIN} -ge $MIN_ADMIN_PIN_LEN ]] || error "Admin PIN must be at least $MIN_ADMIN_PIN_LEN characters (got ${#ADMIN_PIN})"
+[[ ${#RESET_CODE} -ge $MIN_RESET_CODE_LEN ]] || error "Reset code must be at least $MIN_RESET_CODE_LEN characters (got ${#RESET_CODE})"
 
 # Summary
 cat <<EOF
@@ -276,7 +291,7 @@ Key file:       $PRIVATE_KEY_FILE
 Reset applet:   $( ((RESET_APPLET)) && echo yes || echo no)
 Touch policies: sig=$TOUCH_SIG enc=$TOUCH_ENC aut=$TOUCH_AUT
 Retry counts:   pin=$PIN_RETRIES reset=$RESET_RETRIES admin=$ADMIN_RETRIES
-Reset code:     $([[ -n "$RESET_CODE" ]] && echo yes || echo no)
+Reset code:     yes
 Dry run:        $( ((DRY_RUN)) && echo yes || echo no)
 
 EOF
@@ -301,13 +316,23 @@ export GNUPGHOME="$TEMP_GNUPGHOME"
 
 info "Using temp GNUPGHOME: $TEMP_GNUPGHOME"
 
+# Write config files for temp GNUPGHOME
+echo "disable-ccid" >"$TEMP_GNUPGHOME/scdaemon.conf"
+echo "allow-loopback-pinentry" >"$TEMP_GNUPGHOME/gpg-agent.conf"
+
 # Initialize GPG
 gpg --list-keys &>/dev/null || true
 
 # Reset applet if requested
 if ((RESET_APPLET)); then
+  # Kill all GPG daemons before reset to release card
+  gpgconf --kill all 2>/dev/null || true
+
   info "Resetting OpenPGP applet..."
   ykman_run openpgp reset --force
+  info "Waiting for YubiKey to reinitialize..."
+  sleep 3
+  ykman_run info &>/dev/null || { sleep 2; ykman_run info &>/dev/null || error "YubiKey not responding after reset"; }
   success "Applet reset"
 fi
 
@@ -329,6 +354,31 @@ gpg --list-secret-keys --keyid-format long "$KEY_FPR"
 SUBKEY_COUNT=$(gpg --list-secret-keys --with-colons "$KEY_FPR" | grep -c '^ssb')
 info "Found $SUBKEY_COUNT subkeys"
 
+# Kill all GPG daemons so scdaemon re-establishes a fresh connection to the card
+gpgconf --kill all 2>/dev/null || true
+sleep 2
+
+# Restart pcscd to clear stale card state after reset
+if command -v systemctl &>/dev/null && systemctl is-active --quiet pcscd.service 2>/dev/null; then
+  info "Restarting pcscd..."
+  sudo systemctl restart pcscd.service
+  sleep 1
+fi
+
+# Verify GPG can see the card before attempting keytocard
+info "Verifying card connectivity..."
+CARD_RETRIES=0
+while ! gpg --card-status &>/dev/null; do
+  CARD_RETRIES=$((CARD_RETRIES + 1))
+  if [[ $CARD_RETRIES -ge 5 ]]; then
+    error "Cannot reach smartcard after $CARD_RETRIES attempts. Try unplugging and replugging the YubiKey."
+  fi
+  warn "Card not ready, retrying ($CARD_RETRIES/5)..."
+  gpgconf --kill all 2>/dev/null || true
+  sleep 3
+done
+success "Card is accessible"
+
 # Build expect script for keytocard
 # This handles the interactive GPG session
 EXPECT_SCRIPT=$(mktemp)
@@ -338,93 +388,61 @@ cat >"$EXPECT_SCRIPT" <<'EXPECTEOF'
 set timeout 30
 set fpr [lindex $argv 0]
 set admin_pin [lindex $argv 1]
-set passphrase [lindex $argv 2]
+# Read passphrase from env to avoid command-line escaping issues
+set passphrase $env(GPG_KEY_PASSPHRASE)
 
-spawn gpg --edit-key $fpr
+spawn gpg --pinentry-mode loopback --edit-key $fpr
 
-# For each subkey (1=sig, 2=enc, 3=aut), select and move to card
+# Helper: move selected subkey to card slot
+# In loopback mode, both passphrase and admin PIN appear as "Passphrase:"
+# First prompt = key passphrase, second prompt = admin PIN
+proc keytocard_slot {slot passphrase admin_pin} {
+    set prompt_count 0
+    send "keytocard\r"
+    expect "Your selection?"
+    send "$slot\r"
+    log_user 0
+    expect {
+        "assphrase:" {
+            incr prompt_count
+            if {$prompt_count == 1} {
+                send -- $passphrase
+                send -- "\r"
+            } else {
+                send -- $admin_pin
+                send -- "\r"
+            }
+            exp_continue
+        }
+        "KEYTOCARD failed" {
+            log_user 1
+            exp_continue
+        }
+        "gpg>" {
+            log_user 1
+        }
+    }
+}
+
 # Subkey 1 -> signature slot (1)
 expect "gpg>"
 send "key 1\r"
 expect "gpg>"
-send "keytocard\r"
-expect {
-    "Your selection?" {
-        send "1\r"
-    }
-    "Passphrase:" {
-        send "$passphrase\r"
-        expect "Your selection?"
-        send "1\r"
-    }
-}
-expect {
-    "Enter passphrase:" {
-        send "$passphrase\r"
-        exp_continue
-    }
-    "Admin PIN" {
-        send "$admin_pin\r"
-        exp_continue
-    }
-    "gpg>" {}
-}
+keytocard_slot 1 $passphrase $admin_pin
 
-# Deselect key 1, select key 2
+# Deselect key 1, select key 2 -> encryption slot (2)
 send "key 1\r"
 expect "gpg>"
 send "key 2\r"
 expect "gpg>"
-send "keytocard\r"
-expect {
-    "Your selection?" {
-        send "2\r"
-    }
-    "Passphrase:" {
-        send "$passphrase\r"
-        expect "Your selection?"
-        send "2\r"
-    }
-}
-expect {
-    "Enter passphrase:" {
-        send "$passphrase\r"
-        exp_continue
-    }
-    "Admin PIN" {
-        send "$admin_pin\r"
-        exp_continue
-    }
-    "gpg>" {}
-}
+keytocard_slot 2 $passphrase $admin_pin
 
-# Deselect key 2, select key 3
+# Deselect key 2, select key 3 -> authentication slot (3)
 send "key 2\r"
 expect "gpg>"
 send "key 3\r"
 expect "gpg>"
-send "keytocard\r"
-expect {
-    "Your selection?" {
-        send "3\r"
-    }
-    "Passphrase:" {
-        send "$passphrase\r"
-        expect "Your selection?"
-        send "3\r"
-    }
-}
-expect {
-    "Enter passphrase:" {
-        send "$passphrase\r"
-        exp_continue
-    }
-    "Admin PIN" {
-        send "$admin_pin\r"
-        exp_continue
-    }
-    "gpg>" {}
-}
+keytocard_slot 3 $passphrase $admin_pin
 
 send "save\r"
 expect eof
@@ -432,24 +450,23 @@ EXPECTEOF
 
 chmod +x "$EXPECT_SCRIPT"
 
-# If key has passphrase, we need it
+# Prompt for key passphrase if not provided
 if [[ -z "$KEY_PASSPHRASE" ]]; then
-  # Try empty passphrase first, prompt if needed
-  KEY_PASSPHRASE=""
+  read -rsp "Enter GPG key passphrase: " KEY_PASSPHRASE
+  echo >&2
 fi
+[[ ${#KEY_PASSPHRASE} -ge $MIN_PASSPHRASE_LEN ]] || error "Key passphrase must be at least $MIN_PASSPHRASE_LEN characters (got ${#KEY_PASSPHRASE})"
 
 info "Moving subkeys to card..."
-expect "$EXPECT_SCRIPT" "$KEY_FPR" "$FACTORY_ADMIN_PIN" "$KEY_PASSPHRASE" || {
-  if [[ -z "$KEY_PASSPHRASE" ]]; then
-    warn "Key may be passphrase protected"
-    read -rsp "Enter key passphrase: " KEY_PASSPHRASE
-    echo
-    expect "$EXPECT_SCRIPT" "$KEY_FPR" "$FACTORY_ADMIN_PIN" "$KEY_PASSPHRASE"
-  else
-    error "Failed to move keys to card"
-  fi
-}
+GPG_KEY_PASSPHRASE="$KEY_PASSPHRASE" expect "$EXPECT_SCRIPT" "$KEY_FPR" "$FACTORY_ADMIN_PIN" ||
+  error "Failed to move keys to card"
 rm -f "$EXPECT_SCRIPT"
+
+# Verify keys actually landed on the card
+CARD_SIG=$(gpg --card-status 2>/dev/null | grep "^Signature key" || true)
+if echo "$CARD_SIG" | grep -q '\[none\]'; then
+  error "Keytocard failed — no keys found on card. Check your passphrase and try again."
+fi
 success "Subkeys moved to card"
 
 # Set PINs
@@ -468,7 +485,7 @@ success "User PIN set"
 # Set reset code if provided
 if [[ -n "$RESET_CODE" ]]; then
   info "Setting reset code..."
-  ykman_run openpgp access set-reset-code \
+  ykman_run openpgp access change-reset-code \
     --admin-pin "$ADMIN_PIN" \
     --reset-code "$RESET_CODE"
   success "Reset code set"
@@ -486,17 +503,34 @@ ykman_run openpgp keys set-touch enc "$TOUCH_ENC" --admin-pin "$ADMIN_PIN" --for
 ykman_run openpgp keys set-touch aut "$TOUCH_AUT" --admin-pin "$ADMIN_PIN" --force
 success "Touch policies set"
 
-# Final status
+# Disable OTP slot 1 (short-touch keyboard input)
+info "Disabling OTP short-touch slot..."
+if ykman_run otp delete 1 --force 2>/dev/null; then
+  success "OTP slot disabled"
+else
+  warn "Could not disable OTP slot (may require direct USB OTP connection)"
+fi
+
+# Final verification
 echo
-info "Final card status:"
+info "=== Verification ==="
+
+info "OpenPGP applet info:"
 ykman_run openpgp info
+echo
+
+info "GPG card status:"
+gpg --card-status 2>&1 || warn "gpg --card-status failed (card may need re-plug)"
+echo
+
+info "Key on card:"
+gpg --list-secret-keys --keyid-format long "$KEY_FPR" 2>/dev/null || true
 
 echo
 success "Provisioning complete!"
 cat <<EOF
 
 Test commands:
-  gpg --card-status
   echo test | gpg --clearsign
   ssh-add -L  # if using gpg-agent for SSH
 EOF
