@@ -35,10 +35,11 @@ Provision a Yubikey with GPG keys from backup.
 Options:
     -h, --help              Show this help
     -r, --reset             Reset OpenPGP applet before provisioning
+    -s, --serial SERIAL     YubiKey serial number (prompted if multiple detected)
     -t, --touch POLICY      Touch policy: off, on, fixed, cached, cached-fixed
                             (default: cached)
     --touch-sig POLICY      Touch policy for signature slot
-    --touch-enc POLICY      Touch policy for encryption slot  
+    --touch-enc POLICY      Touch policy for encryption slot
     --touch-aut POLICY      Touch policy for authentication slot
     --user-pin PIN          User PIN (min 6 chars, prompted if not set)
     --admin-pin PIN         Admin PIN (min 8 chars, prompted if not set)
@@ -53,12 +54,14 @@ Options:
 Examples:
     provision-yubikey.sh -r ~/backup/secret-key.asc
     provision-yubikey.sh -r -t cached --user-pin 123456 --admin-pin 12345678 key.asc
+    provision-yubikey.sh -r --serial 12345678 ~/backup/secret-key.asc
 EOF
   exit 0
 }
 
 # Argument parsing
 RESET_APPLET=0
+YUBIKEY_SERIAL=""
 TOUCH_SIG=""
 TOUCH_ENC=""
 TOUCH_AUT=""
@@ -79,6 +82,10 @@ while [[ $# -gt 0 ]]; do
   -r | --reset)
     RESET_APPLET=1
     shift
+    ;;
+  -s | --serial)
+    YUBIKEY_SERIAL="$2"
+    shift 2
     ;;
   -t | --touch)
     TOUCH_SIG="$2"
@@ -172,9 +179,57 @@ for cmd in gpg ykman expect; do
   command -v "$cmd" &>/dev/null || error "Missing dependency: $cmd"
 done
 
-# Check Yubikey
-ykman info &>/dev/null || error "No Yubikey detected"
-info "Yubikey detected: $(ykman list 2>/dev/null | head -1)"
+# Helper function to run ykman with --device flag if serial is available
+ykman_run() {
+  if [[ -n "$YUBIKEY_SERIAL" ]]; then
+    ykman --device "$YUBIKEY_SERIAL" "$@"
+  else
+    ykman "$@"
+  fi
+}
+
+# Detect and select YubiKey
+YUBIKEY_LIST=$(ykman list 2>/dev/null || true)
+[[ -n "$YUBIKEY_LIST" ]] || error "No YubiKey detected"
+
+YUBIKEY_COUNT=$(echo "$YUBIKEY_LIST" | grep -c "YubiKey" || true)
+
+if [[ $YUBIKEY_COUNT -eq 0 ]]; then
+  error "No YubiKey detected"
+elif [[ $YUBIKEY_COUNT -eq 1 ]]; then
+  # Only one YubiKey - use it
+  if [[ -z "$YUBIKEY_SERIAL" ]]; then
+    YUBIKEY_SERIAL=$(echo "$YUBIKEY_LIST" | grep -oP 'Serial: \K[0-9]+' || true)
+  fi
+  info "YubiKey detected: $(echo "$YUBIKEY_LIST" | head -1)"
+else
+  # Multiple YubiKeys detected
+  info "Multiple YubiKeys detected:"
+  echo "$YUBIKEY_LIST" | nl -w2 -s'. ' >&2
+
+  if [[ -z "$YUBIKEY_SERIAL" ]]; then
+    # Prompt user to select
+    echo >&2
+    read -rp "Enter YubiKey serial number: " YUBIKEY_SERIAL
+  fi
+
+  # Verify the serial exists
+  if ! echo "$YUBIKEY_LIST" | grep -q "Serial: $YUBIKEY_SERIAL"; then
+    error "YubiKey with serial $YUBIKEY_SERIAL not found"
+  fi
+
+  info "Selected YubiKey: $(echo "$YUBIKEY_LIST" | grep "Serial: $YUBIKEY_SERIAL")"
+fi
+
+# Allow empty serial only if exactly one YubiKey is detected
+if [[ -z "$YUBIKEY_SERIAL" && $YUBIKEY_COUNT -ne 1 ]]; then
+  error "Failed to determine YubiKey serial number"
+fi
+
+# If serial is still empty but we have exactly one key, log it
+if [[ -z "$YUBIKEY_SERIAL" ]]; then
+  info "Operating on single YubiKey (serial number hidden)"
+fi
 
 # Prompt for PINs if not provided
 prompt_secret() {
@@ -210,6 +265,7 @@ fi
 cat <<EOF
 
 === Provisioning Summary ===
+YubiKey serial: ${YUBIKEY_SERIAL:-<hidden/auto-detect>}
 Key file:       $PRIVATE_KEY_FILE
 Reset applet:   $( ((RESET_APPLET)) && echo yes || echo no)
 Touch policies: sig=$TOUCH_SIG enc=$TOUCH_ENC aut=$TOUCH_AUT
@@ -245,7 +301,7 @@ gpg --list-keys &>/dev/null || true
 # Reset applet if requested
 if ((RESET_APPLET)); then
   info "Resetting OpenPGP applet..."
-  ykman openpgp reset --force
+  ykman_run openpgp reset --force
   success "Applet reset"
 fi
 
@@ -392,13 +448,13 @@ success "Subkeys moved to card"
 
 # Set PINs
 info "Setting Admin PIN..."
-ykman openpgp access change-admin-pin \
+ykman_run openpgp access change-admin-pin \
   --admin-pin "$FACTORY_ADMIN_PIN" \
   --new-admin-pin "$ADMIN_PIN"
 success "Admin PIN set"
 
 info "Setting User PIN..."
-ykman openpgp access change-pin \
+ykman_run openpgp access change-pin \
   --pin "$FACTORY_USER_PIN" \
   --new-pin "$USER_PIN"
 success "User PIN set"
@@ -406,7 +462,7 @@ success "User PIN set"
 # Set reset code if provided
 if [[ -n "$RESET_CODE" ]]; then
   info "Setting reset code..."
-  ykman openpgp access set-reset-code \
+  ykman_run openpgp access set-reset-code \
     --admin-pin "$ADMIN_PIN" \
     --reset-code "$RESET_CODE"
   success "Reset code set"
@@ -414,20 +470,20 @@ fi
 
 # Set retry counts (enable reset code usage)
 info "Setting retry counts to $PIN_RETRIES/$RESET_RETRIES/$ADMIN_RETRIES..."
-ykman openpgp access set-retries "$PIN_RETRIES" "$RESET_RETRIES" "$ADMIN_RETRIES" --admin-pin "$ADMIN_PIN" --force
+ykman_run openpgp access set-retries "$PIN_RETRIES" "$RESET_RETRIES" "$ADMIN_RETRIES" --admin-pin "$ADMIN_PIN" --force
 success "Retry counts set"
 
 # Set touch policies
 info "Setting touch policies..."
-ykman openpgp keys set-touch sig "$TOUCH_SIG" --admin-pin "$ADMIN_PIN" --force
-ykman openpgp keys set-touch enc "$TOUCH_ENC" --admin-pin "$ADMIN_PIN" --force
-ykman openpgp keys set-touch aut "$TOUCH_AUT" --admin-pin "$ADMIN_PIN" --force
+ykman_run openpgp keys set-touch sig "$TOUCH_SIG" --admin-pin "$ADMIN_PIN" --force
+ykman_run openpgp keys set-touch enc "$TOUCH_ENC" --admin-pin "$ADMIN_PIN" --force
+ykman_run openpgp keys set-touch aut "$TOUCH_AUT" --admin-pin "$ADMIN_PIN" --force
 success "Touch policies set"
 
 # Final status
 echo
 info "Final card status:"
-ykman openpgp info
+ykman_run openpgp info
 
 echo
 success "Provisioning complete!"
