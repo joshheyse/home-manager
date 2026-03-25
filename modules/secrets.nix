@@ -18,6 +18,8 @@ in {
       "digikey/clientSecret" = {};
       "github/token" = {};
       "anthropic/api_key" = {};
+      "digitalblasphemy/username" = {};
+      "digitalblasphemy/password" = {};
     };
 
     # User-level age key for decryption (separate from the system key).

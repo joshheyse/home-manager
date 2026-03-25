@@ -22,6 +22,10 @@ in {
     ./hyprlock.nix
     ./hypridle.nix
     ./hyprpaper.nix
+    ./hyprexpo.nix
+    ./swayosd.nix
+    ./wlogout.nix
+    ./wallpaper.nix
     ./mako.nix
   ];
 

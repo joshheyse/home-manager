@@ -58,6 +58,7 @@
       }
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
         landrun = pkgs.callPackage ./pkgs/landrun {};
+        db-wallpaper = pkgs.callPackage ./pkgs/db-wallpaper {};
       });
 
     # Shared nix-darwin modules

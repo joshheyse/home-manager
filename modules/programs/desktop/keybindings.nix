@@ -346,6 +346,27 @@
         desc = "App launcher (rofi)";
         hyprlandAction = "exec, rofi -show drun";
       }
+      # Clipboard history (cliphist + rofi)
+      {
+        key = "V";
+        mods = ["Super" "Shift"];
+        desc = "Clipboard history";
+        hyprlandAction = "exec, cliphist list | rofi -dmenu -p clipboard | cliphist decode | wl-copy";
+      }
+      # Workspace overview (hyprexpo)
+      {
+        key = "grave";
+        mods = ["Super"];
+        desc = "Workspace overview";
+        hyprlandAction = "hyprexpo:expo, toggle";
+      }
+      # Power menu (wlogout)
+      {
+        key = "Escape";
+        mods = ["Super" "Shift"];
+        desc = "Power menu";
+        hyprlandAction = "exec, wlogout";
+      }
       # Screenshots handled by screenshots.nix chord (Super+P → R/F/W/V/D)
     ];
 
