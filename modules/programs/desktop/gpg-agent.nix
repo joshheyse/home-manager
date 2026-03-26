@@ -82,6 +82,11 @@ in {
       echo "Stopped local gpg-agent — SSH-forwarded agent will be used"
       echo "Reconnect your SSH session to bind the forwarded socket"
     '')
+    (pkgs.writeShellApplication {
+      name = "agent-check";
+      runtimeInputs = with pkgs; [gnupg openssh coreutils systemd];
+      text = builtins.readFile ./agent-check.sh;
+    })
   ];
 
   # Restore local GPG agent on Hyprland login (user is at the desk)
