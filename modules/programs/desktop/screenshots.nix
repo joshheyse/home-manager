@@ -237,7 +237,9 @@ in {
     };
 
     # skhd screenshot mode
-    xdg.configFile."skhd/skhdrc".text = lib.mkIf isDarwin (lib.mkAfter skhdScreenshotMode);
+    xdg.configFile."skhd/skhdrc" = lib.mkIf isDarwin {
+      text = lib.mkAfter skhdScreenshotMode;
+    };
 
     # fswatch watcher for built-in macOS screenshots and MOV→MP4 conversion
     launchd.agents.watch-screenshots = lib.mkIf isDarwin {
