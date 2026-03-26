@@ -5,9 +5,12 @@
   ...
 }: let
   jsonFormat = pkgs.formats.json {};
+  cfg = config.programs.claude-code;
 
-  # Nix-managed settings — these keys always win over runtime mutations
-  managedSettings = {
+  # Our managed settings (sandbox, permissions, plugins).
+  # Other modules (e.g. tmux) can still set programs.claude-code.settings.hooks —
+  # we merge everything together and manage it via activation instead of home.file.
+  ownSettings = {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
     sandbox = {
       enabled = true;
@@ -42,6 +45,9 @@
     };
   };
 
+  # Merge our settings with anything other modules contributed via
+  # programs.claude-code.settings (e.g. hooks from the tmux module)
+  managedSettings = lib.recursiveUpdate cfg.settings ownSettings;
   managedSettingsFile = jsonFormat.generate "claude-code-managed-settings.json" managedSettings;
 
   managedMemoryFile = pkgs.writeText "claude-code-CLAUDE.md" ''
@@ -55,6 +61,10 @@ in {
     enable = true;
     # Don't set settings or memory here — we manage them via activation
   };
+
+  # Prevent the upstream module from creating home.file for settings.json.
+  # We manage it as a mutable file via activation instead.
+  home.file.".claude/settings.json".enable = lib.mkForce false;
 
   home.packages =
     lib.optionals pkgs.stdenv.isLinux [pkgs.bubblewrap pkgs.socat];
