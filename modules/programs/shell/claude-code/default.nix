@@ -92,18 +92,6 @@ in {
         chmod 644 "$settings"
       fi
 
-      # Symlink ~/.claude.json -> ~/.claude/claude.json so the config
-      # survives impermanence (the ~/.claude/ directory is persisted).
-      claude_json="${config.home.homeDirectory}/.claude.json"
-      claude_json_target="$claude_dir/claude.json"
-      if [ ! -L "$claude_json" ]; then
-        # Migrate existing regular file into the persisted directory
-        if [ -f "$claude_json" ] && [ ! -f "$claude_json_target" ]; then
-          mv "$claude_json" "$claude_json_target"
-        fi
-        rm -f "$claude_json"
-        ln -s "$claude_json_target" "$claude_json"
-      fi
 
       # CLAUDE.md: overwrite with managed content (this is declarative intent,
       # not user-edited — user memory goes in ~/.claude/projects/*/memory/)
