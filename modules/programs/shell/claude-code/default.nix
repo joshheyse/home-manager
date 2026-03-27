@@ -62,39 +62,54 @@ in {
     # Don't set settings or memory here — we manage them via activation
   };
 
-  # Prevent the upstream module from creating home.file for settings.json.
-  # We manage it as a mutable file via activation instead.
-  home.file.".claude/settings.json".enable = lib.mkForce false;
+  home = {
+    # Prevent the upstream module from creating home.file for settings.json.
+    # We manage it as a mutable file via activation instead.
+    file.".claude/settings.json".enable = lib.mkForce false;
 
-  home.packages =
-    lib.optionals pkgs.stdenv.isLinux [pkgs.bubblewrap pkgs.socat];
+    packages =
+      lib.optionals pkgs.stdenv.isLinux [pkgs.bubblewrap pkgs.socat];
 
-  home.activation.claude-code-mutable-config = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    claude_dir="${config.home.homeDirectory}/.claude"
-    settings="$claude_dir/settings.json"
-    memory="$claude_dir/CLAUDE.md"
-    managed="${managedSettingsFile}"
+    activation.claude-code-mutable-config = lib.hm.dag.entryAfter ["writeBoundary"] ''
+      claude_dir="${config.home.homeDirectory}/.claude"
+      settings="$claude_dir/settings.json"
+      memory="$claude_dir/CLAUDE.md"
+      managed="${managedSettingsFile}"
 
-    # Ensure directory exists
-    mkdir -p "$claude_dir"
+      # Ensure directory exists
+      mkdir -p "$claude_dir"
 
-    # Settings: deep-merge nix-managed keys over any existing runtime settings.
-    # Runtime keys (like theme) are preserved; nix-managed keys always win.
-    if [ -f "$settings" ] && [ ! -L "$settings" ]; then
-      # Existing mutable file — merge managed keys on top
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$settings" "$managed" > "$settings.tmp"
-      mv "$settings.tmp" "$settings"
-    else
-      # First run or was a symlink from previous home-manager generation — seed from managed
-      rm -f "$settings"
-      cp "$managed" "$settings"
-      chmod 644 "$settings"
-    fi
+      # Settings: deep-merge nix-managed keys over any existing runtime settings.
+      # Runtime keys (like theme) are preserved; nix-managed keys always win.
+      if [ -f "$settings" ] && [ ! -L "$settings" ]; then
+        # Existing mutable file — merge managed keys on top
+        ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$settings" "$managed" > "$settings.tmp"
+        mv "$settings.tmp" "$settings"
+      else
+        # First run or was a symlink from previous home-manager generation — seed from managed
+        rm -f "$settings"
+        cp "$managed" "$settings"
+        chmod 644 "$settings"
+      fi
 
-    # CLAUDE.md: overwrite with managed content (this is declarative intent,
-    # not user-edited — user memory goes in ~/.claude/projects/*/memory/)
-    rm -f "$memory"
-    cp "${managedMemoryFile}" "$memory"
-    chmod 644 "$memory"
-  '';
+      # Symlink ~/.claude.json -> ~/.claude/claude.json so the config
+      # survives impermanence (the ~/.claude/ directory is persisted).
+      claude_json="${config.home.homeDirectory}/.claude.json"
+      claude_json_target="$claude_dir/claude.json"
+      if [ ! -L "$claude_json" ]; then
+        # Migrate existing regular file into the persisted directory
+        if [ -f "$claude_json" ] && [ ! -f "$claude_json_target" ]; then
+          mv "$claude_json" "$claude_json_target"
+        fi
+        rm -f "$claude_json"
+        ln -s "$claude_json_target" "$claude_json"
+      fi
+
+      # CLAUDE.md: overwrite with managed content (this is declarative intent,
+      # not user-edited — user memory goes in ~/.claude/projects/*/memory/)
+      rm -f "$memory"
+      cp "${managedMemoryFile}" "$memory"
+      chmod 644 "$memory"
+    '';
+  };
 }
