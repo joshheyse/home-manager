@@ -27,10 +27,7 @@ in {
     systemd.user.services.ssh-agent-switcher = {
       Unit = {
         Description = "SSH Agent Switcher";
-        After =
-          ["graphical-session.target"]
-          ++ lib.optionals gpgEnabled ["gpg-agent-ssh.socket"];
-        PartOf = ["graphical-session.target"];
+        After = lib.optionals gpgEnabled ["gpg-agent-ssh.socket"];
       };
 
       Service = {
