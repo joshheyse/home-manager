@@ -40,6 +40,7 @@ in {
     ./lazygit.nix
     ./neovim
     ./ripgrep.nix
+    ./ssh.nix
     ./starship.nix
     ./tmux
     ./zsh.nix
