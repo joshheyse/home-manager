@@ -3,15 +3,31 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/release-25.11";
+    home-manager = {
+      url = "github:nix-community/home-manager/release-25.11";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     claude-code-nix = {
       url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    claude-desktop = {
+      url = "github:k3d3/claude-desktop-linux-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs = {
+    self,
     nixpkgs,
+    home-manager,
     claude-code-nix,
+    claude-desktop,
+    sops-nix,
     ...
   }: let
     # Define systems
@@ -19,6 +35,84 @@
 
     # Helper to generate attribute sets for each system
     forEachSystem = f: nixpkgs.lib.genAttrs systems f;
+
+    # Per-host module lists — single source of truth for both standalone
+    # hms and NixOS-integrated home-manager.
+    hostModules = {
+      desktop = [
+        self.homeManagerModules.base
+        self.homeManagerModules.shell
+        self.homeManagerModules.desktop
+        self.homeManagerModules.ssh-agent-switcher
+        self.homeManagerModules.secrets
+        sops-nix.homeManagerModules.sops
+        {
+          home = {
+            username = nixpkgs.lib.mkDefault "josh";
+            homeDirectory = nixpkgs.lib.mkDefault "/home/josh";
+          };
+          services = {
+            ssh-agent-switcher.enable = true;
+            gpg-agent.enable = true;
+            udiskie.enable = true;
+          };
+          programs = {
+            hyprland-desktop.enable = true;
+            hyprland-desktop.wallpaper.enable = true;
+            tiling-wm.enable = true;
+            screenshots.enable = true;
+            firefox-profile.enable = false;
+          };
+          home.packages = [
+            claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
+          ];
+          sops = {
+            userSecrets.enable = true;
+            defaultSopsFile = ./secrets/users/josh/secrets.yaml;
+          };
+        }
+      ];
+
+      homelab = [
+        self.homeManagerModules.base
+        self.homeManagerModules.shell
+        self.homeManagerModules.ssh-agent-switcher
+        {
+          home = {
+            username = nixpkgs.lib.mkDefault "josh";
+            homeDirectory = nixpkgs.lib.mkDefault "/home/josh";
+          };
+          services.ssh-agent-switcher.enable = true;
+        }
+      ];
+
+      mac = [
+        self.homeManagerModules.default
+        self.homeManagerModules.secrets
+        sops-nix.homeManagerModules.sops
+        {
+          home = {
+            username = nixpkgs.lib.mkForce "joshheyse";
+            homeDirectory = nixpkgs.lib.mkForce "/Users/joshheyse";
+          };
+          services = {
+            ssh-agent-switcher.enable = false;
+            gpg-agent.enable = true;
+          };
+          programs = {
+            tiling-wm.enable = true;
+            firefox-profile.enable = false;
+            raycast.enable = true;
+            screenshots.enable = true;
+          };
+          sops = {
+            userSecrets.enable = true;
+            gnupg.home = "/Users/joshheyse/.gnupg";
+            defaultSopsFile = ./secrets/users/josh/secrets.yaml;
+          };
+        }
+      ];
+    };
   in {
     # Home Manager modules that can be imported
     homeManagerModules = {
@@ -40,6 +134,39 @@
       desktop = ./modules/programs/desktop;
       ssh-agent-switcher = ./modules/services/ssh-agent-switcher.nix;
       secrets = ./modules/secrets.nix;
+    };
+
+    # Per-host module lists (consumed by both hms and nix/flake.nix)
+    inherit hostModules;
+
+    # Standalone homeConfigurations for hms
+    homeConfigurations = {
+      "josh@desktop" = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          config.allowUnfree = true;
+          overlays = [self.overlays.default];
+        };
+        modules = hostModules.desktop;
+      };
+
+      "josh@homelab" = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          config.allowUnfree = true;
+          overlays = [self.overlays.default];
+        };
+        modules = hostModules.homelab;
+      };
+
+      "joshheyse@macbook-pro" = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "aarch64-darwin";
+          config.allowUnfree = true;
+          overlays = [self.overlays.default];
+        };
+        modules = hostModules.mac;
+      };
     };
 
     # Custom packages

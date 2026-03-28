@@ -1,0 +1,20 @@
+# SOPS configuration for user-level secrets
+# Documentation: https://github.com/Mic92/sops-nix
+
+keys:
+  - &josh_yubikey 3436A2586592D359231059AA06B3614378AFA59E
+  - &desktop_age age1het47uatqmfqy6zwyktpx6nz4vutu8s62xdkcwv57x7rakrwjv6suevyue
+  - &homelab-vm_age age1g9a8tc3mea7tpfh35pdedvcf2fwc43093f729y0af3c59qfddcxsq33syw
+  - &homelab_age age1lpugtssnj6nvt80khxgpglaa6tnn4769xv37dlzge2usdg4c9ddqtlpm3g
+  - &josh_age age1aua2dzvh4fxzy57w6qpewu38v69x464jz3fsaj7cwd8r3kwqhdcqws6gw3
+
+creation_rules:
+  - path_regex: secrets/users/josh/.*\.yaml$
+    key_groups:
+      - pgp:
+          - *josh_yubikey
+        age:
+          - *homelab_age
+          - *homelab-vm_age
+          - *desktop_age
+          - *josh_age
