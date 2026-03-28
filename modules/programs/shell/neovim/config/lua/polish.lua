@@ -1,3 +1,12 @@
+-- Filter jsonls trailing comma (519) and comment (521) warnings for JSONC files
+local original_diagnostic_set = vim.diagnostic.set
+vim.diagnostic.set = function(ns, bufnr, diagnostics, opts)
+  if vim.bo[bufnr].filetype == "jsonc" then
+    diagnostics = vim.tbl_filter(function(d) return d.code ~= 519 and d.code ~= 521 end, diagnostics)
+  end
+  original_diagnostic_set(ns, bufnr, diagnostics, opts)
+end
+
 -- Auto-reload files changed on disk (silent unless buffer has unsaved edits)
 vim.o.autoread = true
 vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
