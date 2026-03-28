@@ -16,7 +16,7 @@
       enabled = true;
       autoAllowBashIfSandboxed = true;
       allowUnsandboxedCommands = true;
-      excludedCommands = ["ssh"];
+      excludedCommands = ["ssh" "git" "gh"];
       network = {
         allowedDomains = ["*"];
         allowLocalBinding = false;
