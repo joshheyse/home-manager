@@ -63,6 +63,15 @@
             screenshots.enable = true;
             firefox-profile.enable = false;
           };
+          programs.ssh.remoteEnvironments = [
+            {
+              user = "josh";
+              uid = 1000;
+              hosts = {
+                homelab = {hostname = "192.168.1.66";};
+              };
+            }
+          ];
           home.packages = [
             claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
           ];
@@ -105,6 +114,17 @@
             raycast.enable = true;
             screenshots.enable = true;
           };
+          programs.ssh.remoteEnvironments = [
+            {
+              user = "josh";
+              uid = 1000;
+              hosts = {
+                homelab = {hostname = "192.168.1.66";};
+                desktop = {hostname = "desktop";};
+                dev = {hostname = "desktop";};
+              };
+            }
+          ];
           sops = {
             userSecrets.enable = true;
             gnupg.home = "/Users/joshheyse/.gnupg";
@@ -143,7 +163,7 @@
     homeConfigurations = {
       "josh@desktop" = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {
-          system = "x86_64-linux";
+          localSystem = "x86_64-linux";
           config.allowUnfree = true;
           overlays = [self.overlays.default];
         };
@@ -152,7 +172,7 @@
 
       "josh@homelab" = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {
-          system = "x86_64-linux";
+          localSystem = "x86_64-linux";
           config.allowUnfree = true;
           overlays = [self.overlays.default];
         };
@@ -161,7 +181,7 @@
 
       "joshheyse@macbook-pro" = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {
-          system = "aarch64-darwin";
+          localSystem = "aarch64-darwin";
           config.allowUnfree = true;
           overlays = [self.overlays.default];
         };
@@ -172,7 +192,7 @@
     # Custom packages
     packages = forEachSystem (system: let
       pkgs = import nixpkgs {
-        inherit system;
+        localSystem = system;
         config.allowUnfree = true;
       };
     in
