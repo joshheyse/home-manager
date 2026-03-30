@@ -68,6 +68,12 @@
     enable = true;
     package = pkgs.zsh;
 
+    completionInit = ''
+      autoload -U compinit
+      mkdir -p "''${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+      compinit -d "''${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump-$ZSH_VERSION"
+    '';
+
     history = {
       size = 10000;
       share = false;
