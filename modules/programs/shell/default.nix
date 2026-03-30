@@ -27,6 +27,7 @@ in {
 
   imports = [
     ../../theme.nix
+    ./atuin.nix
     ./bat.nix
     ./bottom.nix
     ./btop.nix

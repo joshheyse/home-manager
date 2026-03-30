@@ -70,7 +70,7 @@
 
     history = {
       size = 10000;
-      share = true;
+      share = false;
       append = true;
       ignoreAllDups = true;
       ignoreSpace = true;
