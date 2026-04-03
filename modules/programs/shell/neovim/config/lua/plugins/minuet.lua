@@ -1,7 +1,7 @@
 ---@type LazySpec
 return {
   "milanglacier/minuet-ai.nvim",
-  event = "InsertEnter",
+  event = "BufReadPost",
   opts = {
     provider = "claude",
     notify = "error",
@@ -20,9 +20,7 @@ return {
         api_key = "ANTHROPIC_API_KEY",
         model = "claude-haiku-4-5-20251001",
         max_tokens = 512,
-        optional = {
-          stop_sequences = { "\n\n" },
-        },
+        optional = {},
       },
     },
     throttle = 1000,
