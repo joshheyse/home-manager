@@ -2,7 +2,7 @@
   programs.atuin = {
     enable = true;
     package = pkgs.atuin;
-    enableZshIntegration = true;
+    enableZshIntegration = false;
 
     settings = {
       # Up arrow: session-local history only
@@ -12,6 +12,8 @@
       # Ctrl-R: search everything, ranked by frecency
       filter_mode = "global";
       search_mode = "fuzzy";
+
+      keymap_mode = "vim-normal";
 
       style = "compact";
       show_preview = true;

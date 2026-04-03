@@ -111,8 +111,10 @@
     initContent =
       # bash
       ''
-          source <(fzf --zsh)
         source ~/.config/zsh/functions.zsh
+
+        # Initialize atuin after zsh-vi-mode to prevent keybinding conflicts
+        zvm_after_init_commands+=('eval "$(atuin init zsh)"')
 
         # Use kitten ssh for proper terminal/keyboard protocol propagation
         if [[ "$TERM_PROGRAM" == "kitty" ]]; then
