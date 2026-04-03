@@ -61,6 +61,8 @@ in {
       # Linux-only packages (not available or don't work well on macOS via Nix)
       # These are installed via Homebrew on macOS instead
       signal-desktop
+      evolution
+      gnome-online-accounts-gtk
       gimp
       vlc
       kicad
@@ -69,4 +71,10 @@ in {
       discord
       sioyek
     ];
+
+  # Secret Service provider for apps that use org.freedesktop.secrets (e.g. Evolution)
+  services.gnome-keyring = lib.mkIf (!isDarwin) {
+    enable = true;
+    components = ["secrets"];
+  };
 }
