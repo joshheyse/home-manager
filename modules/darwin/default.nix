@@ -179,6 +179,7 @@ in {
         AppleICUForce24HourTime = 1;
         AppleMiniaturizeOnDoubleClick = 0;
         AppleEnableSwipeNavigateWithScrolls = 0;
+        NSQuitAlwaysKeepsWindows = false;
       };
 
       # XQuartz configuration
