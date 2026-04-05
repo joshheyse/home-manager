@@ -42,7 +42,7 @@ in {
               # Create symlink with agent.* name so ssh-agent-switcher can discover it.
               # Use gpgconf to get the correct socket path — on NixOS it's in
               # $XDG_RUNTIME_DIR/gnupg/, not ~/.gnupg/.
-              ln -sf "$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)" "${gpgAgentLink}"
+              ${pkgs.coreutils}/bin/ln -sf "$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)" "${gpgAgentLink}"
             ''}
           '';
         in "${preStart}";

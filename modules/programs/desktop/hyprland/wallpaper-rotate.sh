@@ -4,6 +4,15 @@
 
 set -euo pipefail
 
+# Auto-detect HYPRLAND_INSTANCE_SIGNATURE when not in environment (e.g. systemd service)
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+  sig_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr"
+  if [[ -d "$sig_dir" ]]; then
+    HYPRLAND_INSTANCE_SIGNATURE="$(find "$sig_dir" -maxdepth 1 -mindepth 1 -printf '%f\n' -quit)"
+    export HYPRLAND_INSTANCE_SIGNATURE
+  fi
+fi
+
 WALLPAPER_DIR="${1:?Usage: wallpaper-rotate <dir> <monitor1> [monitor2] ...}"
 shift
 MONITORS=("$@")
