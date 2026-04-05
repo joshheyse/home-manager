@@ -25,6 +25,7 @@ Private key headers:
 # Allow git commit SHAs in flake.lock files (rev and narHash fields)
 flake\.lock:.*"rev":
 flake\.lock:.*"narHash":
+flake\.lock:.*"url":
 
 # SOPS encrypted data (already encrypted, safe to commit)
 ENC\[AES256_GCM,
