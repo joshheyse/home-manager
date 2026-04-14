@@ -31,7 +31,7 @@
     ...
   }: let
     # Define systems
-    systems = ["x86_64-linux" "aarch64-darwin"];
+    systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin"];
 
     # Helper to generate attribute sets for each system
     forEachSystem = f: nixpkgs.lib.genAttrs systems f;
