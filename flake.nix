@@ -72,9 +72,12 @@
               };
             }
           ];
-          home.packages = [
-            claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
-          ];
+        }
+        ({pkgs, ...}: {
+          home.packages =
+            nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
+              claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
+            ];
           sops = {
             userSecrets.enable = true;
             defaultSopsFile = ./secrets/users/josh/secrets.yaml;
