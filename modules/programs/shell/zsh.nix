@@ -116,6 +116,9 @@
         # Initialize atuin after zsh-vi-mode to prevent keybinding conflicts
         zvm_after_init_commands+=('eval "$(atuin init zsh)"')
 
+        # Disable execute-named-cmd (Alt+x / Esc+x)
+        zvm_after_init_commands+=('bindkey -r "\\ex"')
+
         # Use kitten ssh for proper terminal/keyboard protocol propagation
         if [[ "$TERM_PROGRAM" == "kitty" ]]; then
           alias ssh="kitten ssh"
