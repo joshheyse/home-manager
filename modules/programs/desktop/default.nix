@@ -4,6 +4,7 @@
   ...
 }: let
   inherit (pkgs.stdenv) isDarwin;
+  isAarch64Linux = pkgs.stdenv.hostPlatform.system == "aarch64-linux";
 
   fontPackages = with pkgs; [
     font-awesome
@@ -65,11 +66,14 @@ in {
       gnome-online-accounts-gtk
       gimp
       vlc
+      sioyek
+    ]
+    ++ pkgs.lib.optionals (!isDarwin && !isAarch64Linux) [
+      # x86_64-linux only (not available on aarch64-linux)
       kicad
       freecad
       spotify
       discord
-      sioyek
     ];
 
   # Secret Service provider for apps that use org.freedesktop.secrets (e.g. Evolution)
