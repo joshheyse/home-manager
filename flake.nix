@@ -82,7 +82,7 @@
             userSecrets.enable = true;
             defaultSopsFile = ./secrets/users/josh/secrets.yaml;
           };
-        }
+        })
       ];
 
       homelab = [
