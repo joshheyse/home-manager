@@ -9,6 +9,7 @@
 }: let
   cfg = config.programs.hyprland-desktop;
   inherit (pkgs.stdenv) isLinux;
+  isAarch64Linux = pkgs.stdenv.hostPlatform.system == "aarch64-linux";
 in {
   options.programs.hyprland-desktop = {
     enable = lib.mkEnableOption "Hyprland desktop configuration";
@@ -31,16 +32,19 @@ in {
 
   # Only install packages on Linux when enabled
   config = lib.mkIf (cfg.enable && isLinux) {
-    home.packages = with pkgs; [
-      cliphist
-      discord
-      firefox
-      grim
-      hyprpicker
-      pavucontrol
-      slurp
-      spotify
-      wl-clipboard
-    ];
+    home.packages = with pkgs;
+      [
+        cliphist
+        firefox
+        grim
+        hyprpicker
+        pavucontrol
+        slurp
+        wl-clipboard
+      ]
+      ++ lib.optionals (!isAarch64Linux) [
+        discord
+        spotify
+      ];
   };
 }
