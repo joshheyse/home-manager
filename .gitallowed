@@ -66,3 +66,9 @@ modules/nixos/.*\.nix:.*secret-key.*=
 # WireGuard/VPN config references (paths, not keys)
 wireguard-private-key.*=.*\{
 vpnNamespaces
+
+# ISO image syslinux/GRUB menu entries (MENU BEGIN is not a secret)
+iso-image.*\.nix:.*MENU BEGIN
+
+# NixOS artwork URLs used in ISO bootloader theming
+raw\.githubusercontent\.com/NixOS/nixos-artwork/
