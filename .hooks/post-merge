@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Auto-reload git-secrets when configuration files change after merge/pull
+set -euo pipefail
+
+# Only applies to repos with git-secrets config files
+if [ -f .git-secrets-patterns ] && [ -f .hooks/setup-git-secrets ]; then
+  if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -qE '^(\.git-secrets-patterns|\.gitallowed)$'; then
+    echo "Git-secrets config files changed, reloading configuration..."
+    .hooks/setup-git-secrets
+  fi
+fi

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Shim that delegates to pre-commit via PATH lookup.
+# Survives 'pre-commit install' and nix-collect-garbage.
+
+ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit)
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ARGS+=(--hook-dir "$HERE" -- "$@")
+
+exec pre-commit "${ARGS[@]}"
