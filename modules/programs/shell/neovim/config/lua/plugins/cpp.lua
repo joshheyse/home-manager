@@ -29,10 +29,10 @@ return {
         "--header-insertion=iwyu",
         "--completion-style=detailed",
         "--function-arg-placeholders",
+        "--pch-storage=memory",
         "--fallback-style=llvm",
-        "--pch-storage=disk",
         "-j",
-        "16",
+        "40",
       }
 
       -- Add query-driver if a compiler is in PATH
