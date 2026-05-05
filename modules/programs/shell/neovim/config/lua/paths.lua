@@ -21,36 +21,54 @@ local function get_local_branches()
   return branches
 end
 
--- Helper function to parse git remote URL and extract host, owner, repo
+-- Helper function to strip a trailing ".git" from a repo segment
+local function strip_git_suffix(s) return (s:gsub("%.git$", "")) end
+
+-- Percent-encode a string for use in a URL query value (RFC 3986 unreserved chars kept)
+local function url_encode(s)
+  return (s:gsub("([^A-Za-z0-9%-_%.~])", function(c) return string.format("%%%02X", string.byte(c)) end))
+end
+
+-- Helper function to parse git remote URL and extract host, owner, repo, kind.
+-- kind is one of: "bitbucket-server", "generic" (GitHub/GitLab-style).
 local function parse_git_url(url)
   if not url then return nil end
 
-  local host, owner, repo
+  local host, owner, repo, kind
 
-  -- Handle SSH URLs (git@github.com:owner/repo.git)
-  local ssh_pattern = "git@([^:]+):([^/]+)/(.+)%.git"
-  host, owner, repo = url:match(ssh_pattern)
-
-  -- Handle HTTPS URLs (https://github.com/owner/repo.git)
-  if not host then
-    local https_pattern = "https://([^/]+)/([^/]+)/(.+)%.git"
-    host, owner, repo = url:match(https_pattern)
+  -- Bitbucket Server SSH: ssh://git@host:PORT/project/repo(.git)?
+  -- Port is typically 7999 for Bitbucket Server.
+  host, owner, repo = url:match "^ssh://git@([^:/]+):%d+/([^/]+)/(.+)$"
+  if host then
+    kind = "bitbucket-server"
+    return { host = host, owner = owner, repo = strip_git_suffix(repo), kind = kind }
   end
 
-  -- Handle URLs without .git suffix
+  -- Bitbucket Server HTTPS: https://host/scm/project/repo(.git)?
+  host, owner, repo = url:match "^https?://[^/]*[^@/]*@?([^/]+)/scm/([^/]+)/(.+)$"
   if not host then
-    local https_pattern_no_git = "https://([^/]+)/([^/]+)/(.+)"
-    host, owner, repo = url:match(https_pattern_no_git)
+    host, owner, repo = url:match "^https?://([^/]+)/scm/([^/]+)/(.+)$"
+  end
+  if host then
+    kind = "bitbucket-server"
+    return { host = host, owner = owner, repo = strip_git_suffix(repo), kind = kind }
   end
 
-  if not host then
-    local ssh_pattern_no_git = "git@([^:]+):([^/]+)/(.+)"
-    host, owner, repo = url:match(ssh_pattern_no_git)
+  -- Generic SSH: git@host:owner/repo(.git)?
+  host, owner, repo = url:match "^git@([^:]+):([^/]+)/(.+)$"
+  if host then
+    kind = "generic"
+    return { host = host, owner = owner, repo = strip_git_suffix(repo), kind = kind }
   end
 
-  if not host then return nil end
+  -- Generic HTTPS: https://host/owner/repo(.git)?
+  host, owner, repo = url:match "^https?://([^/]+)/([^/]+)/(.+)$"
+  if host then
+    kind = "generic"
+    return { host = host, owner = owner, repo = strip_git_suffix(repo), kind = kind }
+  end
 
-  return { host = host, owner = owner, repo = repo }
+  return nil
 end
 
 -- Yank the relative path of current buffer (relative to git root)
@@ -117,24 +135,47 @@ function M.yank_url(start_line, end_line, branch)
   -- Determine line number or range
   local line_fragment
   if start_line and end_line and start_line ~= end_line then
-    -- Multiple lines selected
-    line_fragment = string.format("L%d-L%d", start_line, end_line)
+    if git_info.kind == "bitbucket-server" then
+      -- Bitbucket Server uses a single anchor per-range: #34-36
+      line_fragment = string.format("%d-%d", start_line, end_line)
+    else
+      line_fragment = string.format("L%d-L%d", start_line, end_line)
+    end
   else
-    -- Single line (either normal mode or single line visual selection)
     local line_number = start_line or vim.fn.line "."
-    line_fragment = string.format("L%d", line_number)
+    if git_info.kind == "bitbucket-server" then
+      line_fragment = tostring(line_number)
+    else
+      line_fragment = string.format("L%d", line_number)
+    end
   end
 
-  -- Construct URL (works for both GitHub and GitLab)
-  local url = string.format(
-    "https://%s/%s/%s/blob/%s/%s#%s",
-    git_info.host,
-    git_info.owner,
-    git_info.repo,
-    branch,
-    relative_path,
-    line_fragment
-  )
+  -- Construct URL based on remote kind
+  local url
+  if git_info.kind == "bitbucket-server" then
+    -- Bitbucket Server: https://host/projects/KEY/repos/REPO/browse/PATH?at=refs/heads/BRANCH#LINE
+    -- The branch ref is percent-encoded because branches may contain '/'.
+    url = string.format(
+      "https://%s/projects/%s/repos/%s/browse/%s?at=%s#%s",
+      git_info.host,
+      git_info.owner:upper(),
+      git_info.repo,
+      relative_path,
+      url_encode("refs/heads/" .. branch),
+      line_fragment
+    )
+  else
+    -- GitHub/GitLab style
+    url = string.format(
+      "https://%s/%s/%s/blob/%s/%s#%s",
+      git_info.host,
+      git_info.owner,
+      git_info.repo,
+      branch,
+      relative_path,
+      line_fragment
+    )
+  end
 
   -- Copy to system clipboard
   vim.fn.setreg("+", url)
