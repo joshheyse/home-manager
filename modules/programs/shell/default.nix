@@ -58,6 +58,11 @@ in {
     nerd-fonts.meslo-lg
     nerd-fonts.noto
 
+    # xterm-kitty terminfo for hosts we SSH into from a kitty terminal
+    # (notcurses-based tools like lnav need the entry even when kitty
+    # itself isn't installed here).
+    kitty.terminfo
+
     pagerPkg
 
     (pkgs.callPackage ../../../pkgs/ssh-fzf {})
