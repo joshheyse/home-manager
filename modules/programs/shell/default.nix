@@ -39,6 +39,7 @@ in {
     ./git.nix
     ./gpg
     ./lazygit.nix
+    ./lnav.nix
     ./neovim
     ./ripgrep.nix
     ./ssh.nix
@@ -102,6 +103,7 @@ in {
     procs
     hyperfine
     grex
+    lnav
 
     # Compression
     zstd
