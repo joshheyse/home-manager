@@ -23,6 +23,10 @@ in {
     LESS_TERMCAP_so = "\\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m";
     LESS_TERMCAP_se = "\\e[0m";
     CPM_SOURCE_CACHE = "${config.home.homeDirectory}/.cache/CPM";
+    # notcurses (lnav etc.) ignores ~/.terminfo and has a compiled-in path
+    # that misses nix profiles. Point terminfo lookup at the active profile,
+    # the default profile, and the system path so xterm-kitty resolves.
+    TERMINFO_DIRS = "${config.home.homeDirectory}/.nix-profile/share/terminfo:/nix/var/nix/profiles/default/share/terminfo:/run/current-system/sw/share/terminfo:/usr/share/terminfo";
   };
 
   imports = [
