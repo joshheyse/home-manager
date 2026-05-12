@@ -33,6 +33,7 @@ in {
     ../../theme.nix
     ./atuin.nix
     ./bat.nix
+    ./bazel
     ./bottom.nix
     ./btop.nix
     ./claude-code

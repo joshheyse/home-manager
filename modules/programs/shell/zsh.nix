@@ -69,6 +69,7 @@
     package = pkgs.zsh;
 
     completionInit = ''
+      fpath=("$HOME/.config/zsh/completions" $fpath)
       autoload -U compinit
       mkdir -p "''${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
       compinit -d "''${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump-$ZSH_VERSION"

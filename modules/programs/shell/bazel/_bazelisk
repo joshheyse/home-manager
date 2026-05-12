@@ -1,0 +1,111 @@
+#compdef bazelisk bazel
+
+# Bazel/bazelisk zsh completion backed by a cached target list.
+# Cache is refreshed by bazel-refresh-targets in the background when BUILD
+# files are newer than the cache. First-ever completion kicks off a refresh
+# and returns empty; subsequent completions are instant.
+
+_bazelisk_find_workspace() {
+    local dir="$PWD"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -f "$dir/MODULE.bazel" || -f "$dir/WORKSPACE" || -f "$dir/WORKSPACE.bazel" ]]; then
+            printf '%s' "$dir"
+            return 0
+        fi
+        dir="${dir:h}"
+    done
+    return 1
+}
+
+_bazelisk_cache_dir() {
+    local workspace="$1"
+    local hash
+    hash=$(printf '%s' "$workspace" | shasum -a 256 | cut -c1-16)
+    printf '%s/bazel-completion/%s' "${XDG_CACHE_HOME:-$HOME/.cache}" "$hash"
+}
+
+_bazelisk_cache_is_stale() {
+    # Arguments: cache_file workspace_root
+    # Stale if cache missing OR any BUILD/BUILD.bazel/MODULE.bazel newer than cache.
+    local cache="$1" workspace="$2"
+    [[ -f "$cache" ]] || return 0
+    # -newer returns true when the found file is newer. Limit depth to avoid
+    # walking bazel-out/ or external/; those are symlinks pointing outside the tree.
+    local newer
+    newer=$(find "$workspace" \
+        \( -path "$workspace/bazel-*" -o -path "*/node_modules" -o -path "*/.git" \) -prune \
+        -o \( -name BUILD -o -name BUILD.bazel -o -name MODULE.bazel -o -name WORKSPACE -o -name WORKSPACE.bazel \) \
+        -newer "$cache" -print -quit 2>/dev/null)
+    [[ -n "$newer" ]]
+}
+
+_bazelisk_targets() {
+    local workspace cache_dir targets
+    workspace=$(_bazelisk_find_workspace) || return 1
+    cache_dir=$(_bazelisk_cache_dir "$workspace")
+    targets="$cache_dir/targets"
+
+    if _bazelisk_cache_is_stale "$targets" "$workspace"; then
+        # Fire-and-forget refresh; don't block the prompt.
+        (bazel-refresh-targets --background "$workspace" &) 2>/dev/null
+    fi
+
+    if [[ -r "$targets" ]]; then
+        local -a labels
+        labels=("${(@f)$(<"$targets")}")
+        _describe -t bazel-targets 'bazel target' labels
+    else
+        _message 'bazel targets (refreshing cache in background, try again shortly)'
+    fi
+}
+
+_bazelisk_subcommands() {
+    local -a cmds
+    cmds=(
+        'build:build the specified targets'
+        'test:build and run tests'
+        'run:build and run a single target'
+        'query:query the dependency graph'
+        'cquery:configured query'
+        'aquery:action graph query'
+        'coverage:run tests and collect coverage'
+        'clean:remove output files'
+        'fetch:fetch external dependencies'
+        'info:print runtime info'
+        'mod:query the external dependency graph'
+        'sync:sync all configured repositories'
+        'shutdown:stop the bazel server'
+        'version:print version info'
+    )
+    _describe -t bazel-commands 'bazel command' cmds
+}
+
+_bazelisk() {
+    local curcontext="$curcontext" state line
+    local -a cmd_pos
+    integer i cmd_idx=0
+
+    # Find the first non-flag word after the program name.
+    for (( i = 2; i <= CURRENT; i++ )); do
+        if [[ "${words[i]}" != -* ]]; then
+            cmd_idx=$i
+            break
+        fi
+    done
+
+    if (( cmd_idx == 0 || cmd_idx == CURRENT )); then
+        _bazelisk_subcommands
+        return
+    fi
+
+    case "${words[cmd_idx]}" in
+        build|test|run|query|cquery|aquery|coverage|fetch|mod)
+            _bazelisk_targets
+            ;;
+        *)
+            _bazelisk_targets
+            ;;
+    esac
+}
+
+_bazelisk "$@"
