@@ -9,7 +9,7 @@ return {
       status.component.mode(),
       status.component.git_branch(),
       status.component.file_info {
-        filename = { modify = ":~:.", condition = status.condition.is_git_repo },
+        filename = { modify = ":~:." },
         filetype = false,
       },
       status.component.git_diff(),

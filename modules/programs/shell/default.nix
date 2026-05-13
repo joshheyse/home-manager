@@ -18,7 +18,11 @@ in {
   home.sessionVariables = {
     PAGER = "moor";
     MANPAGER = "moor";
-    MOAR = "--style=tokyonight-night --statusbar=bold --terminal-fg";
+    MOOR = "--style=tokyonight-night --statusbar=bold --terminal-fg";
+    # less defaults: -i smart-case search, -M long prompt, -R raw ANSI colors
+    # (so escape sequences don't render as literal characters), -F quit if
+    # output fits one screen, -X don't send termcap init/deinit (no screen clear).
+    LESS = "-iMRFX";
     # Tokyo Night statusbar: blue bg with dark fg
     LESS_TERMCAP_so = "\\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m";
     LESS_TERMCAP_se = "\\e[0m";
@@ -43,6 +47,7 @@ in {
     ./fzf.nix
     ./git.nix
     ./gpg
+    ./grc.nix
     ./lazygit.nix
     ./lnav.nix
     ./neovim
