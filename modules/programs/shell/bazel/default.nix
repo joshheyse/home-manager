@@ -10,8 +10,6 @@
       coreutils
       findutils
       gnused
-      # shasum comes from perl on Linux nixpkgs
-      perl
     ];
     # The script is written to be sh-compatible enough; writeShellApplication
     # runs it with `bash` and applies shellcheck at build time.

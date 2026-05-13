@@ -21,7 +21,7 @@ find_workspace_root() {
 cache_dir_for() {
     local workspace="$1"
     local hash
-    hash=$(printf '%s' "$workspace" | shasum -a 256 | cut -c1-16)
+    hash=$(printf '%s' "$workspace" | sha256sum | cut -c1-16)
     printf '%s/bazel-completion/%s\n' "${XDG_CACHE_HOME:-$HOME/.cache}" "$hash"
 }
 
