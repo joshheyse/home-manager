@@ -45,6 +45,12 @@ return {
       jsonls = {
         filetypes = { "json", "jsonc" },
       },
+      -- neocmakelsp dropped the `--stdio` flag in favor of a `stdio`
+      -- subcommand; lspconfig's default cmd is still `--stdio` and the
+      -- server exits with code 2 on every CMake file. Override here.
+      neocmake = {
+        cmd = { "neocmakelsp", "stdio" },
+      },
     },
     -- customize how language servers are attached
     handlers = {

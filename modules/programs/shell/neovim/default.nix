@@ -9,19 +9,26 @@
     withPython3 = true;
     withRuby = true;
     extraPackages = with pkgs; [
+      alejandra
       cargo
+      deadnix
       fd
       gcc
       gnumake
       ghostscript
       (imagemagick.override {ghostscriptSupport = true;})
+      python3Packages.debugpy
       python3Packages.jupytext
+      lua-language-server
       luajitPackages.luarocks
+      nil
       poppler-utils
       python3
       python3Packages.pip
       ripgrep
       rustc
+      statix
+      stylua
       tree-sitter
     ];
     extraPython3Packages = ps:
