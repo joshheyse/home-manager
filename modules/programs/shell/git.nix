@@ -59,6 +59,12 @@
     };
   };
 
+  # pre-commit is wired into the devShell + flake.nix shellHook to install
+  # git hooks. The generated hook scripts embed an absolute /nix/store path
+  # to pre-commit itself, so the binary must stay GC-rooted in the user's
+  # profile; otherwise the next `nix-collect-garbage` orphans the hook.
+  home.packages = [pkgs.pre-commit];
+
   home.shellAliases = {
     ga = "git add ";
     gaa = "git add .";
