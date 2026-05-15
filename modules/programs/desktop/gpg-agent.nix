@@ -11,29 +11,51 @@
   # Reusable script to restore local gpg-agent (works from any context:
   # systemd, Hyprland exec-once, hypridle unlock hook, manual invocation).
   # Uses full paths so it doesn't depend on PATH.
+  #
+  # `gpgconf --kill gpg-agent` blocks until its internal timeout when the
+  # socket file exists but no agent is bound to it (stale socket left by an
+  # SSH RemoteForward disconnect). Only kill when a real agent is alive, and
+  # always sweep the socket files so socket activation can rebind cleanly.
   gpgLocalScript = pkgs.writeShellScript "gpg-local" ''
-    ${pkgs.gnupg}/bin/gpgconf --kill gpg-agent
+    SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-socket)"
+    SSH_SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)"
+    if ${pkgs.procps}/bin/pgrep -u "$USER" -x gpg-agent >/dev/null 2>&1; then
+      ${pkgs.gnupg}/bin/gpgconf --kill gpg-agent 2>/dev/null || true
+    fi
+    rm -f "$SOCKET" "$SSH_SOCKET"
     ${pkgs.systemd}/bin/systemctl --user restart gpg-agent.socket gpg-agent-ssh.socket
   '';
 
   # Monitor script that watches for GPG socket deletion and auto-restores
   # the local agent after SSH disconnect removes the forwarded socket.
+  #
+  # Probes with `gpg-connect-agent /bye` instead of just checking `[ -S ]`,
+  # so a stale socket file (exists but unbound) is also detected. Also
+  # wakes every 30s so we still catch stale sockets that were never
+  # deleted (some SSH cleanup paths leave the file behind).
   gpgAgentMonitorScript = pkgs.writeShellScript "gpg-agent-monitor" ''
     SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-socket)"
-    SOCKET_DIR="$(dirname "$SOCKET")"
+    SSH_SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)"
+    SOCKET_DIR="$(${pkgs.coreutils}/bin/dirname "$SOCKET")"
 
     restore_local() {
-      if [ ! -S "$SOCKET" ]; then
-        ${pkgs.gnupg}/bin/gpgconf --kill gpg-agent
-        ${pkgs.systemd}/bin/systemctl --user restart gpg-agent.socket gpg-agent-ssh.socket 2>/dev/null
+      if ${pkgs.coreutils}/bin/timeout 2 ${pkgs.gnupg}/bin/gpg-connect-agent /bye >/dev/null 2>&1; then
+        return
       fi
+      if ${pkgs.procps}/bin/pgrep -u "$USER" -x gpg-agent >/dev/null 2>&1; then
+        ${pkgs.gnupg}/bin/gpgconf --kill gpg-agent 2>/dev/null || true
+      fi
+      rm -f "$SOCKET" "$SSH_SOCKET"
+      ${pkgs.systemd}/bin/systemctl --user restart gpg-agent.socket gpg-agent-ssh.socket 2>/dev/null
     }
 
-    # Check on startup in case socket is already missing
+    # Check on startup in case socket is already missing/stale
     restore_local
 
-    # Watch for socket deletion events and restore when needed
-    while ${pkgs.inotify-tools}/bin/inotifywait -qq -e delete -e delete_self "$SOCKET_DIR"; do
+    # Watch for socket deletion AND wake periodically to catch stale sockets
+    # that were never explicitly deleted.
+    while :; do
+      ${pkgs.inotify-tools}/bin/inotifywait -qq -t 30 -e delete -e delete_self "$SOCKET_DIR" >/dev/null 2>&1 || true
       sleep 1 # let SSH potentially bind a forwarded socket before we replace it
       restore_local
     done
