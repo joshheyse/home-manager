@@ -53,6 +53,11 @@ in {
       podman
       # Note: podman-desktop GUI installed via Homebrew on macOS
     ]
+    ++ pkgs.lib.optionals (!isAarch64Linux) [
+      # Apple Music desktop client via CastLabs Electron (Widevine DRM).
+      # Provided by the sidra flake; aarch64-linux is unsupported upstream.
+      sidra
+    ]
     ++ pkgs.lib.optionals isDarwin [
       # macOS-only packages
       # sketchybar installed and configured via sketchybar.nix module

@@ -121,7 +121,28 @@
         "claude-desktop": "claude-desktop",
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
+        "sidra": "sidra",
         "sops-nix": "sops-nix"
+      }
+    },
+    "sidra": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778906328,
+        "narHash": "sha256-/3dsoy3dCjTRGVfSsyQezzbUTrrH5p7V3vfeKRxDdO0=",
+        "owner": "wimpysworld",
+        "repo": "sidra",
+        "rev": "9e3525f5284bcabccc4d96acea264fb47d41172f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wimpysworld",
+        "repo": "sidra",
+        "type": "github"
       }
     },
     "sops-nix": {

@@ -15,6 +15,10 @@
       url = "github:k3d3/claude-desktop-linux-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sidra = {
+      url = "github:wimpysworld/sidra";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -27,6 +31,7 @@
     home-manager,
     claude-code-nix,
     claude-desktop,
+    sidra,
     sops-nix,
     ...
   }: let
@@ -220,9 +225,15 @@
     overlays = {
       default = final: _prev: {
         inherit (claude-code-nix.packages.${final.system}) claude-code;
+        # sidra.packages is only populated on x86_64-linux and aarch64-darwin.
+        # The inherit is lazy: aarch64-linux only errors if pkgs.sidra is read.
+        inherit (sidra.packages.${final.system} or {}) sidra;
       };
       claude-code = final: _prev: {
         inherit (claude-code-nix.packages.${final.system}) claude-code;
+      };
+      sidra = final: _prev: {
+        inherit (sidra.packages.${final.system} or {}) sidra;
       };
     };
   };
