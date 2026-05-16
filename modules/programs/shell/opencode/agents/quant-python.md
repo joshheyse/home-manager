@@ -1,6 +1,6 @@
 ---
 description: Quantitative Python work. Numerical methods, data pipelines, research code.
-model: litellm/sonnet
+model: anthropic/claude-opus-4-7
 temperature: 0.2
 mode: primary
 ---

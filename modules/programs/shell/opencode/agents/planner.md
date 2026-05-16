@@ -1,6 +1,6 @@
 ---
 description: Plan-only agent. Read-only access. Use for architecture decisions and approach discussions before committing to changes.
-model: litellm/opus
+model: anthropic/claude-opus-4-7
 temperature: 0.3
 mode: primary
 tools:

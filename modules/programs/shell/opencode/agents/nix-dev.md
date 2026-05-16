@@ -1,6 +1,6 @@
 ---
 description: Nix work in a multi-host NixOS + home-manager monorepo. Modules, hosts, packages, sops secrets.
-model: litellm/sonnet
+model: anthropic/claude-opus-4-7
 temperature: 0.1
 mode: primary
 ---

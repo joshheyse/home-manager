@@ -1,6 +1,6 @@
 ---
 description: Low-latency C++ work. Hot-path code, kernel bypass, lock-free data structures.
-model: litellm/opus
+model: anthropic/claude-opus-4-7
 temperature: 0.1
 mode: primary
 ---
