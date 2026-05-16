@@ -74,10 +74,9 @@
           ];
         }
         ({pkgs, ...}: {
-          home.packages =
-            nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
-              claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
-            ];
+          home.packages = nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
+            claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
+          ];
           sops = {
             userSecrets.enable = true;
             defaultSopsFile = ./secrets/users/josh/secrets.yaml;
@@ -102,6 +101,7 @@
         self.homeManagerModules.default
         self.homeManagerModules.secrets
         sops-nix.homeManagerModules.sops
+        ./modules/programs/shell/opencode/mac.nix
         {
           home = {
             username = nixpkgs.lib.mkForce "joshheyse";
