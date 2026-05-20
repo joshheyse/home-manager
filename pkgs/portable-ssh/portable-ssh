@@ -15,6 +15,11 @@
 #   nix-portable  upload nix-portable binary if missing, activate
 #                 portable home-manager profile remotely, then ssh.
 #
+# Flags:
+#   --raw / --plain   bypass profile lookup and bootstrap; equivalent to
+#                     PORTABLE_SSH_PROFILE=none for one invocation.
+#                     Must be the first argument.
+#
 # Environment overrides:
 #   PORTABLE_SSH_PROFILE=<name>  bypass config file lookup
 #   PORTABLE_SSH_DEBUG=1         print actions before running them
@@ -233,26 +238,39 @@ ensure_nix_portable() {
 
 main() {
   if [[ $# -eq 0 ]]; then
-    die "usage: portable-ssh [ssh-options] <host> [command]"
+    die "usage: portable-ssh [--raw] [ssh-options] <host> [command]"
+  fi
+
+  # --raw / --plain: bypass profile lookup and bootstrap entirely.
+  # Equivalent to PORTABLE_SSH_PROFILE=none, but more discoverable.
+  # Must come before any ssh options so we can identify it cheaply.
+  local raw=
+  if [[ "$1" == "--raw" || "$1" == "--plain" ]]; then
+    raw=1
+    shift
   fi
 
   local host
   host=$(extract_host "$@") || die "could not parse destination from arguments"
 
-  local profile=${PORTABLE_SSH_PROFILE:-}
-  if [[ -z "$profile" ]]; then
-    profile=$(lookup_profile "$host")
-  fi
-
-  if [[ -z "$profile" ]]; then
-    if [[ -t 0 && -t 1 ]]; then
-      profile=$(prompt_profile "$host")
-    else
-      profile="none"
+  local profile
+  if [[ -n "$raw" ]]; then
+    profile="none"
+  else
+    profile=${PORTABLE_SSH_PROFILE:-}
+    if [[ -z "$profile" ]]; then
+      profile=$(lookup_profile "$host")
+    fi
+    if [[ -z "$profile" ]]; then
+      if [[ -t 0 && -t 1 ]]; then
+        profile=$(prompt_profile "$host")
+      else
+        profile="none"
+      fi
     fi
   fi
 
-  debug "host=$host profile=$profile"
+  debug "host=$host profile=$profile raw=${raw:-0}"
 
   local ssh_cmd
   ssh_cmd=$(pick_ssh_command)
