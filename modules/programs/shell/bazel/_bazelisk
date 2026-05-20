@@ -53,7 +53,9 @@ _bazelisk_targets() {
     if [[ -r "$targets" ]]; then
         local -a labels
         labels=("${(@f)$(<"$targets")}")
-        _describe -t bazel-targets 'bazel target' labels
+        # compadd (not _describe) because target labels contain ':' which
+        # _describe treats as the label/description separator.
+        compadd -X 'bazel target' -- "${labels[@]}"
     else
         _message 'bazel targets (refreshing cache in background, try again shortly)'
     fi
