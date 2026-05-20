@@ -3,7 +3,6 @@
   stdenv,
   makeWrapper,
   rsync,
-  openssh,
   nix,
   coreutils,
   gawk,
@@ -26,14 +25,15 @@ stdenv.mkDerivation {
 
     install -Dm755 $src $out/bin/portable-ssh
 
-    # Wrap so the script's runtime tools come from nix, not from
-    # whatever the user's PATH happens to look like. ssh and kitten
-    # are intentionally NOT in the wrapper PATH — kitten lives in the
-    # user's kitty profile, and we want the system ssh by default.
+    # Pin the script's text-processing tools to nix copies so behavior
+    # doesn't depend on the user's PATH. Notably, ssh is NOT pinned —
+    # we want to use whatever ssh the user has configured, with their
+    # site-specific config and host aliases. Pinning a different
+    # openssh build here causes silent auth/parse failures on hosts
+    # whose ~/.ssh/config the nix-shipped openssh rejects.
     wrapProgram $out/bin/portable-ssh \
       --prefix PATH : ${lib.makeBinPath [
       rsync
-      openssh
       nix
       coreutils
       gawk
