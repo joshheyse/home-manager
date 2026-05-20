@@ -275,19 +275,38 @@ main() {
   local ssh_cmd
   ssh_cmd=$(pick_ssh_command)
 
+  # If a command is being passed (any non-flag positional arg after the
+  # host) the user is doing scripted ssh; do not auto-launch zsh.
+  has_command=
+  saw_host=
+  for arg in "$@"; do
+    if [[ -z "$saw_host" ]]; then
+      [[ "$arg" == -* ]] || saw_host=1
+      continue
+    fi
+    has_command=1
+    break
+  done
+
   case "$profile" in
     none)
       ;;
     nix-portable)
       if ensure_nix_portable "$host"; then
         local flake_ref=${PORTABLE_SSH_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}
-        printf 'portable-ssh: nix-portable ready on %s. Activate your shell with:\n' "$host" >&2
-        printf '  export NP_RUNTIME=proot   # bwrap blocks nested userns on most CTC hosts\n' >&2
-        printf '  np=~/.local/bin/nix-portable\n' >&2
-        printf '  generation=$($np nix build --no-link --print-out-paths %q#homeConfigurations.portable.activationPackage)\n' \
-          "$flake_ref" >&2
-        printf '  $np nix shell nixpkgs#bash -c bash $generation/activate\n' >&2
-        printf '  exec ~/.nix-profile/bin/zsh -l\n' >&2
+        if [[ -z "$has_command" && -t 0 && -t 1 ]]; then
+          # Interactive ssh, no user command. Auto-launch the portable
+          # zsh inside nix-portable via RemoteCommand.
+          local remote_cmd="export NP_RUNTIME=proot; exec ~/.local/bin/nix-portable nix run ${flake_ref@Q}#zsh"
+          if [[ -n "${PORTABLE_SSH_DRY:-}" ]]; then
+            printf '[dry-run] would exec: %s -t %s -- %s\n' "$ssh_cmd" "$*" "$remote_cmd" >&2
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          exec $ssh_cmd -t "$@" -- "$remote_cmd"
+        fi
+        # Either non-interactive or user passed their own command —
+        # leave nix-portable bootstrap done and let normal ssh proceed.
       else
         printf 'portable-ssh: nix-portable bootstrap failed; falling back to plain ssh\n' >&2
       fi
