@@ -36,6 +36,13 @@ fi
 # Other binds (/etc, /home, /usr, /var, /run, /tmp, /proc, /sys, /dev)
 # are needed so the shell inside has working PAM, networking, terminal,
 # and access to your home directory.
+#
+# Force ~/.nix-profile/bin to the front of PATH so commands installed by
+# home-manager (atuin, eza, bat, ...) win over the host's pkgsrc/devkit
+# bins. The host's bash login chain typically prepends those, and we
+# want our env to take precedence inside the chroot.
+export PATH="$HOME/.nix-profile/bin:$PATH"
+
 exec "$PROOT" \
   -r "$EMPTYROOT" \
   -b /dev:/dev \
