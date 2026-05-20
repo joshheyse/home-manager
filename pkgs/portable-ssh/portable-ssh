@@ -282,10 +282,11 @@ main() {
       if ensure_nix_portable "$host"; then
         local flake_ref=${PORTABLE_SSH_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}
         printf 'portable-ssh: nix-portable ready on %s. Activate your shell with:\n' "$host" >&2
+        printf '  export NP_RUNTIME=proot   # bwrap blocks nested userns on most CTC hosts\n' >&2
         printf '  np=~/.local/bin/nix-portable\n' >&2
         printf '  generation=$($np nix build --no-link --print-out-paths %q#homeConfigurations.portable.activationPackage)\n' \
           "$flake_ref" >&2
-        printf '  $np bash $generation/activate\n' >&2
+        printf '  $np nix shell nixpkgs#bash -c bash $generation/activate\n' >&2
         printf '  exec ~/.nix-profile/bin/zsh -l\n' >&2
       else
         printf 'portable-ssh: nix-portable bootstrap failed; falling back to plain ssh\n' >&2
