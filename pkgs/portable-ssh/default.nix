@@ -19,6 +19,11 @@ stdenv.mkDerivation {
 
   dontUnpack = true;
   dontBuild = true;
+  # Critical: portable-launcher's shebang must remain `/usr/bin/env bash`
+  # so it works on the *remote* host (where /nix/store doesn't exist).
+  # nix's stdenv would otherwise rewrite it to /nix/store/.../bash via
+  # patchShebangs, which breaks the remote.
+  dontPatchShebangs = true;
 
   installPhase = ''
     runHook preInstall
