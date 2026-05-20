@@ -3,6 +3,8 @@
   lib,
   ...
 }: {
+  imports = [./portable.nix];
+
   # Base settings shared across all hosts
   home.stateVersion = "25.05";
   programs.home-manager.enable = true;

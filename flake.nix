@@ -214,6 +214,7 @@
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
         landrun = pkgs.callPackage ./pkgs/landrun {};
         db-wallpaper = pkgs.callPackage ./pkgs/db-wallpaper {};
+        portable-ssh = pkgs.callPackage ./pkgs/portable-ssh {};
       });
 
     # Shared nix-darwin modules

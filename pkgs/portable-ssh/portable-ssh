@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+# portable-ssh — ssh wrapper that bootstraps a nix-portable based
+# home-manager environment on the remote host before connecting.
+#
+# Per-host configuration lives at ~/.config/portable-ssh/hosts.toml:
+#
+#   [hosts.ch12ldnix006]
+#   profile = "nix-portable"
+#
+#   [hosts.bastion]
+#   profile = "none"
+#
+# Profiles:
+#   none          plain ssh, no transfer (or kitten ssh inside kitty).
+#   nix-portable  upload nix-portable binary if missing, activate
+#                 portable home-manager profile remotely, then ssh.
+#
+# Environment overrides:
+#   PORTABLE_SSH_PROFILE=<name>  bypass config file lookup
+#   PORTABLE_SSH_DEBUG=1         print actions before running them
+#   PORTABLE_SSH_DRY=1           print actions and exit without running
+set -euo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/portable-ssh"
+CONFIG_FILE="$CONFIG_DIR/hosts.toml"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/portable-ssh"
+mkdir -p "$CONFIG_DIR" "$STATE_DIR"
+
+REMOTE_BIN_DIR='$HOME/.local/bin'
+REMOTE_NIX_PORTABLE='$HOME/.local/bin/nix-portable'
+
+debug() {
+  [[ -n "${PORTABLE_SSH_DEBUG:-}${PORTABLE_SSH_DRY:-}" ]] && \
+    printf '[portable-ssh] %s\n' "$*" >&2 || true
+}
+
+die() { printf 'portable-ssh: %s\n' "$*" >&2; exit 1; }
+
+# Extract the destination host from ssh-style argv. Skips ssh option
+# arguments like `-p 2222` or `-i ~/.ssh/id`.
+extract_host() {
+  local opts_with_args='bcDEeFIiJLlmOoPpQRSWw'
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -[$opts_with_args])      shift 2 || return 1;;
+      -[$opts_with_args]?*)    shift 1 ;;
+      -*)                      shift 1 ;;
+      *)
+        # First non-flag is the destination. Strip user@.
+        printf '%s' "${1#*@}"
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+# Look up a host's profile in hosts.toml. Returns empty string if absent.
+# Tiny TOML reader; assumes the canonical [hosts.<name>] / profile = "x"
+# layout this script writes itself.
+lookup_profile() {
+  local host=$1
+  [[ -f "$CONFIG_FILE" ]] || { printf ''; return 0; }
+  awk -v host="$host" '
+    BEGIN { in_section = 0 }
+    /^\[hosts\./ {
+      in_section = ($0 == "[hosts." host "]")
+      next
+    }
+    /^\[/ { in_section = 0; next }
+    in_section && /^profile[[:space:]]*=/ {
+      gsub(/^profile[[:space:]]*=[[:space:]]*"|"[[:space:]]*$/, "")
+      print
+      exit
+    }
+  ' "$CONFIG_FILE"
+}
+
+save_profile() {
+  local host=$1 profile=$2
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    printf '# portable-ssh per-host profiles\n' > "$CONFIG_FILE"
+  fi
+  if grep -q "^\[hosts\.${host}\]" "$CONFIG_FILE"; then
+    # Replace existing profile line in that section in-place with awk.
+    local tmp
+    tmp=$(mktemp)
+    awk -v host="$host" -v profile="$profile" '
+      BEGIN { in_section = 0 }
+      /^\[hosts\./ {
+        in_section = ($0 == "[hosts." host "]")
+        print
+        next
+      }
+      /^\[/ { in_section = 0; print; next }
+      in_section && /^profile[[:space:]]*=/ {
+        printf "profile = \"%s\"\n", profile
+        next
+      }
+      { print }
+    ' "$CONFIG_FILE" > "$tmp"
+    mv "$tmp" "$CONFIG_FILE"
+  else
+    cat >> "$CONFIG_FILE" <<EOF
+
+[hosts.${host}]
+profile = "${profile}"
+EOF
+  fi
+}
+
+prompt_profile() {
+  local host=$1
+  printf 'portable-ssh: no profile configured for "%s"\n' "$host" >&2
+  printf 'choose one (saved to %s):\n' "$CONFIG_FILE" >&2
+  printf '  1) none          (plain ssh)\n' >&2
+  printf '  2) nix-portable  (upload nix-portable, activate portable home-manager)\n' >&2
+  printf '  3) skip          (do not save, ask again next time)\n' >&2
+  local choice
+  printf 'choice [1-3]: ' >&2
+  read -r choice
+  case "$choice" in
+    1) save_profile "$host" "none"; printf 'none' ;;
+    2) save_profile "$host" "nix-portable"; printf 'nix-portable' ;;
+    *) printf 'none' ;;
+  esac
+}
+
+# Decide which underlying ssh-like command to use. Inside kitty, kitten ssh
+# bootstraps terminfo and key protocols on the remote — strictly better
+# than plain ssh, so prefer it when available.
+pick_ssh_command() {
+  if [[ "${TERM_PROGRAM:-}" == "kitty" ]] && command -v kitten >/dev/null 2>&1; then
+    printf 'kitten ssh'
+  else
+    printf 'ssh'
+  fi
+}
+
+# Build the local nix-portable derivation; print its store path.
+build_nix_portable() {
+  local flake_dir
+  flake_dir=$(portable_ssh_flake_dir)
+  nix build --no-link --print-out-paths \
+    "${flake_dir}#nix-portable" 2>/dev/null
+}
+
+portable_ssh_flake_dir() {
+  # Look in $PORTABLE_SSH_FLAKE first, then ~/code/nix.
+  if [[ -n "${PORTABLE_SSH_FLAKE:-}" ]]; then
+    printf '%s' "$PORTABLE_SSH_FLAKE"
+  elif [[ -d "$HOME/code/nix" ]]; then
+    printf '%s' "$HOME/code/nix"
+  else
+    die "set PORTABLE_SSH_FLAKE to your nix flake directory"
+  fi
+}
+
+# Upload nix-portable if the remote copy is missing or stale.
+ensure_nix_portable() {
+  local host=$1
+  local local_np
+  local_np=$(build_nix_portable)
+  [[ -x "$local_np/bin/nix-portable" ]] || die "no nix-portable binary at $local_np"
+
+  local local_hash remote_hash
+  local_hash=$(sha256sum "$local_np/bin/nix-portable" | awk '{print $1}')
+
+  # Single round-trip: compute remote hash, missing file is ok.
+  remote_hash=$(ssh -o BatchMode=yes "$host" \
+    "sha256sum $REMOTE_NIX_PORTABLE 2>/dev/null | awk '{print \$1}'" \
+    2>/dev/null || true)
+
+  if [[ "$local_hash" == "$remote_hash" ]]; then
+    debug "nix-portable on $host is current"
+    return 0
+  fi
+
+  debug "uploading nix-portable to $host (local=$local_hash remote=${remote_hash:-missing})"
+  ssh -o BatchMode=yes "$host" "mkdir -p $REMOTE_BIN_DIR" || \
+    die "failed to create $REMOTE_BIN_DIR on $host"
+  rsync -aP "$local_np/bin/nix-portable" "$host:$REMOTE_NIX_PORTABLE" >&2 || \
+    die "rsync of nix-portable to $host failed"
+}
+
+main() {
+  if [[ $# -eq 0 ]]; then
+    die "usage: portable-ssh [ssh-options] <host> [command]"
+  fi
+
+  local host
+  host=$(extract_host "$@") || die "could not parse destination from arguments"
+
+  local profile=${PORTABLE_SSH_PROFILE:-}
+  if [[ -z "$profile" ]]; then
+    profile=$(lookup_profile "$host")
+  fi
+
+  if [[ -z "$profile" ]]; then
+    if [[ -t 0 && -t 1 ]]; then
+      profile=$(prompt_profile "$host")
+    else
+      profile="none"
+    fi
+  fi
+
+  debug "host=$host profile=$profile"
+
+  local ssh_cmd
+  ssh_cmd=$(pick_ssh_command)
+
+  case "$profile" in
+    none)
+      ;;
+    nix-portable)
+      if ensure_nix_portable "$host"; then
+        printf 'portable-ssh: nix-portable ready on %s. Activate your shell with:\n' "$host" >&2
+        printf '  ~/.local/bin/nix-portable nix run %s#homeConfigurations.portable.activationPackage\n' \
+          "${PORTABLE_SSH_FLAKE_REF:-github:joshheyse/nix}" >&2
+      else
+        printf 'portable-ssh: nix-portable bootstrap failed; falling back to plain ssh\n' >&2
+      fi
+      ;;
+    *)
+      die "unknown profile \"$profile\" for host $host (edit $CONFIG_FILE)"
+      ;;
+  esac
+
+  if [[ -n "${PORTABLE_SSH_DRY:-}" ]]; then
+    printf '[dry-run] would exec: %s %s\n' "$ssh_cmd" "$*" >&2
+    exit 0
+  fi
+
+  exec $ssh_cmd "$@"
+}
+
+main "$@"

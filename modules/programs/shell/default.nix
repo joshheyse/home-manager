@@ -61,79 +61,87 @@ in {
   # Register Nix-installed fonts with fontconfig on Linux
   fonts.fontconfig.enable = lib.mkIf pkgs.stdenv.isLinux true;
 
-  home.packages = with pkgs; [
-    # Fonts for terminal and neovim icons
-    font-awesome
-    noto-fonts
-    nerd-fonts.meslo-lg
-    nerd-fonts.noto
+  home.packages = with pkgs;
+    [
+      # Fonts for terminal and neovim icons
+      font-awesome
+      noto-fonts
+      nerd-fonts.meslo-lg
+      nerd-fonts.noto
 
-    # xterm-kitty terminfo for hosts we SSH into from a kitty terminal
-    # (notcurses-based tools like lnav need the entry even when kitty
-    # itself isn't installed here).
-    kitty.terminfo
+      # xterm-kitty terminfo for hosts we SSH into from a kitty terminal
+      # (notcurses-based tools like lnav need the entry even when kitty
+      # itself isn't installed here).
+      kitty.terminfo
 
-    pagerPkg
+      pagerPkg
 
-    (pkgs.callPackage ../../../pkgs/ssh-fzf {})
-    (pkgs.callPackage ../../../pkgs/notify {})
-    (pkgs.callPackage ../../../pkgs/jupyter-bridge {})
+      (pkgs.callPackage ../../../pkgs/ssh-fzf {})
+      (pkgs.callPackage ../../../pkgs/notify {})
+      (pkgs.callPackage ../../../pkgs/jupyter-bridge {})
 
-    (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
+      (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
 
-    jq
-    yq-go
-    pqrs
-    dust
-    timg
-    pandoc
-    graphviz
-    hexyl
-    lesspipe
-    rsync
-    wget
-    curl
-    gh
-    glab
-    git-extras
+      jq
+      yq-go
+      pqrs
+      dust
+      timg
+      pandoc
+      graphviz
+      hexyl
+      lesspipe
+      rsync
+      wget
+      curl
+      gh
+      glab
+      git-extras
 
-    aichat
+      aichat
 
-    # GNU core utilities
-    tree
-    unzip
-    coreutils
-    findutils
-    gnugrep
-    gawk
-    gnused
-    gnutar
+      # GNU core utilities
+      tree
+      unzip
+      coreutils
+      findutils
+      gnugrep
+      gawk
+      gnused
+      gnutar
 
-    # Modern CLI tools
-    watch
-    fastfetch
-    tealdeer
-    tokei
-    sd
-    procs
-    hyperfine
-    grex
-    lnav
+      # Modern CLI tools
+      watch
+      fastfetch
+      tealdeer
+      tokei
+      sd
+      procs
+      hyperfine
+      grex
+      lnav
 
-    # Compression
-    zstd
-    lz4
-    p7zip
-    xz
-    brotli
+      # Compression
+      zstd
+      lz4
+      p7zip
+      xz
+      brotli
 
-    # Security
-    yubikey-personalization
+      # Security
+      yubikey-personalization
 
-    # Network
-    inetutils
+      # Network
+      inetutils
 
-    # Image manipulation
-    imagemagick
-  ];
+      # Image manipulation
+      imagemagick
+    ]
+    ++ lib.optionals (pkgs.stdenv.isLinux && !config.portable.enable) [
+      # portable-ssh wraps ssh to bootstrap a nix-portable home-manager
+      # environment on remote hosts. Skipped in portable mode itself
+      # (the remote shouldn't recurse) and on darwin (rsync/kitten ssh
+      # path differs and we ssh out of macs much less).
+      (pkgs.callPackage ../../../pkgs/portable-ssh {})
+    ];
 }

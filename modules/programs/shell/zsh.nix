@@ -120,11 +120,20 @@
         # Disable execute-named-cmd (Alt+x / Esc+x)
         zvm_after_init_commands+=('bindkey -r "\\ex"')
 
-        # Use kitten ssh for proper terminal/keyboard protocol propagation
-        if [[ "$TERM_PROGRAM" == "kitty" ]]; then
+        # portable-ssh wraps ssh: bootstraps a nix-portable home-manager
+        # environment on the remote (per ~/.config/portable-ssh/hosts.toml),
+        # then execs `kitten ssh` if in kitty or plain ssh otherwise.
+        # Falls through to a direct kitten ssh alias on hosts where
+        # portable-ssh isn't installed (mac, remote shells reached via
+        # kitten ssh) — kitten itself only exists in a desktop kitty
+        # install, so the binary check is the right gate.
+        if command -v portable-ssh &>/dev/null; then
+          alias ssh="portable-ssh"
+        elif [[ "$TERM_PROGRAM" == "kitty" ]] && command -v kitten &>/dev/null; then
           alias ssh="kitten ssh"
         fi
-
+      ''
+      + ''
         export DIRENV_LOG_FORMAT=""
 
         setopt nolistbeep
@@ -150,7 +159,7 @@
 
 
         zstyle ':fzf-tab:*' fzf-command ftb-tmux-popup
-        zstyle ':fzf-tab:*' popup-min-size 1200 16
+        zstyle ':fzf-tab:*' popup-min-size 80 16
         #
         # zstyle ':completion:*' extra-verbose yes
         # zstyle ':completion:*:descriptions' format "%F{yellow}--- %d%f"
