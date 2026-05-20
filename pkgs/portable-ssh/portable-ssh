@@ -280,9 +280,10 @@ main() {
       ;;
     nix-portable)
       if ensure_nix_portable "$host"; then
+        local flake_ref=${PORTABLE_SSH_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}
         printf 'portable-ssh: nix-portable ready on %s. Activate your shell with:\n' "$host" >&2
-        printf '  ~/.local/bin/nix-portable nix run %s#homeConfigurations.portable.activationPackage\n' \
-          "${PORTABLE_SSH_FLAKE_REF:-github:joshheyse/nix}" >&2
+        printf '  ~/.local/bin/nix-portable nix run %q#homeConfigurations.portable.activationPackage\n' \
+          "$flake_ref" >&2
       else
         printf 'portable-ssh: nix-portable bootstrap failed; falling back to plain ssh\n' >&2
       fi
