@@ -130,6 +130,11 @@ in {
           user = lib.mkDefault "git";
           identityFile = lib.mkDefault "~/.ssh/id_rsa_yubikey.pub";
         };
+        # CTC work hosts: forward the agent so nix-portable on the
+        # remote can clone gitlab using the local key chain.
+        "ch12*" = {
+          forwardAgent = lib.mkDefault true;
+        };
       }
       // generatedBlocks;
   };
