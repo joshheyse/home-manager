@@ -26,8 +26,34 @@ CONFIG_FILE="$CONFIG_DIR/hosts.toml"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/portable-ssh"
 mkdir -p "$CONFIG_DIR" "$STATE_DIR"
 
-REMOTE_BIN_DIR='.local/bin'
-REMOTE_NIX_PORTABLE='.local/bin/nix-portable'
+# Discover the remote user's writable home directory. On older boxes
+# /etc/passwd may have a stale entry (e.g. an NFS path that no longer
+# mounts) and `~` expansion fails or returns garbage. We try $HOME from
+# the login shell first, then fall back to a few standard locations,
+# and finally use the user's CWD if it's writable. Returns absolute path.
+discover_remote_home() {
+  local host=$1
+  local probe
+  probe=$(
+    ssh -o BatchMode=yes "$host" '
+      try() {
+        local p=$1
+        if [ -d "$p" ] && [ -w "$p" ]; then
+          printf "%s\n" "$p"
+          exit 0
+        fi
+      }
+      try "${HOME:-}"
+      user=$(id -un 2>/dev/null || true)
+      [ -n "$user" ] && try "/home/$user"
+      [ -n "$user" ] && try "/u/$user"
+      try "$(pwd)"
+      printf ""
+      exit 1
+    ' 2>/dev/null
+  ) || true
+  printf '%s' "$probe"
+}
 
 status() { printf 'portable-ssh: %s\n' "$*" >&2; }
 
@@ -168,12 +194,24 @@ ensure_nix_portable() {
   local_np=$(build_nix_portable)
   [[ -x "$local_np/bin/nix-portable" ]] || die "no nix-portable binary at $local_np"
 
-  local local_hash remote_hash
+  local local_hash
   local_hash=$(sha256sum "$local_np/bin/nix-portable" | awk '{print $1}')
 
+  status "discovering writable home on $host..."
+  local remote_home
+  remote_home=$(discover_remote_home "$host")
+  if [[ -z "$remote_home" ]]; then
+    die "no writable home found on $host (passwd entry stale? autofs not mounting?)"
+  fi
+  status "remote home: $remote_home"
+
+  local remote_bin_dir="$remote_home/.local/bin"
+  local remote_nix_portable="$remote_bin_dir/nix-portable"
+
   status "checking remote nix-portable on $host..."
+  local remote_hash
   remote_hash=$(ssh -o BatchMode=yes "$host" \
-    "sha256sum ~/$REMOTE_NIX_PORTABLE 2>/dev/null | awk '{print \$1}'" \
+    "sha256sum '$remote_nix_portable' 2>/dev/null | awk '{print \$1}'" \
     2>/dev/null || true)
 
   if [[ "$local_hash" == "$remote_hash" ]]; then
@@ -182,13 +220,13 @@ ensure_nix_portable() {
   fi
 
   if [[ -z "$remote_hash" ]]; then
-    status "uploading nix-portable to $host (not yet installed)"
+    status "uploading nix-portable to $host:$remote_nix_portable"
   else
-    status "uploading nix-portable to $host (local=$local_hash remote=$remote_hash)"
+    status "uploading nix-portable to $host:$remote_nix_portable (local=$local_hash remote=$remote_hash)"
   fi
-  ssh -o BatchMode=yes "$host" "mkdir -p ~/$REMOTE_BIN_DIR" ||
-    die "failed to create ~/$REMOTE_BIN_DIR on $host"
-  rsync -aP "$local_np/bin/nix-portable" "$host:$REMOTE_NIX_PORTABLE" >&2 ||
+  ssh -o BatchMode=yes "$host" "mkdir -p '$remote_bin_dir'" ||
+    die "failed to create $remote_bin_dir on $host"
+  rsync -aP "$local_np/bin/nix-portable" "$host:$remote_nix_portable" >&2 ||
     die "rsync of nix-portable to $host failed"
   status "upload complete"
 }
