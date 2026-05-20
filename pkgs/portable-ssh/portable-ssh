@@ -26,11 +26,13 @@ CONFIG_FILE="$CONFIG_DIR/hosts.toml"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/portable-ssh"
 mkdir -p "$CONFIG_DIR" "$STATE_DIR"
 
-REMOTE_BIN_DIR='$HOME/.local/bin'
-REMOTE_NIX_PORTABLE='$HOME/.local/bin/nix-portable'
+REMOTE_BIN_DIR='.local/bin'
+REMOTE_NIX_PORTABLE='.local/bin/nix-portable'
+
+status() { printf 'portable-ssh: %s\n' "$*" >&2; }
 
 debug() {
-  [[ -n "${PORTABLE_SSH_DEBUG:-}${PORTABLE_SSH_DRY:-}" ]] && \
+  [[ -n "${PORTABLE_SSH_DEBUG:-}${PORTABLE_SSH_DRY:-}" ]] &&
     printf '[portable-ssh] %s\n' "$*" >&2 || true
 }
 
@@ -138,11 +140,14 @@ pick_ssh_command() {
 }
 
 # Build the local nix-portable derivation; print its store path.
+# nix build's progress goes to stderr so the user sees what's happening
+# on first runs (cold cache); subsequent runs are near-instant.
 build_nix_portable() {
   local flake_dir
   flake_dir=$(portable_ssh_flake_dir)
+  status "building nix-portable from $flake_dir (first run can take a minute)..."
   nix build --no-link --print-out-paths \
-    "${flake_dir}#nix-portable" 2>/dev/null
+    "${flake_dir}#nix-portable"
 }
 
 portable_ssh_flake_dir() {
@@ -166,21 +171,26 @@ ensure_nix_portable() {
   local local_hash remote_hash
   local_hash=$(sha256sum "$local_np/bin/nix-portable" | awk '{print $1}')
 
-  # Single round-trip: compute remote hash, missing file is ok.
+  status "checking remote nix-portable on $host..."
   remote_hash=$(ssh -o BatchMode=yes "$host" \
-    "sha256sum $REMOTE_NIX_PORTABLE 2>/dev/null | awk '{print \$1}'" \
+    "sha256sum ~/$REMOTE_NIX_PORTABLE 2>/dev/null | awk '{print \$1}'" \
     2>/dev/null || true)
 
   if [[ "$local_hash" == "$remote_hash" ]]; then
-    debug "nix-portable on $host is current"
+    status "remote nix-portable is current (sha256 $local_hash)"
     return 0
   fi
 
-  debug "uploading nix-portable to $host (local=$local_hash remote=${remote_hash:-missing})"
-  ssh -o BatchMode=yes "$host" "mkdir -p $REMOTE_BIN_DIR" || \
-    die "failed to create $REMOTE_BIN_DIR on $host"
-  rsync -aP "$local_np/bin/nix-portable" "$host:$REMOTE_NIX_PORTABLE" >&2 || \
+  if [[ -z "$remote_hash" ]]; then
+    status "uploading nix-portable to $host (not yet installed)"
+  else
+    status "uploading nix-portable to $host (local=$local_hash remote=$remote_hash)"
+  fi
+  ssh -o BatchMode=yes "$host" "mkdir -p ~/$REMOTE_BIN_DIR" ||
+    die "failed to create ~/$REMOTE_BIN_DIR on $host"
+  rsync -aP "$local_np/bin/nix-portable" "$host:$REMOTE_NIX_PORTABLE" >&2 ||
     die "rsync of nix-portable to $host failed"
+  status "upload complete"
 }
 
 main() {
