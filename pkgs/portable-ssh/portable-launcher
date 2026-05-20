@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# portable-launcher — tiny wrapper that proot-execs the user's portable
+# zsh inside the nix-portable chroot, without going through `nix run`
+# (which evaluates the flake on every invocation and takes ~95s under
+# proot on hosts where bwrap is blocked).
+#
+# Assumes nix-portable has been bootstrapped on this host (~/.nix-portable
+# exists with proot + emptyroot + the home-manager-generation closure).
+#
+# This script is uploaded by portable-ssh to ~/.local/bin/portable-launcher
+# alongside the nix-portable binary. It's the RemoteCommand portable-ssh
+# runs on interactive ssh.
+set -euo pipefail
+
+NP_DIR="${NP_LOCATION:-$HOME}/.nix-portable"
+PROOT="$NP_DIR/bin/proot"
+EMPTYROOT="$NP_DIR/emptyroot"
+NP_NIX="$NP_DIR/nix"
+BUSYBOX_SH="$NP_DIR/busybox/bin/busybox"
+
+if [[ ! -x "$PROOT" ]]; then
+  printf 'portable-launcher: nix-portable not bootstrapped (no %s); run portable-ssh again to install\n' "$PROOT" >&2
+  exec /bin/bash -l
+fi
+
+if [[ ! -L "$HOME/.nix-profile" ]]; then
+  printf 'portable-launcher: home-manager not activated yet. Activating now (one-time, several minutes)...\n' >&2
+  # Fall back to nix run for the first activation. After this, the
+  # profile symlink exists and we use the fast path on subsequent runs.
+  exec "$NP_DIR/bin/.."/../local/bin/nix-portable nix run \
+    "${PORTABLE_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}#activate-portable"
+fi
+
+# Bind the host filesystem into proot's chroot. /nix is the critical
+# bind: it makes the home-manager-generation's nix-store paths resolve.
+# Other binds (/etc, /home, /usr, /var, /run, /tmp, /proc, /sys, /dev)
+# are needed so the shell inside has working PAM, networking, terminal,
+# and access to your home directory.
+exec "$PROOT" \
+  -r "$EMPTYROOT" \
+  -b /dev:/dev \
+  -b "$NP_NIX":/nix \
+  -b /home:/home \
+  -b /proc:/proc \
+  -b /etc:/etc \
+  -b /usr/lib:/lib \
+  -b /usr/lib64:/lib64 \
+  -b /usr/bin:/bin \
+  -b /usr/sbin:/sbin \
+  -b /usr:/usr \
+  -b /tmp:/tmp \
+  -b /run:/run \
+  -b /var:/var \
+  -b /sys:/sys \
+  -b /ctc:/ctc \
+  -b "$HOME":"$HOME" \
+  -b "$BUSYBOX_SH":/bin/sh \
+  "$HOME/.nix-profile/bin/zsh" -l "$@"

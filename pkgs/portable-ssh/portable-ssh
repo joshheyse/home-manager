@@ -192,7 +192,9 @@ portable_ssh_flake_dir() {
   fi
 }
 
-# Upload nix-portable if the remote copy is missing or stale.
+# Upload nix-portable if the remote copy is missing or stale. On
+# success, sets REMOTE_HOME to the writable $HOME on the remote.
+REMOTE_HOME=
 ensure_nix_portable() {
   local host=$1
   local local_np
@@ -203,14 +205,13 @@ ensure_nix_portable() {
   local_hash=$(sha256sum "$local_np/bin/nix-portable" | awk '{print $1}')
 
   status "discovering writable home on $host..."
-  local remote_home
-  remote_home=$(discover_remote_home "$host")
-  if [[ -z "$remote_home" ]]; then
+  REMOTE_HOME=$(discover_remote_home "$host")
+  if [[ -z "$REMOTE_HOME" ]]; then
     die "no writable home found on $host (passwd entry stale? autofs not mounting?)"
   fi
-  status "remote home: $remote_home"
+  status "remote home: $REMOTE_HOME"
 
-  local remote_bin_dir="$remote_home/.local/bin"
+  local remote_bin_dir="$REMOTE_HOME/.local/bin"
   local remote_nix_portable="$remote_bin_dir/nix-portable"
 
   status "checking remote nix-portable on $host..."
@@ -221,19 +222,47 @@ ensure_nix_portable() {
 
   if [[ "$local_hash" == "$remote_hash" ]]; then
     status "remote nix-portable is current (sha256 $local_hash)"
+  else
+    if [[ -z "$remote_hash" ]]; then
+      status "uploading nix-portable to $host:$remote_nix_portable"
+    else
+      status "uploading nix-portable to $host:$remote_nix_portable (local=$local_hash remote=$remote_hash)"
+    fi
+    ssh -o BatchMode=yes "$host" "mkdir -p '$remote_bin_dir'" ||
+      die "failed to create $remote_bin_dir on $host"
+    rsync -aP "$local_np/bin/nix-portable" "$host:$remote_nix_portable" >&2 ||
+      die "rsync of nix-portable to $host failed"
+    status "upload complete"
+  fi
+}
+
+# Upload portable-launcher (the small proot wrapper) if missing or stale.
+# Sets REMOTE_LAUNCHER to the absolute remote path.
+REMOTE_LAUNCHER=
+ensure_portable_launcher() {
+  local host=$1
+  local local_launcher=${PORTABLE_LAUNCHER_PATH:-}
+  if [[ -z "$local_launcher" || ! -r "$local_launcher" ]]; then
+    die "PORTABLE_LAUNCHER_PATH not set or unreadable; reinstall portable-ssh"
+  fi
+  [[ -n "$REMOTE_HOME" ]] || die "REMOTE_HOME unset; ensure_nix_portable must run first"
+
+  REMOTE_LAUNCHER="$REMOTE_HOME/.local/bin/portable-launcher"
+  local local_hash remote_hash
+  local_hash=$(sha256sum "$local_launcher" | awk '{print $1}')
+  remote_hash=$(ssh -o BatchMode=yes "$host" \
+    "sha256sum '$REMOTE_LAUNCHER' 2>/dev/null | awk '{print \$1}'" \
+    2>/dev/null || true)
+
+  if [[ "$local_hash" == "$remote_hash" ]]; then
+    status "remote portable-launcher is current"
     return 0
   fi
-
-  if [[ -z "$remote_hash" ]]; then
-    status "uploading nix-portable to $host:$remote_nix_portable"
-  else
-    status "uploading nix-portable to $host:$remote_nix_portable (local=$local_hash remote=$remote_hash)"
-  fi
-  ssh -o BatchMode=yes "$host" "mkdir -p '$remote_bin_dir'" ||
-    die "failed to create $remote_bin_dir on $host"
-  rsync -aP "$local_np/bin/nix-portable" "$host:$remote_nix_portable" >&2 ||
-    die "rsync of nix-portable to $host failed"
-  status "upload complete"
+  status "uploading portable-launcher to $host:$REMOTE_LAUNCHER"
+  rsync -a "$local_launcher" "$host:$REMOTE_LAUNCHER" >&2 ||
+    die "rsync of portable-launcher to $host failed"
+  ssh -o BatchMode=yes "$host" "chmod +x '$REMOTE_LAUNCHER'" ||
+    die "chmod +x on $REMOTE_LAUNCHER failed"
 }
 
 main() {
@@ -293,11 +322,12 @@ main() {
       ;;
     nix-portable)
       if ensure_nix_portable "$host"; then
-        local flake_ref=${PORTABLE_SSH_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}
+        ensure_portable_launcher "$host"
         if [[ -z "$has_command" && -t 0 && -t 1 ]]; then
           # Interactive ssh, no user command. Auto-launch the portable
-          # zsh inside nix-portable via RemoteCommand.
-          local remote_cmd="export NP_RUNTIME=proot; exec ~/.local/bin/nix-portable nix run ${flake_ref@Q}#zsh"
+          # zsh inside the proot chroot via the uploaded launcher script.
+          # Fast path (~50ms) — no flake evaluation per login.
+          local remote_cmd="exec '$REMOTE_LAUNCHER'"
           if [[ -n "${PORTABLE_SSH_DRY:-}" ]]; then
             printf '[dry-run] would exec: %s -t %s -- %s\n' "$ssh_cmd" "$*" "$remote_cmd" >&2
             exit 0

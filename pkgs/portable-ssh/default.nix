@@ -13,7 +13,7 @@ stdenv.mkDerivation {
   pname = "portable-ssh";
   version = "0.1.0";
 
-  src = ./portable-ssh;
+  src = ./.;
 
   nativeBuildInputs = [makeWrapper];
 
@@ -23,14 +23,13 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 $src $out/bin/portable-ssh
+    install -Dm755 $src/portable-ssh $out/bin/portable-ssh
+    install -Dm755 $src/portable-launcher $out/share/portable-ssh/portable-launcher
 
-    # Pin the script's text-processing tools to nix copies so behavior
-    # doesn't depend on the user's PATH. Notably, ssh is NOT pinned —
-    # we want to use whatever ssh the user has configured, with their
-    # site-specific config and host aliases. Pinning a different
-    # openssh build here causes silent auth/parse failures on hosts
-    # whose ~/.ssh/config the nix-shipped openssh rejects.
+    # Wrap so the script's runtime tools come from nix, not from
+    # whatever the user's PATH happens to look like. ssh is intentionally
+    # NOT in the wrapper PATH — the system openssh has site-tuned config
+    # that the nixpkgs build sometimes rejects.
     wrapProgram $out/bin/portable-ssh \
       --prefix PATH : ${lib.makeBinPath [
       rsync
@@ -39,7 +38,8 @@ stdenv.mkDerivation {
       gawk
       gnugrep
       gnused
-    ]}
+    ]} \
+      --set PORTABLE_LAUNCHER_PATH "$out/share/portable-ssh/portable-launcher"
 
     runHook postInstall
   '';
