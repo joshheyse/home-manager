@@ -11,7 +11,7 @@
   wallCfg = cfg.wallpaper;
   inherit (pkgs.stdenv) isLinux;
 
-  dbWallpaperSync = pkgs.callPackage ../../../../pkgs/db-wallpaper {};
+  dbWallpaperSync = pkgs.db-wallpaper;
 
   wallpaperRotate = pkgs.writeShellScript "wallpaper-rotate" ''
     export PATH="${lib.makeBinPath [pkgs.hyprland pkgs.findutils pkgs.coreutils]}:$PATH"

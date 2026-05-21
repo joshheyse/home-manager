@@ -76,11 +76,11 @@ in {
 
       pagerPkg
 
-      (pkgs.callPackage ../../../pkgs/ssh-fzf {})
-      (pkgs.callPackage ../../../pkgs/notify {})
-      (pkgs.callPackage ../../../pkgs/jupyter-bridge {})
+      pkgs.ssh-fzf
+      pkgs.notify
+      pkgs.jupyter-bridge
 
-      (pkgs.callPackage ../../../pkgs/kicad-parts-manager {})
+      pkgs.kicad-parts-manager
 
       jq
       yq-go
@@ -142,6 +142,6 @@ in {
       # environment on remote hosts. Skipped in portable mode itself
       # (the remote shouldn't recurse) and on darwin (rsync/kitten ssh
       # path differs and we ssh out of macs much less).
-      (pkgs.callPackage ../../../pkgs/portable-ssh {})
+      pkgs.portable-ssh
     ];
 }

@@ -8,7 +8,7 @@
 }: let
   cfg = config.programs.hyprland-desktop;
   inherit (pkgs.stdenv) isLinux;
-  kvantum-tokyo-night = pkgs.callPackage ../../../../pkgs/kvantum-tokyo-night {};
+  inherit (pkgs) kvantum-tokyo-night;
 in {
   config = lib.mkIf (cfg.enable && isLinux) {
     # GTK theming

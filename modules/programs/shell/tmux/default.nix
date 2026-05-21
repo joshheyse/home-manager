@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  config,
   ...
 }: let
   # Window type icon system
@@ -23,19 +24,9 @@
 
   claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
-  # portable-ssh isn't built on darwin (see shell/default.nix), so fall
-  # back to plain ssh there. SSH_CMD is consumed by ssh-fzf.sh.
-  portableSshPkg =
-    if pkgs.stdenv.isLinux
-    then pkgs.callPackage ../../../pkgs/portable-ssh {}
-    else null;
-  sshCmd =
-    if portableSshPkg != null
-    then "${portableSshPkg}/bin/portable-ssh"
-    else "ssh";
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
-    export SSH_CMD="${sshCmd}"
+    export SSH_CMD="${config.programs.tmux.sshCommand}"
     ${builtins.readFile ./ssh-fzf.sh}
   '';
   devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
@@ -45,9 +36,8 @@
   '';
 
   # Claude Code tmux integration scripts
-  notifyPkg = pkgs.callPackage ../../../../pkgs/notify {};
   claudeHookScript = pkgs.writeShellScript "tmux-claude-hook" ''
-    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux notifyPkg]}:$PATH"
+    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux pkgs.notify]}:$PATH"
     ${builtins.readFile ./claude-hook.sh}
   '';
   claudeRespondScript = pkgs.writeShellScript "tmux-claude-respond" ''
@@ -69,292 +59,310 @@
     done
   '';
 in {
-  programs.tmux = {
-    enable = true;
-    package = pkgs.tmux;
-    shell = "${pkgs.zsh}/bin/zsh";
-    baseIndex = 1;
-    clock24 = true;
-    disableConfirmationPrompt = true;
-    escapeTime = 0;
-    focusEvents = true;
-    keyMode = "vi";
-    mouse = true;
-    sensibleOnTop = true;
-    terminal = "xterm-kitty";
-    prefix = "C-Space";
+  options.programs.tmux.sshCommand = lib.mkOption {
+    type = lib.types.str;
+    default = "ssh";
+    description = ''
+      Command used by the ssh-fzf tmux popup binding to open a remote
+      session. Set to a portable-ssh path (e.g.
+      `''${pkgs.portable-ssh}/bin/portable-ssh`) to bootstrap a
+      nix-portable home-manager environment on first connect.
 
-    plugins = with pkgs; [
-      tmuxPlugins.sensible
-      tmuxPlugins.better-mouse-mode
-      tmuxPlugins.pain-control
-      tmuxPlugins.vim-tmux-navigator
-
-      {
-        plugin = tmuxPlugins.tmux-fzf;
-        extraConfig =
-          # tmux
-          ''
-            bind-key -N "Launch tmux-fzf" f run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/main.sh"
-            bind-key -N "Launch tmux-fzf window switcher" w run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/scripts/window.sh switch"
-          '';
-      }
-
-      tmuxPlugins.battery
-      tmuxPlugins.copy-toolkit
-      tmuxPlugins.cpu
-      tmuxPlugins.jump
-      tmuxPlugins.logging
-      tmuxPlugins.sysstat
-      {
-        plugin = tmuxPlugins.tmux-which-key;
-        extraConfig =
-          # tmux
-          ''
-            set -g @tmux-which-key-xdg-enable 1;
-            set -g @tmux-which-key-disable-autobuild 1
-            set -g @tmux-which-key-xdg-plugin-path "tmux/plugins/tmux-which-key"
-          '';
-      }
-      tmuxPlugins.weather
-      tmuxPlugins.yank
-
-      {
-        plugin = tmuxPlugins.tokyo-night-tmux;
-        extraConfig =
-          # tmux
-          ''
-            set -g @tokyo-night-tmux_theme night
-            set -g @tokyo-night-tmux_transparent 1
-            set -g @tokyo-night-tmux_show_datetime 1
-            set -g @tokyo-night-tmux_date_format MYD
-            set -g @tokyo-night-tmux_time_format 24H
-            set -g @tokyo-night-tmux_show_music 1
-            set -g @tokyo-night-tmux_show_battery_widget 0
-            set -g @tokyo-night-tmux_show_git 0
-            set -g @tokyo-night-tmux_show_netspeed 1
-            set -g @tokyo-night-tmux_netspeed_showip 1
-            set -g @tokyo-night-tmux_netspeed_refresh 1
-            set -g @tokyo-night-tmux_window_id_style none
-          '';
-      }
-    ];
-
-    extraConfig =
-      # tmux
-      ''
-        # Set default command to use zsh (macOS fix)
-        set -g default-command "${pkgs.zsh}/bin/zsh"
-
-        # Show directory basename as window name instead of process name
-        set -g automatic-rename-format '#{b:pane_current_path}'
-
-        # Allow passthrough for Kitty graphics protocol (required for image.nvim)
-        set -g allow-passthrough on
-        set -g visual-activity off
-        set -g visual-bell off
-
-        set -ga update-environment TERM
-        set -ga update-environment TERM_PROGRAM
-
-        # Enable extended keys (CSI u) - 'on' lets apps opt-in via XTMODKEYS.
-        # Using 'always' would re-encode ALL modified keys (breaking Shift+Tab etc).
-        set -g extended-keys on
-        set -as terminal-features 'xterm*:extkeys'
-
-        # Forward Shift+Enter as CSI u format to applications.
-        # Kitty sends \e[13;2u via its keybinding, tmux recognizes it as S-Enter
-        # and we forward it in the same CSI u format that Claude Code expects.
-        bind-key -n S-Enter send-keys Escape "[13;2u"
-
-        # Unbind keys
-        unbind-key "}"
-        unbind-key "v"
-        unbind-key "s"
-        unbind-key "r"
-
-        bind-key -N "Reload tmux config" r source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!"
-
-        bind-key -N "New pane to the right" "\\" run-shell '${smartSplitScript} -h'
-        bind-key -N "New outer pane to the right" "|" run-shell '${smartSplitScript} -fh'
-        bind-key -N "New pane to the bottom" "-" run-shell '${smartSplitScript} -v'
-        bind-key -N "New outer pane to the bottom" "_" run-shell '${smartSplitScript} -fv'
-
-        bind-key -N "New window" "c" new-window -c "#{pane_current_path}"
-
-        bind-key -N "Move window left" -r "<" swap-window -d -t -1
-        bind-key -N "Move window right" -r ">" swap-window -d -t +1
-
-        pane_resize="10"
-        bind-key -N "Resize Pane Left" -r H resize-pane -L $pane_resize
-        bind-key -N "Resize Pane Down" -r J resize-pane -D $pane_resize
-        bind-key -N "Resize Pane Up" -r K resize-pane -U $pane_resize
-        bind-key -N "Resize Pane Right" -r L resize-pane -R $pane_resize
-
-        bind-key -N "Enter copy-mode" "]" copy-mode
-        bind-key -N "Enter copy-mode" "}" copy-mode
-
-        bind-key -N "Leave copy-mode" -T copy-mode-vi "Escape" send-keys -X cancel
-        bind-key -N "Begin Selection" -T copy-mode-vi "v" send-keys -X begin-selection
-        bind-key -N "Copy Selection" -T copy-mode-vi "y" send-keys -X copy-selection
-        bind-key -N "Begin Rect Selection" -T copy-mode-vi "r" send-keys -X rectangle-toggle
-
-        bind-key -N "Select the pane to the left of the active pane" -T copy-mode-vi 'C-h' select-pane -L
-        bind-key -N "Select the pane below the active pane" -T copy-mode-vi 'C-j' select-pane -D
-        bind-key -N "Select the pane above the active pane" -T copy-mode-vi 'C-k' select-pane -U
-        bind-key -N "Select the pane to the right of the active pane" -T copy-mode-vi 'C-l' select-pane -R
-        bind-key -N "Move to the previously active pane" -T copy-mode-vi 'C-\' select-pane -l
-
-        bind-key -N "Open lazygit in popup" g display-popup -d '#{pane_current_path}' -w90% -h90% -E lazygit
-        bind-key -N "Launch ssh-fzf in popup" s display-popup -d '#{pane_current_path}' -w80% -h60% -E '${sshFzfScript}'
-        bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devWorkspaceScript} --pick'
-        bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
-        bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
-
-        # Post-theme customizations (runs after tokyo-night theme sets formats)
-        run-shell '${iconSetupScript}'
-        run-shell '${netspeedSetupScript}'
-
-        # Claude Code integration: inject icon into window tab (no-op if already present)
-        run-shell '${claudeSetupScript}'
-
-        # Faster status refresh for Claude icon responsiveness
-        set -g status-interval 3
-
-        # F-key bindings: active when Claude has a prompt, otherwise pass through
-        bind-key -N "Claude: Allow / Option 1" -T root F1 if-shell '${claudeHasPromptScript}' \
-          'run-shell "${claudeRespondScript} 1"' 'send-keys F1'
-        bind-key -N "Claude: Allow always / Option 2" -T root F2 if-shell '${claudeHasPromptScript}' \
-          'run-shell "${claudeRespondScript} 2"' 'send-keys F2'
-        bind-key -N "Claude: Deny / Option 3" -T root F3 if-shell '${claudeHasPromptScript}' \
-          'run-shell "${claudeRespondScript} 3"' 'send-keys F3'
-        bind-key -N "Claude: Focus Claude pane" -T root F4 if-shell '${claudeHasPromptScript}' \
-          'run-shell "${claudeRespondScript} focus"' 'send-keys F4'
-
-      '';
+      Declared as an option (rather than reaching into pkgs/ from
+      this module) because this submodule may live under different
+      paths in different consuming flakes — the consumer is the only
+      place that knows where portable-ssh comes from.
+    '';
   };
 
-  home = {
-    activation = {
-      tmuxReload = lib.hm.dag.entryAfter ["writeBoundary"] ''
-        if ${pkgs.tmux}/bin/tmux info &>/dev/null; then
-          ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!" || true
-        fi
-      '';
+  config = {
+    programs.tmux = {
+      enable = true;
+      package = pkgs.tmux;
+      shell = "${pkgs.zsh}/bin/zsh";
+      baseIndex = 1;
+      clock24 = true;
+      disableConfirmationPrompt = true;
+      escapeTime = 0;
+      focusEvents = true;
+      keyMode = "vi";
+      mouse = true;
+      sensibleOnTop = true;
+      terminal = "xterm-kitty";
+      prefix = "C-Space";
+
+      plugins = with pkgs; [
+        tmuxPlugins.sensible
+        tmuxPlugins.better-mouse-mode
+        tmuxPlugins.pain-control
+        tmuxPlugins.vim-tmux-navigator
+
+        {
+          plugin = tmuxPlugins.tmux-fzf;
+          extraConfig =
+            # tmux
+            ''
+              bind-key -N "Launch tmux-fzf" f run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/main.sh"
+              bind-key -N "Launch tmux-fzf window switcher" w run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/scripts/window.sh switch"
+            '';
+        }
+
+        tmuxPlugins.battery
+        tmuxPlugins.copy-toolkit
+        tmuxPlugins.cpu
+        tmuxPlugins.jump
+        tmuxPlugins.logging
+        tmuxPlugins.sysstat
+        {
+          plugin = tmuxPlugins.tmux-which-key;
+          extraConfig =
+            # tmux
+            ''
+              set -g @tmux-which-key-xdg-enable 1;
+              set -g @tmux-which-key-disable-autobuild 1
+              set -g @tmux-which-key-xdg-plugin-path "tmux/plugins/tmux-which-key"
+            '';
+        }
+        tmuxPlugins.weather
+        tmuxPlugins.yank
+
+        {
+          plugin = tmuxPlugins.tokyo-night-tmux;
+          extraConfig =
+            # tmux
+            ''
+              set -g @tokyo-night-tmux_theme night
+              set -g @tokyo-night-tmux_transparent 1
+              set -g @tokyo-night-tmux_show_datetime 1
+              set -g @tokyo-night-tmux_date_format MYD
+              set -g @tokyo-night-tmux_time_format 24H
+              set -g @tokyo-night-tmux_show_music 1
+              set -g @tokyo-night-tmux_show_battery_widget 0
+              set -g @tokyo-night-tmux_show_git 0
+              set -g @tokyo-night-tmux_show_netspeed 1
+              set -g @tokyo-night-tmux_netspeed_showip 1
+              set -g @tokyo-night-tmux_netspeed_refresh 1
+              set -g @tokyo-night-tmux_window_id_style none
+            '';
+        }
+      ];
+
+      extraConfig =
+        # tmux
+        ''
+          # Set default command to use zsh (macOS fix)
+          set -g default-command "${pkgs.zsh}/bin/zsh"
+
+          # Show directory basename as window name instead of process name
+          set -g automatic-rename-format '#{b:pane_current_path}'
+
+          # Allow passthrough for Kitty graphics protocol (required for image.nvim)
+          set -g allow-passthrough on
+          set -g visual-activity off
+          set -g visual-bell off
+
+          set -ga update-environment TERM
+          set -ga update-environment TERM_PROGRAM
+
+          # Enable extended keys (CSI u) - 'on' lets apps opt-in via XTMODKEYS.
+          # Using 'always' would re-encode ALL modified keys (breaking Shift+Tab etc).
+          set -g extended-keys on
+          set -as terminal-features 'xterm*:extkeys'
+
+          # Forward Shift+Enter as CSI u format to applications.
+          # Kitty sends \e[13;2u via its keybinding, tmux recognizes it as S-Enter
+          # and we forward it in the same CSI u format that Claude Code expects.
+          bind-key -n S-Enter send-keys Escape "[13;2u"
+
+          # Unbind keys
+          unbind-key "}"
+          unbind-key "v"
+          unbind-key "s"
+          unbind-key "r"
+
+          bind-key -N "Reload tmux config" r source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!"
+
+          bind-key -N "New pane to the right" "\\" run-shell '${smartSplitScript} -h'
+          bind-key -N "New outer pane to the right" "|" run-shell '${smartSplitScript} -fh'
+          bind-key -N "New pane to the bottom" "-" run-shell '${smartSplitScript} -v'
+          bind-key -N "New outer pane to the bottom" "_" run-shell '${smartSplitScript} -fv'
+
+          bind-key -N "New window" "c" new-window -c "#{pane_current_path}"
+
+          bind-key -N "Move window left" -r "<" swap-window -d -t -1
+          bind-key -N "Move window right" -r ">" swap-window -d -t +1
+
+          pane_resize="10"
+          bind-key -N "Resize Pane Left" -r H resize-pane -L $pane_resize
+          bind-key -N "Resize Pane Down" -r J resize-pane -D $pane_resize
+          bind-key -N "Resize Pane Up" -r K resize-pane -U $pane_resize
+          bind-key -N "Resize Pane Right" -r L resize-pane -R $pane_resize
+
+          bind-key -N "Enter copy-mode" "]" copy-mode
+          bind-key -N "Enter copy-mode" "}" copy-mode
+
+          bind-key -N "Leave copy-mode" -T copy-mode-vi "Escape" send-keys -X cancel
+          bind-key -N "Begin Selection" -T copy-mode-vi "v" send-keys -X begin-selection
+          bind-key -N "Copy Selection" -T copy-mode-vi "y" send-keys -X copy-selection
+          bind-key -N "Begin Rect Selection" -T copy-mode-vi "r" send-keys -X rectangle-toggle
+
+          bind-key -N "Select the pane to the left of the active pane" -T copy-mode-vi 'C-h' select-pane -L
+          bind-key -N "Select the pane below the active pane" -T copy-mode-vi 'C-j' select-pane -D
+          bind-key -N "Select the pane above the active pane" -T copy-mode-vi 'C-k' select-pane -U
+          bind-key -N "Select the pane to the right of the active pane" -T copy-mode-vi 'C-l' select-pane -R
+          bind-key -N "Move to the previously active pane" -T copy-mode-vi 'C-\' select-pane -l
+
+          bind-key -N "Open lazygit in popup" g display-popup -d '#{pane_current_path}' -w90% -h90% -E lazygit
+          bind-key -N "Launch ssh-fzf in popup" s display-popup -d '#{pane_current_path}' -w80% -h60% -E '${sshFzfScript}'
+          bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devWorkspaceScript} --pick'
+          bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
+          bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
+
+          # Post-theme customizations (runs after tokyo-night theme sets formats)
+          run-shell '${iconSetupScript}'
+          run-shell '${netspeedSetupScript}'
+
+          # Claude Code integration: inject icon into window tab (no-op if already present)
+          run-shell '${claudeSetupScript}'
+
+          # Faster status refresh for Claude icon responsiveness
+          set -g status-interval 3
+
+          # F-key bindings: active when Claude has a prompt, otherwise pass through
+          bind-key -N "Claude: Allow / Option 1" -T root F1 if-shell '${claudeHasPromptScript}' \
+            'run-shell "${claudeRespondScript} 1"' 'send-keys F1'
+          bind-key -N "Claude: Allow always / Option 2" -T root F2 if-shell '${claudeHasPromptScript}' \
+            'run-shell "${claudeRespondScript} 2"' 'send-keys F2'
+          bind-key -N "Claude: Deny / Option 3" -T root F3 if-shell '${claudeHasPromptScript}' \
+            'run-shell "${claudeRespondScript} 3"' 'send-keys F3'
+          bind-key -N "Claude: Focus Claude pane" -T root F4 if-shell '${claudeHasPromptScript}' \
+            'run-shell "${claudeRespondScript} focus"' 'send-keys F4'
+
+        '';
     };
 
-    packages = [
-      (pkgs.writeShellScriptBin "dev" ''
-        inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")
-        if [[ -n "''${inplace_dir:-}" ]]; then
-          cd "$inplace_dir" || exit 1
-          eval "$(direnv export zsh 2>/dev/null)"
-          nvim
-          exec zsh -i
-        fi
-      '')
-    ];
+    home = {
+      activation = {
+        tmuxReload = lib.hm.dag.entryAfter ["writeBoundary"] ''
+          if ${pkgs.tmux}/bin/tmux info &>/dev/null; then
+            ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!" || true
+          fi
+        '';
+      };
 
-    sessionVariables = {
-      TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
+      packages = [
+        (pkgs.writeShellScriptBin "dev" ''
+          inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")
+          if [[ -n "''${inplace_dir:-}" ]]; then
+            cd "$inplace_dir" || exit 1
+            eval "$(direnv export zsh 2>/dev/null)"
+            nvim
+            exec zsh -i
+          fi
+        '')
+      ];
+
+      sessionVariables = {
+        TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
+      };
+
+      shellAliases = {
+        rc = "reset && tmux clear-history";
+      };
     };
 
-    shellAliases = {
-      rc = "reset && tmux clear-history";
+    programs.claude-code.settings.hooks = {
+      SessionStart = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} start";
+            }
+          ];
+        }
+      ];
+      UserPromptSubmit = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} submit";
+            }
+          ];
+        }
+      ];
+      PermissionRequest = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} permission";
+              timeout = 300;
+            }
+          ];
+        }
+      ];
+      Notification = [
+        {
+          matcher = "elicitation_dialog";
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} question";
+            }
+          ];
+        }
+        {
+          matcher = "idle_prompt";
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} idle";
+            }
+          ];
+        }
+      ];
+      PostToolUse = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} tool-done";
+            }
+          ];
+        }
+      ];
+      PostToolUseFailure = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} tool-done";
+            }
+          ];
+        }
+      ];
+      Stop = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} stop";
+            }
+          ];
+        }
+      ];
+      SessionEnd = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${claudeHookScript} end";
+            }
+          ];
+        }
+      ];
     };
-  };
-
-  programs.claude-code.settings.hooks = {
-    SessionStart = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} start";
-          }
-        ];
-      }
-    ];
-    UserPromptSubmit = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} submit";
-          }
-        ];
-      }
-    ];
-    PermissionRequest = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} permission";
-            timeout = 300;
-          }
-        ];
-      }
-    ];
-    Notification = [
-      {
-        matcher = "elicitation_dialog";
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} question";
-          }
-        ];
-      }
-      {
-        matcher = "idle_prompt";
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} idle";
-          }
-        ];
-      }
-    ];
-    PostToolUse = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} tool-done";
-          }
-        ];
-      }
-    ];
-    PostToolUseFailure = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} tool-done";
-          }
-        ];
-      }
-    ];
-    Stop = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} stop";
-          }
-        ];
-      }
-    ];
-    SessionEnd = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "${claudeHookScript} end";
-          }
-        ];
-      }
-    ];
   };
 }

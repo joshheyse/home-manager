@@ -5,7 +5,7 @@
   ...
 }: let
   cfg = config.services.ssh-agent-switcher;
-  ssh-agent-switcher = pkgs.callPackage ../../pkgs/ssh-agent-switcher {};
+  inherit (pkgs) ssh-agent-switcher;
   gpgEnabled = config.services.gpg-agent.enable;
   homeDir = config.home.homeDirectory;
   # Socket and gpg compat symlink live under $XDG_RUNTIME_DIR — a tmpfs owned

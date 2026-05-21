@@ -210,6 +210,7 @@
         notify = pkgs.callPackage ./pkgs/notify {};
         jupyter-bridge = pkgs.callPackage ./pkgs/jupyter-bridge {};
         kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
+        kvantum-tokyo-night = pkgs.callPackage ./pkgs/kvantum-tokyo-night {};
       }
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
         landrun = pkgs.callPackage ./pkgs/landrun {};
@@ -224,11 +225,29 @@
 
     # Overlays
     overlays = {
-      default = final: _prev: {
+      default = final: _prev: let
+        # Local packages, exposed via the overlay so modules can write
+        # `pkgs.portable-ssh` instead of doing relative path walks back
+        # to this flake's `pkgs/` directory. The flake is the only place
+        # that knows the layout — modules stay layout-independent.
+        localPkgs = self.packages.${final.system} or {};
+      in {
         inherit (claude-code-nix.packages.${final.system}) claude-code;
         # sidra.packages is only populated on x86_64-linux and aarch64-darwin.
         # The inherit is lazy: aarch64-linux only errors if pkgs.sidra is read.
         inherit (sidra.packages.${final.system} or {}) sidra;
+        inherit
+          (localPkgs)
+          ssh-agent-switcher
+          ssh-fzf
+          notify
+          jupyter-bridge
+          kicad-parts-manager
+          kvantum-tokyo-night
+          ;
+        # Linux-only packages: inherit lazily so darwin doesn't error
+        # unless something actually reads them.
+        inherit (localPkgs) landrun db-wallpaper portable-ssh;
       };
       claude-code = final: _prev: {
         inherit (claude-code-nix.packages.${final.system}) claude-code;
