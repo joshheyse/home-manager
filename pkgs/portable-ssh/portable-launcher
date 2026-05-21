@@ -27,7 +27,21 @@ if [[ ! -L "$HOME/.nix-profile" ]]; then
   printf 'portable-launcher: home-manager not activated yet. Activating now (one-time, several minutes)...\n' >&2
   # Fall back to nix run for the first activation. After this, the
   # profile symlink exists and we use the fast path on subsequent runs.
-  exec "$NP_DIR/bin/.."/../local/bin/nix-portable nix run \
+  #
+  # NP_RUNTIME=proot forces nix-portable to use proot instead of bwrap.
+  # bwrap requires unprivileged user namespaces; CTC work hosts (RHEL
+  # with user.max_user_namespaces=0 or SELinux denying CAP_SYS_ADMIN)
+  # reject it with "setting up a private mount namespace: Operation not
+  # permitted". proot uses ptrace and works without those privileges.
+  #
+  # --impure is required because the CTC home-manager modules
+  # (./modules/ctc -> ctc-nix) call builtins.fetchTarball without a
+  # sha256 to pull a pinned nixpkgs from artifactory. Pure evaluation
+  # rejects un-hashed fetches; the dev hosts solve this by passing
+  # --impure to `home-manager switch` (see CTC's services.nix). We need
+  # the same here for first-run activation on a remote.
+  exec env NP_RUNTIME=proot \
+    "$NP_DIR/bin/.."/../local/bin/nix-portable nix run --impure \
     "${PORTABLE_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}#activate-portable"
 fi
 
