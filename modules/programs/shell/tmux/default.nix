@@ -23,8 +23,19 @@
 
   claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
+  # portable-ssh isn't built on darwin (see shell/default.nix), so fall
+  # back to plain ssh there. SSH_CMD is consumed by ssh-fzf.sh.
+  portableSshPkg =
+    if pkgs.stdenv.isLinux
+    then pkgs.callPackage ../../../pkgs/portable-ssh {}
+    else null;
+  sshCmd =
+    if portableSshPkg != null
+    then "${portableSshPkg}/bin/portable-ssh"
+    else "ssh";
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
+    export SSH_CMD="${sshCmd}"
     ${builtins.readFile ./ssh-fzf.sh}
   '';
   devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
