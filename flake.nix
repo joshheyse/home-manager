@@ -195,6 +195,28 @@
         };
         modules = hostModules.mac;
       };
+
+      # x86_64 Linux dev VM (OrbStack on Apple Silicon with Rosetta).
+      # Reuses the headless `homelab` module set — shell tools only,
+      # no desktop/Wayland — and overrides username to match the
+      # default user OrbStack provisions inside the VM.
+      "joshheyse@orb-x64" = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          localSystem = "x86_64-linux";
+          config.allowUnfree = true;
+          overlays = [self.overlays.default];
+        };
+        modules =
+          hostModules.homelab
+          ++ [
+            {
+              home = {
+                username = "joshheyse";
+                homeDirectory = "/home/joshheyse";
+              };
+            }
+          ];
+      };
     };
 
     # Custom packages

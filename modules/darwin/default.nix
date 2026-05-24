@@ -110,6 +110,7 @@ in {
       "bitwarden"
       "gimp"
       "kitty"
+      "orbstack"
       "podman-desktop"
       "scroll-reverser"
       "sioyek"
