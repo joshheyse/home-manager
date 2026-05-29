@@ -33,13 +33,37 @@
   # so a stale socket file (exists but unbound) is also detected. Also
   # wakes every 30s so we still catch stale sockets that were never
   # deleted (some SSH cleanup paths leave the file behind).
+  #
+  # Skips restoring the local agent while a remote (SSH) login session is
+  # active: that session owns the forwarded gpg-agent socket, and restoring
+  # the local agent would clobber the forward. Local mode is restored on
+  # disconnect, once the last remote session is gone.
   gpgAgentMonitorScript = pkgs.writeShellScript "gpg-agent-monitor" ''
     SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-socket)"
     SSH_SOCKET="$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)"
     SOCKET_DIR="$(${pkgs.coreutils}/bin/dirname "$SOCKET")"
 
+    # True if any logind session is remote (an SSH login). Such a session
+    # expects the forwarded gpg-agent socket; restoring the local agent would
+    # clobber the forward.
+    remote_session_active() {
+      local sid
+      while read -r sid _; do
+        [ -n "$sid" ] || continue
+        if [ "$(${pkgs.systemd}/bin/loginctl show-session "$sid" -p Remote --value 2>/dev/null)" = yes ]; then
+          return 0
+        fi
+      done < <(${pkgs.systemd}/bin/loginctl list-sessions --no-legend 2>/dev/null)
+      return 1
+    }
+
     restore_local() {
+      # An agent (local or forwarded) is answering — nothing to do.
       if ${pkgs.coreutils}/bin/timeout 2 ${pkgs.gnupg}/bin/gpg-connect-agent /bye >/dev/null 2>&1; then
+        return
+      fi
+      # A remote SSH session owns the forwarded socket — don't clobber it.
+      if remote_session_active; then
         return
       fi
       if ${pkgs.procps}/bin/pgrep -u "$USER" -x gpg-agent >/dev/null 2>&1; then
