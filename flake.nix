@@ -79,9 +79,28 @@
           ];
         }
         ({pkgs, ...}: {
-          home.packages = nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
-            claude-desktop.packages.x86_64-linux.claude-desktop-with-fhs
-          ];
+          home.packages = nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") (
+            # Rebuild claude-desktop's FHS env with docker_29. Upstream pins
+            # `docker` (= nixpkgs default 28.x, now insecure/unmaintained) in its
+            # targetPkgs and builds the FHS in its own pkgs instance, so our
+            # permittedInsecurePackages can't reach it. Faithfully replicate the
+            # small upstream FHS (k3d3/claude-desktop-linux-flake) with docker_29.
+            let
+              cd = claude-desktop.packages.x86_64-linux.claude-desktop;
+            in [
+              (pkgs.buildFHSEnv {
+                name = "claude-desktop";
+                targetPkgs = p: with p; [docker_29 glibc openssl nodejs uv];
+                runScript = "${cd}/bin/claude-desktop";
+                extraInstallCommands = ''
+                  mkdir -p $out/share/applications
+                  cp ${cd}/share/applications/claude.desktop $out/share/applications/
+                  mkdir -p $out/share/icons
+                  cp -r ${cd}/share/icons/* $out/share/icons/
+                '';
+              })
+            ]
+          );
           sops = {
             userSecrets.enable = true;
             defaultSopsFile = ./secrets/users/josh/secrets.yaml;
