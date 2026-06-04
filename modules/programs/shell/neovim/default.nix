@@ -30,6 +30,8 @@
       statix
       stylua
       tree-sitter
+      veridian # SystemVerilog LSP (slang-based diagnostics); see overlay in flake.nix
+      verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
     ];
     extraPython3Packages = ps:
       with ps; [

@@ -266,13 +266,27 @@
 
     # Overlays
     overlays = {
-      default = final: _prev: let
+      default = final: prev: let
         # Local packages, exposed via the overlay so modules can write
         # `pkgs.portable-ssh` instead of doing relative path walks back
         # to this flake's `pkgs/` directory. The flake is the only place
         # that knows the layout — modules stay layout-independent.
         localPkgs = self.packages.${final.system} or {};
       in {
+        # veridian (SystemVerilog LSP) pins `find_package(slang 7.0)`, but
+        # nixpkgs ships slang/sv-lang 9.1, so the upstream build fails the
+        # version check. The slang API veridian's wrapper uses is unchanged
+        # across 7->9 (verified: it compiles, links, and veridian's own test
+        # suite passes against 9.1), so relaxing the pin is sufficient.
+        veridian = prev.veridian.overrideAttrs (old: {
+          postPatch =
+            (old.postPatch or "")
+            + ''
+              substituteInPlace veridian-slang/slang_wrapper/CMakeLists.txt \
+                --replace-fail "find_package(slang 7.0 REQUIRED)" "find_package(slang REQUIRED)"
+            '';
+        });
+
         inherit (claude-code-nix.packages.${final.system}) claude-code;
         # sidra.packages is only populated on x86_64-linux and aarch64-darwin.
         # The inherit is lazy: aarch64-linux only errors if pkgs.sidra is read.
