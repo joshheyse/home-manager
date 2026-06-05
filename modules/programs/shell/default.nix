@@ -81,6 +81,7 @@ in {
       pkgs.jupyter-bridge
 
       pkgs.kicad-parts-manager
+      pkgs.dwfv # terminal (TUI) digital waveform / VCD viewer
 
       jq
       yq-go
