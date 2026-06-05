@@ -28,9 +28,23 @@ return {
     opts = function(_, opts)
       opts.config = vim.tbl_deep_extend("keep", opts.config or {}, {
         veridian = {
-          -- Detect the project root from common FPGA markers, not just .git,
-          -- so the LSP roots correctly in non-git project directories.
+          -- AstroLSP runs in legacy lspconfig mode here (native_lsp_config is
+          -- false), where only `root_dir` is honored -- `root_markers` is a
+          -- native vim.lsp.config concept and is ignored. veridian's default
+          -- root_dir requires a `.git` dir, so it silently fails to start in
+          -- non-git project dirs (e.g. a fresh fpga_net). Provide a marker-based
+          -- root_dir that always resolves, plus single-file support, so it
+          -- attaches anywhere. root_markers is kept for the native path in case
+          -- native_lsp_config is enabled in a future AstroNvim.
           root_markers = { ".git", "flake.nix", "justfile", "Makefile", "veridian.yml" },
+          single_file_support = true,
+          root_dir = function(fname)
+            local found = vim.fs.find(
+              { "flake.nix", "justfile", "Makefile", ".git", "veridian.yml" },
+              { path = fname, upward = true }
+            )[1]
+            return found and vim.fs.dirname(found) or vim.fs.dirname(fname)
+          end,
         },
       })
       -- Register veridian with lspconfig only when it is available in PATH.

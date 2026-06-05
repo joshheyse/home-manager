@@ -248,6 +248,7 @@
       {
         ssh-agent-switcher = pkgs.callPackage ./pkgs/ssh-agent-switcher {};
         ssh-fzf = pkgs.callPackage ./pkgs/ssh-fzf {};
+        dwfv = pkgs.callPackage ./pkgs/dwfv {};
         notify = pkgs.callPackage ./pkgs/notify {};
         jupyter-bridge = pkgs.callPackage ./pkgs/jupyter-bridge {};
         kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
@@ -295,6 +296,7 @@
           (localPkgs)
           ssh-agent-switcher
           ssh-fzf
+          dwfv
           notify
           jupyter-bridge
           kicad-parts-manager
