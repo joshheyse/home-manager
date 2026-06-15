@@ -111,10 +111,20 @@ binds=(
 # proot uses ptrace (works without privileges but adds heavy per-syscall
 # overhead — painful for bazel/make). We detect bwrap by actually creating
 # a namespace: hosts with user.max_user_namespaces=0 or SELinux denying
-# CAP_SYS_ADMIN fail here and we fall back to proot.
+# CAP_SYS_ADMIN fail at namespace setup and we fall back to proot.
+#
+# The preflight execs nix-portable's STATIC busybox (musl, no shared libs).
+# A dynamically-linked probe like /usr/bin/true would fail with ENOENT for
+# its dynamic linker unless we bound /lib64 too — a false negative that has
+# nothing to do with whether namespaces work. The static binary needs only
+# itself bound, so the only thing that can fail is namespace creation.
+# Bind the dest as /busybox (basename must be "busybox" for busybox to treat
+# the next arg as an applet name) and run the `true` applet.
+BB_STATIC="$NP_DIR/busybox/bin/busybox"
 runtime="${NP_RUNTIME:-}"
 if [[ -z "$runtime" ]]; then
-  if [[ -x "$BWRAP" ]] && "$BWRAP" --ro-bind /usr /usr --proc /proc /usr/bin/true 2>/dev/null; then
+  if [[ -x "$BWRAP" && -x "$BB_STATIC" ]] \
+    && "$BWRAP" --ro-bind "$BB_STATIC" /busybox /busybox true 2>/dev/null; then
     runtime="bwrap"
   else
     runtime="proot"
