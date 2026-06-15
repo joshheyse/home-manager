@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# portable-launcher — tiny wrapper that proot-execs the user's portable
-# zsh inside the nix-portable chroot, without going through `nix run`
-# (which evaluates the flake on every invocation and takes ~95s under
-# proot on hosts where bwrap is blocked).
+# portable-launcher — tiny wrapper that execs the user's portable zsh inside
+# the nix-portable chroot, without going through `nix run` (which evaluates
+# the flake on every invocation and takes ~95s).
+#
+# Runtime: prefers bwrap (kernel user namespaces, near-native speed) and
+# falls back to proot (ptrace) when bwrap can't create a namespace. proot
+# intercepts every syscall via ptrace, which adds large overhead to
+# build-heavy workloads (e.g. bazel) — bwrap is dramatically faster when
+# the host allows it. Force a runtime with NP_RUNTIME=bwrap|proot.
 #
 # Assumes nix-portable has been bootstrapped on this host (~/.nix-portable
-# exists with proot + emptyroot + the home-manager-generation closure).
+# exists with proot + bwrap + emptyroot + the home-manager-generation
+# closure).
 #
 # This script is uploaded by portable-ssh to ~/.local/bin/portable-launcher
 # alongside the nix-portable binary. It's the RemoteCommand portable-ssh
@@ -14,14 +20,30 @@ set -euo pipefail
 
 NP_DIR="${NP_LOCATION:-$HOME}/.nix-portable"
 PROOT="$NP_DIR/bin/proot"
+BWRAP="$NP_DIR/bin/bwrap"
 EMPTYROOT="$NP_DIR/emptyroot"
 NP_NIX="$NP_DIR/nix"
-# Real GNU bash from the activated home-manager profile. We bind this over
-# /bin/sh and /bin/bash inside the chroot (see below) so that scripts with
-# `#!/bin/sh` or `#!/bin/bash` shebangs run under a real bash — NOT
-# nix-portable's busybox, whose `sh`/`ash` applets lack bash features and
-# which has no `bash` applet at all (invoking it errors "applet not found").
-REAL_BASH="$HOME/.nix-profile/bin/bash"
+
+# Real GNU bash binary, resolved to its on-disk path under nix-portable's
+# store. We bind this over /bin/sh and /bin/bash inside the chroot (see
+# below) so that scripts with `#!/bin/sh` or `#!/bin/bash` shebangs run
+# under a real bash — NOT nix-portable's busybox, whose `sh`/`ash` applets
+# lack bash features and which has no `bash` applet at all (invoking it
+# errors "applet not found").
+#
+# We must NOT use ~/.nix-profile/bin/bash here: that's a symlink into /nix,
+# which does not exist on the bare host. Both bwrap and proot resolve bind
+# SOURCE paths against the host filesystem BEFORE /nix is mounted, so the
+# symlink would dangle. The real file lives under $NP_NIX/store.
+# Glob the store (paths are alphanumeric+dash, so word-splitting is safe).
+# Prefer bash-interactive; fall back to any bash-*.
+REAL_BASH=""
+for cand in "$NP_NIX"/store/*-bash-interactive-*/bin/bash "$NP_NIX"/store/*-bash-*/bin/bash; do
+  if [[ -x "$cand" ]]; then
+    REAL_BASH="$cand"
+    break
+  fi
+done
 
 if [[ ! -x "$PROOT" ]]; then
   printf 'portable-launcher: nix-portable not bootstrapped (no %s); run portable-ssh again to install\n' "$PROOT" >&2
@@ -33,11 +55,10 @@ if [[ ! -L "$HOME/.nix-profile" ]]; then
   # Fall back to nix run for the first activation. After this, the
   # profile symlink exists and we use the fast path on subsequent runs.
   #
-  # NP_RUNTIME=proot forces nix-portable to use proot instead of bwrap.
-  # bwrap requires unprivileged user namespaces; CTC work hosts (RHEL
-  # with user.max_user_namespaces=0 or SELinux denying CAP_SYS_ADMIN)
-  # reject it with "setting up a private mount namespace: Operation not
-  # permitted". proot uses ptrace and works without those privileges.
+  # We let nix-portable pick its own runtime here: it probes bwrap and
+  # falls back to proot on its own when user namespaces are unavailable
+  # (CTC work hosts with user.max_user_namespaces=0 or SELinux denying
+  # CAP_SYS_ADMIN). Force with NP_RUNTIME=bwrap|proot if needed.
   #
   # --impure is required because the CTC home-manager modules
   # (./modules/ctc -> ctc-nix) call builtins.fetchTarball without a
@@ -45,8 +66,7 @@ if [[ ! -L "$HOME/.nix-profile" ]]; then
   # rejects un-hashed fetches; the dev hosts solve this by passing
   # --impure to `home-manager switch` (see CTC's services.nix). We need
   # the same here for first-run activation on a remote.
-  exec env NP_RUNTIME=proot \
-    "$NP_DIR/bin/.."/../local/bin/nix-portable nix run --impure \
+  exec "$NP_DIR/bin/.."/../local/bin/nix-portable nix run --impure \
     "${PORTABLE_FLAKE_REF:-git+ssh://git@gitlab.azure.chicagotrading.com/heysej/nix.git}#activate-portable"
 fi
 
@@ -62,24 +82,56 @@ fi
 # want our env to take precedence inside the chroot.
 export PATH="$HOME/.nix-profile/bin:$PATH"
 
-exec "$PROOT" \
-  -r "$EMPTYROOT" \
-  -b /dev:/dev \
-  -b "$NP_NIX":/nix \
-  -b /home:/home \
-  -b /proc:/proc \
-  -b /etc:/etc \
-  -b /usr/lib:/lib \
-  -b /usr/lib64:/lib64 \
-  -b /usr/bin:/bin \
-  -b /usr/sbin:/sbin \
-  -b /usr:/usr \
-  -b /tmp:/tmp \
-  -b /run:/run \
-  -b /var:/var \
-  -b /sys:/sys \
-  -b /ctc:/ctc \
-  -b "$HOME":"$HOME" \
-  -b "$REAL_BASH":/bin/sh \
-  -b "$REAL_BASH":/bin/bash \
-  "$HOME/.nix-profile/bin/zsh" -l "$@"
+ZSH="$HOME/.nix-profile/bin/zsh"
+
+# The directories/files to map into the chroot, as SRC:DEST pairs. /nix is
+# the critical bind (makes the home-manager-generation store paths resolve).
+# /bin/sh and /bin/bash are pinned to real bash (see REAL_BASH above).
+binds=(
+  "$NP_NIX:/nix"
+  "/home:/home"
+  "/etc:/etc"
+  "/usr/lib:/lib"
+  "/usr/lib64:/lib64"
+  "/usr/bin:/bin"
+  "/usr/sbin:/sbin"
+  "/usr:/usr"
+  "/tmp:/tmp"
+  "/run:/run"
+  "/var:/var"
+  "/sys:/sys"
+  "/ctc:/ctc"
+  "$HOME:$HOME"
+  "$REAL_BASH:/bin/sh"
+  "$REAL_BASH:/bin/bash"
+)
+
+# Decide the runtime. NP_RUNTIME overrides; otherwise prefer bwrap and fall
+# back to proot. bwrap uses kernel user namespaces (near-native speed);
+# proot uses ptrace (works without privileges but adds heavy per-syscall
+# overhead — painful for bazel/make). We detect bwrap by actually creating
+# a namespace: hosts with user.max_user_namespaces=0 or SELinux denying
+# CAP_SYS_ADMIN fail here and we fall back to proot.
+runtime="${NP_RUNTIME:-}"
+if [[ -z "$runtime" ]]; then
+  if [[ -x "$BWRAP" ]] && "$BWRAP" --ro-bind /usr /usr --proc /proc /usr/bin/true 2>/dev/null; then
+    runtime="bwrap"
+  else
+    runtime="proot"
+  fi
+fi
+
+if [[ "$runtime" == "bwrap" ]]; then
+  args=(--bind "$EMPTYROOT" / --dev-bind /dev /dev --proc /proc)
+  for b in "${binds[@]}"; do
+    args+=(--bind "${b%%:*}" "${b#*:}")
+  done
+  exec "$BWRAP" "${args[@]}" "$ZSH" -l "$@"
+fi
+
+# proot fallback.
+args=(-r "$EMPTYROOT" -b /dev:/dev -b /proc:/proc)
+for b in "${binds[@]}"; do
+  args+=(-b "$b")
+done
+exec "$PROOT" "${args[@]}" "$ZSH" -l "$@"
