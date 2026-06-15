@@ -16,7 +16,12 @@ NP_DIR="${NP_LOCATION:-$HOME}/.nix-portable"
 PROOT="$NP_DIR/bin/proot"
 EMPTYROOT="$NP_DIR/emptyroot"
 NP_NIX="$NP_DIR/nix"
-BUSYBOX_SH="$NP_DIR/busybox/bin/busybox"
+# Real GNU bash from the activated home-manager profile. We bind this over
+# /bin/sh and /bin/bash inside the chroot (see below) so that scripts with
+# `#!/bin/sh` or `#!/bin/bash` shebangs run under a real bash — NOT
+# nix-portable's busybox, whose `sh`/`ash` applets lack bash features and
+# which has no `bash` applet at all (invoking it errors "applet not found").
+REAL_BASH="$HOME/.nix-profile/bin/bash"
 
 if [[ ! -x "$PROOT" ]]; then
   printf 'portable-launcher: nix-portable not bootstrapped (no %s); run portable-ssh again to install\n' "$PROOT" >&2
@@ -75,5 +80,6 @@ exec "$PROOT" \
   -b /sys:/sys \
   -b /ctc:/ctc \
   -b "$HOME":"$HOME" \
-  -b "$BUSYBOX_SH":/bin/sh \
+  -b "$REAL_BASH":/bin/sh \
+  -b "$REAL_BASH":/bin/bash \
   "$HOME/.nix-profile/bin/zsh" -l "$@"

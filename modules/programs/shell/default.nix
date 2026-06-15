@@ -23,10 +23,11 @@ in {
     # (so escape sequences don't render as literal characters), -F quit if
     # output fits one screen, -X don't send termcap init/deinit (no screen clear).
     LESS = "-iMRFX";
-    # Tokyo Night statusbar: blue bg with dark fg
-    LESS_TERMCAP_so = "\\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m";
-    LESS_TERMCAP_se = "\\e[0m";
     CPM_SOURCE_CACHE = "${config.home.homeDirectory}/.cache/CPM";
+    # NOTE: LESS_TERMCAP_so/se (less standout = search highlight + statusbar)
+    # are set in programs.zsh.initContent below, not here. home.sessionVariables
+    # emits POSIX `export VAR="..."` which leaves `\e` literal, so less would
+    # print the raw escape text. zsh `$'\e'` produces a real ESC byte.
     # notcurses (lnav etc.) ignores ~/.terminfo and has a compiled-in path
     # that misses nix profiles. Point terminfo lookup at the active profile,
     # the default profile, and the system path so xterm-kitty resolves.
@@ -57,6 +58,13 @@ in {
     ./tmux
     ./zsh.nix
   ];
+
+  # Tokyo Night less standout (search highlight + statusbar): blue bg, dark fg.
+  # Must use zsh `$'\e'` for a real ESC byte (see note in home.sessionVariables).
+  programs.zsh.initContent = ''
+    export LESS_TERMCAP_so=$'\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m'
+    export LESS_TERMCAP_se=$'\e[0m'
+  '';
 
   # Register Nix-installed fonts with fontconfig on Linux
   fonts.fontconfig.enable = lib.mkIf pkgs.stdenv.isLinux true;
