@@ -219,6 +219,12 @@
       # Reuses the headless `homelab` module set — shell tools only,
       # no desktop/Wayland — and overrides username to match the
       # default user OrbStack provisions inside the VM.
+      #
+      # ssh-agent-switcher is disabled here because OrbStack already
+      # forwards the macOS SSH agent into the VM and sets
+      # SSH_AUTH_SOCK. The switcher only watches ~/.ssh/agent/ and
+      # /tmp/agent.* — OrbStack's socket isn't in either — so leaving
+      # it on hijacks SSH_AUTH_SOCK and breaks agent access entirely.
       "joshheyse@orb-x64" = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {
           localSystem = "x86_64-linux";
@@ -233,6 +239,7 @@
                 username = "joshheyse";
                 homeDirectory = "/home/joshheyse";
               };
+              services.ssh-agent-switcher.enable = nixpkgs.lib.mkForce false;
             }
           ];
       };
