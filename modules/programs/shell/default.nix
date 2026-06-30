@@ -108,6 +108,7 @@ in {
       git-extras
 
       aichat
+      codex
 
       # GNU core utilities
       tree
