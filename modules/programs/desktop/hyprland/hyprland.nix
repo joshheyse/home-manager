@@ -31,6 +31,10 @@ in {
         monitor = [
           "DP-2,3840x1600@60,0x0,1"
           "DP-1,3840x1600@60,0x1600,1"
+          # Virtual output for Moonlight streaming at the laptop's native 16:10.
+          # Dormant until created on demand (hyprctl output create headless virt);
+          # this rule only sets its resolution when it exists.
+          "virt,2560x1600@60,auto,1"
         ];
 
         # General settings
@@ -84,7 +88,6 @@ in {
 
         # Dwindle layout
         dwindle = {
-          pseudotile = true;
           preserve_split = true;
         };
 
@@ -97,12 +100,20 @@ in {
           "$mod, mouse:273, resizewindow"
         ];
 
-        # Window rules
+        # Window rules. NOTE: kept as `windowrulev2` — Hyprland 0.55.4 emits a
+        # deprecation warning for it, but the unified `windowrule` key does NOT
+        # accept this syntax in 0.55.4 (parser errors "invalid field"), so the
+        # warning is cosmetic until a Hyprland upgrade. Do not rename yet.
         windowrulev2 = [
           "float, class:^(pavucontrol)$"
           "size 600 400, class:^(pavucontrol)$"
           "move 100%-620 50, class:^(pavucontrol)$"
           "float, class:^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$"
+          # Steam Big Picture is streamed via gamescope (Sunshine "Steam Big
+          # Picture" app). Pin gamescope to the virtual output and fullscreen
+          # it so Sunshine captures a clean 2560x1600 16:10 image.
+          "monitor virt, class:^(gamescope)$"
+          "fullscreen, class:^(gamescope)$"
         ];
 
         # Autostart
