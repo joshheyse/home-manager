@@ -100,20 +100,18 @@ in {
           "$mod, mouse:273, resizewindow"
         ];
 
-        # Window rules. NOTE: kept as `windowrulev2` — Hyprland 0.55.4 emits a
-        # deprecation warning for it, but the unified `windowrule` key does NOT
-        # accept this syntax in 0.55.4 (parser errors "invalid field"), so the
-        # warning is cosmetic until a Hyprland upgrade. Do not rename yet.
-        windowrulev2 = [
-          "float, class:^(pavucontrol)$"
-          "size 600 400, class:^(pavucontrol)$"
-          "move 100%-620 50, class:^(pavucontrol)$"
-          "float, class:^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$"
+        # Window rules. Current Hyprland syntax: `match:<selector>, <rule> <value>`
+        # (this replaced the deprecated windowrulev2 `<rule>, class:...` form).
+        windowrule = [
+          "match:class ^(pavucontrol)$, float on"
+          "match:class ^(pavucontrol)$, size 600 400"
+          "match:class ^(pavucontrol)$, move 100%-620 50"
+          "match:class ^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$, float on"
           # Steam Big Picture is streamed via gamescope (Sunshine "Steam Big
           # Picture" app). Pin gamescope to the virtual output and fullscreen
           # it so Sunshine captures a clean 2560x1600 16:10 image.
-          "monitor virt, class:^(gamescope)$"
-          "fullscreen, class:^(gamescope)$"
+          "match:class ^(gamescope)$, monitor virt"
+          "match:class ^(gamescope)$, fullscreen on"
         ];
 
         # Autostart
