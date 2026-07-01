@@ -62,8 +62,11 @@
             udiskie.enable = true;
           };
           programs = {
-            hyprland-desktop.enable = true;
-            hyprland-desktop.wallpaper.enable = true;
+            hyprland-desktop = {
+              enable = true;
+              wallpaper.enable = true;
+              lockOnStart = true;
+            };
             tiling-wm.enable = true;
             screenshots.enable = true;
             firefox-profile.enable = false;
