@@ -23,7 +23,9 @@ in {
     ./hyprlock.nix
     ./hypridle.nix
     ./hyprpaper.nix
-    ./hyprexpo.nix
+    # hyprexpo removed from nixpkgs in 26.05 (retired upstream from hyprland-plugins).
+    # Re-add via the maintained sandwichfarm/hyprexpo fork if the overview gesture is wanted again.
+    # ./hyprexpo.nix
     ./swayosd.nix
     ./wlogout.nix
     ./wallpaper.nix

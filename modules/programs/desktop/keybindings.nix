@@ -353,13 +353,14 @@
         desc = "Clipboard history";
         hyprlandAction = "exec, cliphist list | rofi -dmenu -p clipboard | cliphist decode | wl-copy";
       }
-      # Workspace overview (hyprexpo)
-      {
-        key = "grave";
-        mods = ["Super"];
-        desc = "Workspace overview";
-        hyprlandAction = "hyprexpo:expo, toggle";
-      }
+      # Workspace overview (hyprexpo) — plugin removed from nixpkgs in 26.05; re-enable
+      # alongside ./hyprland/hyprexpo.nix if the plugin is restored from a fork.
+      # {
+      #   key = "grave";
+      #   mods = ["Super"];
+      #   desc = "Workspace overview";
+      #   hyprlandAction = "hyprexpo:expo, toggle";
+      # }
       # Power menu (wlogout)
       {
         key = "Escape";
