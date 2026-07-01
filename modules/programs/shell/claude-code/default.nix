@@ -105,8 +105,12 @@ in {
 
   home = {
     # Prevent the upstream module from creating home.file for settings.json.
-    # We manage it as a mutable file via activation instead.
+    # We manage it as a mutable file via activation instead (Claude Code writes
+    # settings.json at runtime, so it can't be a read-only store symlink).
+    # home-manager 26.05 keys the upstream entry by its absolute path, so the
+    # relative-key override alone no longer merges — suppress both spellings.
     file.".claude/settings.json".enable = lib.mkForce false;
+    file."${config.home.homeDirectory}/.claude/settings.json".enable = lib.mkForce false;
 
     packages =
       lib.optionals pkgs.stdenv.isLinux [pkgs.bubblewrap pkgs.socat];
