@@ -31,10 +31,6 @@ in {
         monitor = [
           "DP-2,3840x1600@60,0x0,1"
           "DP-1,3840x1600@60,0x1600,1"
-          # Virtual output for Moonlight streaming at the laptop's native 16:10.
-          # Dormant until created on demand (hyprctl output create headless virt);
-          # this rule only sets its resolution when it exists.
-          "virt,2560x1600@60,auto,1"
         ];
 
         # General settings
@@ -107,11 +103,6 @@ in {
           "match:class ^(pavucontrol)$, size 600 400"
           "match:class ^(pavucontrol)$, move 100%-620 50"
           "match:class ^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$, float on"
-          # Steam Big Picture is streamed via gamescope (Sunshine "Steam Big
-          # Picture" app). Pin gamescope to the virtual output and fullscreen
-          # it so Sunshine captures a clean 2560x1600 16:10 image.
-          "match:class ^(gamescope)$, monitor virt"
-          "match:class ^(gamescope)$, fullscreen on"
         ];
 
         # Autostart
