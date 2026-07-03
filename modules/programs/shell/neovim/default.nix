@@ -1,4 +1,20 @@
-{pkgs, ...}: {
+{pkgs, ...}: let
+  # nixpkgs 26.05's neovim wrapper only wires the python3 provider into the
+  # rc it manages; home-manager wraps with wrapRc = false, so withPython3 /
+  # extraPython3Packages never reach nvim (Molten's remote-plugin host fails
+  # with "Failed to load python3 host"). Wire the host explicitly via a
+  # --cmd flag, mirroring the pre-26.05 wrapper, until HM/nixpkgs fix this.
+  pythonDeps = ps:
+    with ps; [
+      pynvim
+      jupyter-client
+      cairosvg
+      ipython
+      nbformat
+      pyperclip
+    ];
+  pythonEnv = pkgs.python3.withPackages pythonDeps;
+in {
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -33,15 +49,11 @@
       veridian # SystemVerilog LSP (slang-based diagnostics); see overlay in flake.nix
       verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
     ];
-    extraPython3Packages = ps:
-      with ps; [
-        pynvim
-        jupyter-client
-        cairosvg
-        ipython
-        nbformat
-        pyperclip
-      ];
+    extraPython3Packages = pythonDeps;
+    extraWrapperArgs = [
+      "--add-flags"
+      ''--cmd "lua vim.g.python3_host_prog='${pythonEnv}/bin/python3'"''
+    ];
     extraLuaPackages = ps: [ps.magick];
   };
 
