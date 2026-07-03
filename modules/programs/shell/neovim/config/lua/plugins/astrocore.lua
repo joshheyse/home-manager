@@ -32,7 +32,7 @@ return {
         wrap = false, -- sets vim.opt.wrap
         conceallevel = 0, -- enable conceal
         foldenable = false,
-        foldexpr = "nvim_treesitter#foldexpr()", -- set Treesitter based folding
+        foldexpr = "v:lua.vim.treesitter.foldexpr()", -- set Treesitter based folding
         foldmethod = "expr",
         linebreak = true, -- linebreak soft wrap at words
         list = true, -- show whitespace characters

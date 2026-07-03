@@ -28,23 +28,13 @@ return {
     opts = function(_, opts)
       opts.config = vim.tbl_deep_extend("keep", opts.config or {}, {
         veridian = {
-          -- AstroLSP runs in legacy lspconfig mode here (native_lsp_config is
-          -- false), where only `root_dir` is honored -- `root_markers` is a
-          -- native vim.lsp.config concept and is ignored. veridian's default
-          -- root_dir requires a `.git` dir, so it silently fails to start in
-          -- non-git project dirs (e.g. a fresh fpga_net). Provide a marker-based
-          -- root_dir that always resolves, plus single-file support, so it
-          -- attaches anywhere. root_markers is kept for the native path in case
-          -- native_lsp_config is enabled in a future AstroNvim.
+          -- AstroLSP v6 uses the native vim.lsp.config backend, where
+          -- root_markers is honored directly (the legacy fname-based root_dir
+          -- shim is gone -- native root_dir has a different signature and the
+          -- old one crashes). veridian's upstream default only looks for
+          -- `.git`, so add markers that resolve in non-git project dirs
+          -- (e.g. a fresh fpga_net).
           root_markers = { ".git", "flake.nix", "justfile", "Makefile", "veridian.yml" },
-          single_file_support = true,
-          root_dir = function(fname)
-            local found = vim.fs.find(
-              { "flake.nix", "justfile", "Makefile", ".git", "veridian.yml" },
-              { path = fname, upward = true }
-            )[1]
-            return found and vim.fs.dirname(found) or vim.fs.dirname(fname)
-          end,
         },
       })
       -- Register veridian with lspconfig only when it is available in PATH.
@@ -55,14 +45,16 @@ return {
     end,
   },
   {
-    "nvim-treesitter/nvim-treesitter",
+    "AstroNvim/astrocore",
     optional = true,
-    opts = function(_, opts)
-      if opts.ensure_installed ~= "all" then
-        -- The `verilog` parser covers both Verilog and SystemVerilog.
-        opts.ensure_installed = require("astrocore").list_insert_unique(opts.ensure_installed, { "verilog" })
-      end
-    end,
+    -- nvim-treesitter main only ships `systemverilog` (the old `verilog`
+    -- parser name is gone); it covers both Verilog and SystemVerilog, so map
+    -- it onto the `verilog` filetype too.
+    init = function() vim.treesitter.language.register("systemverilog", "verilog") end,
+    ---@type AstroCoreOpts
+    opts = {
+      treesitter = { ensure_installed = { "systemverilog" } },
+    },
   },
   {
     "nvimtools/none-ls.nvim",

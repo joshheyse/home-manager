@@ -1,56 +1,55 @@
 -- Customize Treesitter
+--
+-- AstroNvim v6: nvim-treesitter's main branch is a parser installer only;
+-- treesitter features (highlight, indent, textobjects) are configured through
+-- AstroCore's `treesitter` module (see :h astrocore).
 
 ---@type LazySpec
 return {
-  "nvim-treesitter/nvim-treesitter",
+  "AstroNvim/astrocore",
+  ---@type AstroCoreOpts
   opts = {
-    ensure_installed = {
-      "bash",
-      "c",
-      "cmake",
-      "cpp",
-      "css",
-      "cuda",
-      "dockerfile",
-      "helm",
-      "html",
-      "javascript",
-      "jsdoc",
-      "json",
-      "jsonc",
-      "lua",
-      "luap",
-      "markdown",
-      "markdown_inline",
-      "nginx",
-      "nix",
-      "objc",
-      "proto",
-      "python",
-      "query",
-      "regex",
-      "rust",
-      "scss",
-      "sql",
-      "terraform",
-      "toml",
-      "tsx",
-      "typescript",
-      "vim",
-      "vimdoc",
-      "yaml",
+    treesitter = {
+      ensure_installed = {
+        "bash",
+        "c",
+        "cmake",
+        "cpp",
+        "css",
+        "cuda",
+        "dockerfile",
+        "helm",
+        "html",
+        "javascript",
+        "jsdoc",
+        "json",
+        "jsonc",
+        "lua",
+        "luap",
+        "markdown",
+        "markdown_inline",
+        "nginx",
+        "nix",
+        "objc",
+        "proto",
+        "python",
+        "query",
+        "regex",
+        "rust",
+        "scss",
+        "sql",
+        "terraform",
+        "toml",
+        "tsx",
+        "typescript",
+        "vim",
+        "vimdoc",
+        "yaml",
+      },
+      highlight = true,
+      indent = true,
+      -- Automatically install missing parsers when opening a file
+      auto_install = true,
     },
-    highlight = {
-      enable = true,
-      additional_vim_regex_highlighting = false,
-    },
-    indent = { enable = true },
-    incremental_selection = { enable = true },
-    -- Enable injections for embedded languages (nginx, sql, bash in Nix strings)
-    injections = {
-      enable = true,
-    },
-    -- latex grammar requires --no-bindings flag removed in newer tree-sitter CLI
-    ignore_install = { "latex" },
   },
 }
