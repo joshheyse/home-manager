@@ -275,11 +275,6 @@
         landrun = pkgs.callPackage ./pkgs/landrun {};
         db-wallpaper = pkgs.callPackage ./pkgs/db-wallpaper {};
         portable-ssh = pkgs.callPackage ./pkgs/portable-ssh {};
-      }
-      # Vivado is x86_64-linux only (vendor blob supplied via requireFile).
-      // pkgs.lib.optionalAttrs (pkgs.stdenv.isLinux && pkgs.stdenv.isx86_64) {
-        vivado = pkgs.callPackage ./pkgs/vivado {};
-        vivado-install = pkgs.callPackage ./pkgs/vivado/install-tool.nix {};
       });
 
     # Shared nix-darwin modules
@@ -311,10 +306,8 @@
           kvantum-tokyo-night
           ;
         # Linux-only packages: inherit lazily so darwin doesn't error
-        # unless something actually reads them. `vivado` is additionally
-        # x86_64-only; the lazy inherit means aarch64 only errors if
-        # `pkgs.vivado` is actually read.
-        inherit (localPkgs) landrun db-wallpaper portable-ssh vivado vivado-install;
+        # unless something actually reads them.
+        inherit (localPkgs) landrun db-wallpaper portable-ssh;
       };
       claude-code = final: _prev: {
         inherit (claude-code-nix.packages.${final.system}) claude-code;
