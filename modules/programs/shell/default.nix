@@ -46,7 +46,7 @@ in {
     ./eza.nix
     ./fd.nix
     ./fzf.nix
-    ./git.nix
+    ./git
     ./gpg
     ./grc.nix
     ./lazygit.nix

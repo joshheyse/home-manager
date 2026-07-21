@@ -6,16 +6,6 @@
   home.file.".config/zsh/functions.zsh".text =
     # bash
     ''
-      function gpt() {
-        tag=$1
-        if [ -z "$tag" ]; then
-          echo "Tag name is required"
-          return 1
-        fi
-        message=$2
-        ((git tag | grep $1) || git tag -a $1 -m "''${message:-"tagging $1"}") && git push origin $1
-      }
-
       function ciStatus() {
         tag=$1
         glab ci status --branch "$tag" | grep "Pipeline state:" | sed "s/Pipeline state: \(.*\)/\1/"
