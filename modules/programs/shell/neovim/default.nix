@@ -1,4 +1,9 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
+  inherit (pkgs) stdenv;
   # nixpkgs 26.05's neovim wrapper only wires the python3 provider into the
   # rc it manages; home-manager wraps with wrapRc = false, so withPython3 /
   # extraPython3Packages never reach nvim (Molten's remote-plugin host fails
@@ -24,31 +29,35 @@ in {
     withNodeJs = true;
     withPython3 = true;
     withRuby = true;
-    extraPackages = with pkgs; [
-      alejandra
-      cargo
-      deadnix
-      fd
-      gcc
-      gnumake
-      ghostscript
-      (imagemagick.override {ghostscriptSupport = true;})
-      python3Packages.debugpy
-      python3Packages.jupytext
-      lua-language-server
-      luajitPackages.luarocks
-      nil
-      poppler-utils
-      python3
-      python3Packages.pip
-      ripgrep
-      rustc
-      statix
-      stylua
-      tree-sitter
-      veridian # SystemVerilog LSP (slang-based diagnostics); see overlay in flake.nix
-      verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
-    ];
+    extraPackages = with pkgs;
+      [
+        alejandra
+        cargo
+        deadnix
+        fd
+        gcc
+        gnumake
+        ghostscript
+        (imagemagick.override {ghostscriptSupport = true;})
+        python3Packages.debugpy
+        python3Packages.jupytext
+        lua-language-server
+        luajitPackages.luarocks
+        nil
+        poppler-utils
+        python3
+        python3Packages.pip
+        ripgrep
+        rustc
+        statix
+        stylua
+        tree-sitter
+        verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
+      ]
+      # veridian pulls in sv-lang, which is currently broken on darwin in nixpkgs.
+      ++ lib.optionals stdenv.hostPlatform.isLinux [
+        veridian # SystemVerilog LSP (slang-based diagnostics)
+      ];
     extraPython3Packages = pythonDeps;
     extraWrapperArgs = [
       "--add-flags"
