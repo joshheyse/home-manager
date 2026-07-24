@@ -52,11 +52,13 @@ in {
         statix
         stylua
         tree-sitter
-        verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
       ]
-      # veridian pulls in sv-lang, which is currently broken on darwin in nixpkgs.
+      # SystemVerilog tooling is currently broken on darwin in nixpkgs:
+      # - sv-lang (veridian's dep) is marked broken
+      # - verible has a hash mismatch on its bazel deps tarball
       ++ lib.optionals stdenv.hostPlatform.isLinux [
         veridian # SystemVerilog LSP (slang-based diagnostics)
+        verible # verible-verilog-{format,lint}: SystemVerilog format + lint CLI
       ];
     extraPython3Packages = pythonDeps;
     extraWrapperArgs = [
