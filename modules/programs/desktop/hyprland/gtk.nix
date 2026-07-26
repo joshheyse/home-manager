@@ -27,6 +27,7 @@ in {
         package = pkgs.bibata-cursors;
         size = 24;
       };
+      gtk4.theme = config.gtk.theme;
     };
 
     # Qt theming via Kvantum with Tokyo Night

@@ -23,6 +23,7 @@ in {
   config = lib.mkIf (cfg.enable && isLinux) {
     wayland.windowManager.hyprland = {
       enable = true;
+      configType = "hyprlang";
       settings = {
         "$mod" = "SUPER";
 

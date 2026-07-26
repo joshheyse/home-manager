@@ -88,7 +88,7 @@ in {
       keyMode = "vi";
       mouse = true;
       sensibleOnTop = true;
-      terminal = "xterm-kitty";
+      terminal = "tmux-256color";
       prefix = "C-Space";
 
       plugins = with pkgs; [

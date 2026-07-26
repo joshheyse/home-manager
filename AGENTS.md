@@ -14,6 +14,9 @@ The library exports:
 ## Key Commands
 
 - **Check flake**: `nix flake check`
+- **Check as consumed by the parent NixOS repo**: from the parent repo, run `just verify`
+  - This uses `--override-input home-modules ./home-manager` when this repo is dirty
+  - Use this before considering Home Manager edits done when working inside `/home/josh/code/nix`
 - **Show flake outputs**: `nix flake show`
 - **Update flake inputs**: `nix flake update`
 - **Linting and formatting**: `scripts/check-all`
@@ -105,7 +108,7 @@ When modifying this library:
 3. **Add overlays**: Create new overlays in `/overlays/`
 4. **Test changes**:
    - Use `nix flake check` to validate the flake
-   - Test in consuming flakes (e.g., `../nixos/`) with `home-manager build`
+   - From the parent repo, use `just verify` to test the root NixOS/darwin configurations with this local checkout via `--override-input home-modules ./home-manager`
 5. **Update exports**: Ensure new modules/packages/overlays are exported in `flake.nix`
 6. **Format code**: Run `alejandra` to format nix files
 

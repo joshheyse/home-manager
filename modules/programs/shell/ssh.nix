@@ -66,28 +66,26 @@
   in {
     # Full config: YubiKey + agent forwarding + GPG forwarding + tmux
     ${name} = {
-      inherit user;
-      inherit (hostCfg) hostname;
-      forwardAgent = true;
-      identityFile = "~/.ssh/id_rsa_yubikey.pub";
-      remoteForwards = [
+      User = user;
+      HostName = hostCfg.hostname;
+      ForwardAgent = true;
+      IdentityFile = "~/.ssh/id_rsa_yubikey.pub";
+      RemoteForward = [
         {
           bind.address = remoteGpgSocket;
           host.address = localGpgExtra;
         }
       ];
-      extraOptions = {
-        StreamLocalBindUnlink = "yes";
-        RequestTTY = "force";
-        RemoteCommand = "zsh -l -c \"exec tmux new -A -s main\"";
-      };
+      StreamLocalBindUnlink = "yes";
+      RequestTTY = "force";
+      RemoteCommand = "zsh -l -c \"exec tmux new -A -s main\"";
     };
 
     # Raw config: just YubiKey auth
     "${name}-raw" = {
-      inherit user;
-      inherit (hostCfg) hostname;
-      identityFile = "~/.ssh/id_rsa_yubikey.pub";
+      User = user;
+      HostName = hostCfg.hostname;
+      IdentityFile = "~/.ssh/id_rsa_yubikey.pub";
     };
   };
 
@@ -120,20 +118,20 @@ in {
     enable = true;
     enableDefaultConfig = false;
 
-    matchBlocks =
+    settings =
       {
         "*" = {
-          serverAliveInterval = lib.mkDefault 15;
-          serverAliveCountMax = lib.mkDefault 2;
+          ServerAliveInterval = lib.mkDefault 15;
+          ServerAliveCountMax = lib.mkDefault 2;
         };
         "github.com" = {
-          user = lib.mkDefault "git";
-          identityFile = lib.mkDefault "~/.ssh/id_rsa_yubikey.pub";
+          User = lib.mkDefault "git";
+          IdentityFile = lib.mkDefault "~/.ssh/id_rsa_yubikey.pub";
         };
         # CTC work hosts: forward the agent so nix-portable on the
         # remote can clone gitlab using the local key chain.
         "ch12*" = {
-          forwardAgent = lib.mkDefault true;
+          ForwardAgent = lib.mkDefault true;
         };
       }
       // generatedBlocks;
