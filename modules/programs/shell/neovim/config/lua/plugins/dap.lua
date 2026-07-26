@@ -59,22 +59,18 @@ return {
         dap.configurations.rust = dap.configurations.cpp
       end
 
-      -- Load project-local .vscode/launch.json if present.
+      -- Project-local .vscode/launch.json needs no explicit load: nvim-dap's
+      -- built-in `dap.launch.json` config provider reads it on demand at
+      -- `continue()` time (:help dap-providers). That also picks up edits and
+      -- `:cd` changes, which the old load-once-at-startup call did not.
+      --
+      -- The type -> filetype mapping that used to live here is gone with it:
+      -- the provider returns every launch.json entry regardless of buffer
+      -- filetype, and `dap.ext.vscode.type_to_filetypes` is only consulted by
+      -- the deprecated loader.
+      --
       -- overseer.nvim enables preLaunchTask / postDebugTask support
       -- automatically via its setup() call (dap = true by default).
-      -- Maps VS Code debug adapter types to neovim filetypes so configs
-      -- are available for the correct buffers. Adapters not installed are
-      -- silently skipped.
-      require("dap.ext.vscode").load_launchjs(nil, {
-        lldb = { "c", "cpp", "rust" },
-        cppdbg = { "c", "cpp" },
-        debugpy = { "python" },
-        python = { "python" },
-        delve = { "go" },
-        go = { "go" },
-        ["pwa-node"] = { "javascript", "typescript" },
-        node = { "javascript", "typescript" },
-      })
     end,
   },
 }
