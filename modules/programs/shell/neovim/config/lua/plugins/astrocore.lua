@@ -102,7 +102,14 @@ return {
           desc = "Close buffer from tabline",
         },
 
-        ["<leader>fr"] = {
+        -- Substitute/replace functions
+        -- NOTE: keep the `<Leader>` prefix capitalized. AstroNvim's own maps use
+        -- `<Leader>`, and a lowercase `<leader>` key is a *distinct* Lua table key,
+        -- so it never overrides the default -- both get set on the same lhs and the
+        -- winner depends on `pairs()` order. Capitalized keys collide cleanly.
+        ["<Leader>s"] = { desc = "Substitute/replace" },
+
+        ["<Leader>sr"] = {
           function()
             local word = vim.fn.expand "<cword>"
             vim.ui.input({
@@ -112,57 +119,7 @@ return {
               if replacement then vim.cmd("%s/\\<" .. word .. "\\>/" .. replacement .. "/gc") end
             end)
           end,
-          desc = "Find and replace word under cursor (current buffer)",
-        },
-
-        ["<leader>fR"] = {
-          function()
-            local word = vim.fn.expand "<cword>"
-            -- First, search for the word using telescope
-            require("telescope").extensions.live_grep_args.live_grep_args {
-              default_text = "\\b" .. word .. "\\b",
-              prompt_title = "Find for replace: " .. word,
-              attach_mappings = function(_, map)
-                local actions = require "telescope.actions"
-                -- Send all results to quickfix with Ctrl+q
-                map("i", "<C-q>", function(prompt_bufnr)
-                  actions.send_to_qflist(prompt_bufnr)
-                  actions.open_qflist(prompt_bufnr)
-                  vim.defer_fn(function()
-                    vim.ui.input({
-                      prompt = "Replace '" .. word .. "' with: ",
-                      default = word,
-                    }, function(replacement)
-                      if replacement then
-                        -- Use cdo to replace in all quickfix entries
-                        vim.cmd("cdo s/\\<" .. word .. "\\>/" .. replacement .. "/gc | update")
-                        vim.notify("Replacement complete. Review changes and save files.", vim.log.levels.INFO)
-                      end
-                    end)
-                  end, 100)
-                end)
-                -- Replace in selected entries with Ctrl+r
-                map("i", "<C-r>", function(prompt_bufnr)
-                  actions.send_selected_to_qflist(prompt_bufnr)
-                  actions.open_qflist(prompt_bufnr)
-                  vim.defer_fn(function()
-                    vim.ui.input({
-                      prompt = "Replace '" .. word .. "' with: ",
-                      default = word,
-                    }, function(replacement)
-                      if replacement then
-                        -- Use cdo to replace in selected quickfix entries
-                        vim.cmd("cdo s/\\<" .. word .. "\\>/" .. replacement .. "/gc | update")
-                        vim.notify("Replacement complete. Review changes and save files.", vim.log.levels.INFO)
-                      end
-                    end)
-                  end, 100)
-                end)
-                return true
-              end,
-            }
-          end,
-          desc = "Find and replace word under cursor (project wide)",
+          desc = "Replace word under cursor (buffer)",
         },
 
         -- Path yank functions
