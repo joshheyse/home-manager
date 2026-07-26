@@ -84,6 +84,17 @@ return {
         -- disable for .vim files, but it work for another filetypes
         Rule("a", "a", "-vim")
       )
+
+      -- SystemVerilog uses `'` as a literal/cast prefix (4'b1010, '0, type'(x)),
+      -- never as a paired quote, so auto-closing it fights the language on every
+      -- sized literal. Extend the built-in quote rule's exclusion list rather
+      -- than replacing it, to keep upstream's rust/nix exclusions intact.
+      for _, rule in ipairs(npairs.get_rules "'") do
+        rule.not_filetypes = vim.list_extend(rule.not_filetypes or {}, { "systemverilog", "verilog" })
+      end
+      -- Per-buffer rules are snapshotted on attach, and setup() already attached
+      -- the current buffer; re-attach so the change applies without a buffer switch.
+      npairs.force_attach()
     end,
   },
 }
