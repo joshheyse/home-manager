@@ -20,6 +20,7 @@ in {
       "anthropic/api_key" = {};
       "digitalblasphemy/username" = {};
       "digitalblasphemy/password" = {};
+      "digitalblasphemy/api_key" = {};
     };
 
     # User-level age key for decryption (separate from the system key).

@@ -64,6 +64,12 @@ in {
       default = "${config.home.homeDirectory}/.config/sops-nix/secrets/digitalblasphemy/password";
       description = "Path to file containing Digital Blasphemy password";
     };
+
+    apiKeyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/.config/sops-nix/secrets/digitalblasphemy/api_key";
+      description = "Path to file containing Digital Blasphemy API key";
+    };
   };
 
   config = lib.mkIf (cfg.enable && wallCfg.enable && isLinux) {
@@ -95,7 +101,7 @@ in {
           };
           Service = {
             Type = "oneshot";
-            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --username-file ${wallCfg.usernameFile} --password-file ${wallCfg.passwordFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution}";
+            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --api-token-file ${wallCfg.apiKeyFile} --username-file ${wallCfg.usernameFile} --password-file ${wallCfg.passwordFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution}";
           };
         };
       };
