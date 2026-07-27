@@ -53,18 +53,6 @@ in {
       description = "Wallpaper resolution to download";
     };
 
-    usernameFile = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.home.homeDirectory}/.config/sops-nix/secrets/digitalblasphemy/username";
-      description = "Path to file containing Digital Blasphemy username";
-    };
-
-    passwordFile = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.home.homeDirectory}/.config/sops-nix/secrets/digitalblasphemy/password";
-      description = "Path to file containing Digital Blasphemy password";
-    };
-
     apiKeyFile = lib.mkOption {
       type = lib.types.str;
       default = "${config.home.homeDirectory}/.config/sops-nix/secrets/digitalblasphemy/api_key";
@@ -101,7 +89,7 @@ in {
           };
           Service = {
             Type = "oneshot";
-            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --api-token-file ${wallCfg.apiKeyFile} --username-file ${wallCfg.usernameFile} --password-file ${wallCfg.passwordFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution}";
+            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --api-token-file ${wallCfg.apiKeyFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution}";
           };
         };
       };

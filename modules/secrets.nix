@@ -18,8 +18,6 @@ in {
       "digikey/clientSecret" = {};
       "github/token" = {};
       "anthropic/api_key" = {};
-      "digitalblasphemy/username" = {};
-      "digitalblasphemy/password" = {};
       "digitalblasphemy/api_key" = {};
     };
 
