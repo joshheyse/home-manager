@@ -270,7 +270,7 @@ Packages are *self-contained derivations* that build a binary or script with no 
 Overlays modify or replace packages that already exist in nixpkgs. They change the *package set itself*, not how packages are configured. Use sparingly — overlays affect all consumers of the package set and can invalidate the binary cache.
 
 **Current overlays (in `flake.nix`):**
-- **claude-code** — Re-exports claude-code from the claude-code-nix input
+- **sidra** — Re-exports sidra from the sidra input
 
 **Decision rule:** If you need to *change the version, patches, or build of an existing nixpkgs package* across the whole system, use an overlay. If you're adding something new, use `/pkgs/` instead.
 

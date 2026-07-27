@@ -7,10 +7,6 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    claude-code-nix = {
-      url = "github:sadjow/claude-code-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     claude-desktop = {
       url = "github:k3d3/claude-desktop-linux-flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -29,7 +25,6 @@
     self,
     nixpkgs,
     home-manager,
-    claude-code-nix,
     claude-desktop,
     sidra,
     sops-nix,
@@ -292,7 +287,6 @@
         # that knows the layout — modules stay layout-independent.
         localPkgs = self.packages.${system} or {};
       in {
-        inherit (claude-code-nix.packages.${system}) claude-code;
         # sidra.packages is only populated on x86_64-linux and aarch64-darwin.
         # The inherit is lazy: aarch64-linux only errors if pkgs.sidra is read.
         inherit (sidra.packages.${system} or {}) sidra;
@@ -309,9 +303,6 @@
         # Linux-only packages: inherit lazily so darwin doesn't error
         # unless something actually reads them.
         inherit (localPkgs) landrun db-wallpaper portable-ssh;
-      };
-      claude-code = final: _prev: {
-        inherit (claude-code-nix.packages.${final.stdenv.hostPlatform.system}) claude-code;
       };
       sidra = final: _prev: {
         inherit (sidra.packages.${final.stdenv.hostPlatform.system} or {}) sidra;
