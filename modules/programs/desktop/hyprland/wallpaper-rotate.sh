@@ -34,13 +34,8 @@ fi
 WALLPAPER="${WALLPAPERS[RANDOM % ${#WALLPAPERS[@]}]}"
 echo "Selected: $WALLPAPER"
 
-# Unload all current wallpapers first
-hyprctl hyprpaper unload all 2>/dev/null || true
-
-# Preload the new wallpaper
-hyprctl hyprpaper preload "$WALLPAPER"
-
-# Apply to each monitor
+# Hyprpaper 0.8+ accepts dynamic wallpaper requests directly over IPC. Older
+# preload/unload requests are no longer valid with the packaged hyprctl.
 for monitor in "${MONITORS[@]}"; do
   hyprctl hyprpaper wallpaper "${monitor},${WALLPAPER}"
   echo "Applied to ${monitor}"

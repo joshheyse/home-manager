@@ -89,7 +89,9 @@ in {
           };
           Service = {
             Type = "oneshot";
-            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --api-token-file ${wallCfg.apiKeyFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution}";
+            # Digital Blasphemy occasionally disables the API during maintenance;
+            # keep the timer healthy and preserve the already-downloaded cache.
+            ExecStart = "${dbWallpaperSync}/bin/db-wallpaper-sync --api-token-file ${wallCfg.apiKeyFile} --output-dir ${wallCfg.directory} --resolution ${wallCfg.resolution} --allow-api-unavailable";
           };
         };
       };

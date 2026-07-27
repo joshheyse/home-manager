@@ -14,13 +14,14 @@ import sys
 import time
 from urllib.parse import unquote, urlencode, urlparse
 
-from curl_cffi.requests import Session
+from curl_cffi.requests import RequestsError, Session
 
 
 BASE_URL = "https://digitalblasphemy.com"
 API_BASE_URL = "https://api.digitalblasphemy.com/v2/core"
 # Non-wallpaper slugs that appear in /sec/ links
 SLUG_BLOCKLIST = {"memberships", "tip-jar", "my-account", "cart", "checkout"}
+TRANSIENT_API_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class CloudflareChallengeError(RuntimeError):
@@ -28,7 +29,9 @@ class CloudflareChallengeError(RuntimeError):
 
 
 class ApiError(RuntimeError):
-    pass
+    def __init__(self, message: str, transient: bool = False):
+        super().__init__(message)
+        self.transient = transient
 
 
 def read_secret_file(
@@ -62,38 +65,75 @@ def api_request(
     method: str,
     path: str,
     token: str | None = None,
+    retries: int = 3,
+    retry_delay: float = 5.0,
     **kwargs,
 ) -> dict:
     headers = kwargs.pop("headers", {})
     if token:
         headers["X-DB-Token"] = token
 
-    resp = session.request(
-        method,
-        f"{API_BASE_URL}{path}",
-        headers=headers,
-        **kwargs,
-    )
+    last_error: ApiError | None = None
+    for attempt in range(1, retries + 2):
+        try:
+            resp = session.request(
+                method,
+                f"{API_BASE_URL}{path}",
+                headers=headers,
+                **kwargs,
+            )
+        except RequestsError as e:
+            last_error = ApiError(
+                f"Digital Blasphemy API request failed: {e}",
+                transient=True,
+            )
+            if attempt > retries:
+                raise last_error from e
 
-    if resp.status_code == 503:
-        raise ApiError("Digital Blasphemy API is currently unavailable")
+            sleep_for = retry_delay * attempt
+            print(
+                f"{last_error}; retrying in {sleep_for:.0f}s "
+                f"({attempt}/{retries})...",
+                file=sys.stderr,
+            )
+            time.sleep(sleep_for)
+            continue
 
-    try:
-        payload = resp.json()
-    except json.JSONDecodeError as e:
-        raise ApiError(
-            f"Digital Blasphemy API returned non-JSON HTTP {resp.status_code}"
-        ) from e
+        try:
+            payload = resp.json()
+        except json.JSONDecodeError as e:
+            last_error = ApiError(
+                f"Digital Blasphemy API returned non-JSON HTTP {resp.status_code}",
+                transient=resp.status_code in TRANSIENT_API_STATUS_CODES,
+            )
+            if attempt > retries or resp.status_code not in TRANSIENT_API_STATUS_CODES:
+                raise last_error from e
+            payload = {}
+        else:
+            if resp.status_code < 400:
+                return payload
 
-    if resp.status_code >= 400:
         description = (
             payload.get("description")
             or payload.get("message")
             or resp.reason
         )
-        raise ApiError(f"Digital Blasphemy API HTTP {resp.status_code}: {description}")
+        last_error = ApiError(
+            f"Digital Blasphemy API HTTP {resp.status_code}: {description}",
+            transient=resp.status_code in TRANSIENT_API_STATUS_CODES,
+        )
+        if attempt > retries or resp.status_code not in TRANSIENT_API_STATUS_CODES:
+            raise last_error
 
-    return payload
+        sleep_for = retry_delay * attempt
+        print(
+            f"Digital Blasphemy API HTTP {resp.status_code}; "
+            f"retrying in {sleep_for:.0f}s ({attempt}/{retries})...",
+            file=sys.stderr,
+        )
+        time.sleep(sleep_for)
+
+    raise last_error or ApiError("Digital Blasphemy API request failed")
 
 
 def api_authenticate(session: Session, username: str, password: str) -> str:
@@ -106,6 +146,7 @@ def api_authenticate(session: Session, username: str, password: str) -> str:
             "password": password,
             "force_new_key": False,
         },
+        retries=1,
     )
     api_key = payload.get("user", {}).get("api_key")
     if not api_key:
@@ -132,6 +173,8 @@ def api_wallpapers(
     token: str,
     page: int,
     include_resolutions: bool,
+    retries: int,
+    retry_delay: float,
 ) -> list[dict]:
     payload = api_request(
         session,
@@ -148,6 +191,8 @@ def api_wallpapers(
             "order": "desc",
             "page": page,
         },
+        retries=retries,
+        retry_delay=retry_delay,
     )
     wallpapers = payload.get("wallpapers", [])
     if isinstance(wallpapers, dict):
@@ -177,6 +222,8 @@ def api_download_wallpaper(
     height: str,
     output_dir: str,
     show_watermark: bool,
+    retries: int,
+    retry_delay: float,
 ) -> tuple[str, bool] | None:
     wid = wallpaper_id(wallpaper)
     if wid is None:
@@ -194,6 +241,8 @@ def api_download_wallpaper(
             "height": height,
             "show_watermark": str(show_watermark).lower(),
         },
+        retries=retries,
+        retry_delay=retry_delay,
     )
     url = payload.get("download", {}).get("url")
     if not url:
@@ -230,15 +279,24 @@ def sync_with_api(
     resolution: str,
     max_pages: int,
     show_watermark: bool,
+    retries: int,
+    retry_delay: float,
 ) -> None:
     width, height = resolution.split("x")
-    print(f"Scanning Digital Blasphemy API for wallpapers at {resolution}...")
+    print(f"Scanning Digital Blasphemy API for wallpapers at {resolution}...", flush=True)
 
     downloaded = 0
     skipped = 0
 
     for page in range(1, max_pages + 1):
-        wallpapers = api_wallpapers(session, token, page, include_resolutions=True)
+        wallpapers = api_wallpapers(
+            session,
+            token,
+            page,
+            include_resolutions=True,
+            retries=retries,
+            retry_delay=retry_delay,
+        )
         if not wallpapers:
             break
 
@@ -255,6 +313,8 @@ def sync_with_api(
                 height,
                 output_dir,
                 show_watermark,
+                retries,
+                retry_delay,
             )
             if result is None:
                 skipped += 1
@@ -398,6 +458,23 @@ def main():
         help="Request watermarked downloads from the API",
     )
     parser.add_argument(
+        "--api-retries",
+        type=int,
+        default=3,
+        help="Retry transient API errors this many times (default: 3)",
+    )
+    parser.add_argument(
+        "--api-retry-delay",
+        type=float,
+        default=5.0,
+        help="Base seconds for API retry backoff (default: 5)",
+    )
+    parser.add_argument(
+        "--allow-api-unavailable",
+        action="store_true",
+        help="Exit successfully after retries when the API has a transient outage",
+    )
+    parser.add_argument(
         "--legacy-scrape",
         action="store_true",
         help="Use the old website scraper instead of the official API",
@@ -431,8 +508,13 @@ def main():
                     args.resolution,
                     args.max_pages,
                     args.show_watermark,
+                    args.api_retries,
+                    args.api_retry_delay,
                 )
             except ApiError as e:
+                if args.allow_api_unavailable and e.transient:
+                    print(f"Warning: {e}; leaving existing wallpapers unchanged")
+                    return
                 print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
             return
