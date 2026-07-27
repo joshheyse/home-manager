@@ -102,14 +102,16 @@ return {
           desc = "Close buffer from tabline",
         },
 
-        -- Substitute/replace functions
+        -- Substitute/replace functions. Use uppercase `<Leader>F` so this
+        -- doesn't shadow AstroNvim/Telescope's `<Leader>s...` symbol maps or
+        -- AstroNvim's `<Leader>R` rename-file mapping.
         -- NOTE: keep the `<Leader>` prefix capitalized. AstroNvim's own maps use
         -- `<Leader>`, and a lowercase `<leader>` key is a *distinct* Lua table key,
         -- so it never overrides the default -- both get set on the same lhs and the
         -- winner depends on `pairs()` order. Capitalized keys collide cleanly.
-        ["<Leader>s"] = { desc = "Substitute/replace" },
+        ["<Leader>F"] = { desc = "Find/replace" },
 
-        ["<Leader>sr"] = {
+        ["<Leader>Fw"] = {
           function()
             local word = vim.fn.expand "<cword>"
             vim.ui.input({
@@ -120,6 +122,19 @@ return {
             end)
           end,
           desc = "Replace word under cursor (buffer)",
+        },
+
+        ["<Leader>Fr"] = {
+          function()
+            vim.ui.input({ prompt = "Regex pattern: " }, function(pattern)
+              if not pattern or pattern == "" then return end
+              vim.ui.input({ prompt = "Replace with: " }, function(replacement)
+                if replacement == nil then return end
+                vim.cmd("%s#\\v" .. vim.fn.escape(pattern, "#") .. "#" .. vim.fn.escape(replacement, "#") .. "#gc")
+              end)
+            end)
+          end,
+          desc = "Replace regex (buffer)",
         },
 
         -- Path yank functions

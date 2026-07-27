@@ -19,6 +19,8 @@ local verible_format_args = {
   "--indentation_spaces=2",
   "--formal_parameters_indentation=indent",
   "--port_declarations_indentation=indent",
+  "--named_port_indentation=indent",
+  "--named_parameter_indentation=indent",
 }
 
 return {
