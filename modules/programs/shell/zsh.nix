@@ -346,7 +346,7 @@ in {
         # preview directory's content with eza when completing cd
         zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath'
         # preview command aliases/functions when completing command names
-        zstyle ':fzf-tab:complete:-command-:*' fzf-preview '${commandPreview}/bin/zsh-command-preview $word'
+        zstyle ':fzf-tab:complete:(-command-:|command:option-(v|V)-rest)' fzf-preview '${commandPreview}/bin/zsh-command-preview $word'
         # custom fzf flags
         # NOTE: fzf-tab does not follow FZF_DEFAULT_OPTS by default
         zstyle ':fzf-tab:*' fzf-flags --color=fg:1,fg+:2 --bind=tab:accept
