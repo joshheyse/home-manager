@@ -65,10 +65,10 @@ in {
     };
   };
 
-  # Git-oriented shell functions (gpt, gwa, gwan). Worktree add needs argument
-  # logic, so those live as functions rather than aliases. Written here and
-  # sourced from the shared zshrc; initContent is `types.lines` so this merges
-  # with the sourcing done in zsh.nix.
+  # Git-oriented shell functions (gpt, glm, groot, gwa, gwan). Some commands need
+  # argument/runtime config logic, so those live as functions rather than
+  # aliases. Written here and sourced from the shared zshrc; initContent is
+  # `types.lines` so this merges with the sourcing done in zsh.nix.
   programs.zsh.initContent = lib.mkOrder 1100 ''
     source ~/.config/zsh/git-functions.zsh
   '';
@@ -90,14 +90,34 @@ in {
       gaA = "git add -A";
       gcm = "git commit -m";
       gca = "git commit -a -m";
+      gcp = "git cherry-pick";
+      gb = "git branch";
       gbc = "git checkout -b";
+      gba = "git branch -a";
+      gbd = "git branch -d";
+      gbD = "git branch -D";
       gco = "git checkout";
       gd = "git diff";
       gdc = "git diff --cached";
+      gds = "git diff --stat";
+      gdt = "git difftool";
+      gf = "git fetch --prune";
+      gfa = "git fetch --all --prune";
+      gl = "git log --oneline --decorate --date=relative";
+      glg = "git log --graph --oneline --decorate --all --date=relative";
+      gll = "git log --oneline --decorate --date=relative --max-count=20";
+      gls = "git log --stat --oneline --decorate --date=relative";
+      gm = "git merge";
+      gma = "git merge --abort";
       gpd = "git pull";
       gpp = "git pull && git push";
       gpu = "git push -u origin HEAD";
+      grb = "git rebase";
+      grba = "git rebase --abort";
+      grbc = "git rebase --continue";
+      grv = "git remote -v";
       gs = "git status";
+      gshow = "git show --stat";
       gsa = "git stash --all";
       gsl = "git stash list";
 

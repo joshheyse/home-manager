@@ -11,6 +11,29 @@ function gpt() {
   ((git tag | grep $1) || git tag -a $1 -m "${message:-"tagging $1"}") && git push origin $1
 }
 
+# glm — compact git log for commits authored by the configured git identity.
+function glm() {
+  local author
+  author=$(git config user.email)
+  if [ -z "$author" ]; then
+    author=$(git config user.name)
+  fi
+
+  if [ -z "$author" ]; then
+    print -u2 "git user.email or user.name is required"
+    return 1
+  fi
+
+  git log --oneline --decorate --date=relative --author="$author" "$@"
+}
+
+# groot — cd to the current repository root.
+function groot() {
+  local root
+  root=$(git rev-parse --show-toplevel) || return
+  cd "$root" || return
+}
+
 # _gw_sibling_path <branch> — path for a new worktree derived from a branch name:
 # a sibling of the current worktree's top level, with slashes flattened to dashes.
 # e.g. from ~/code/proj/main with branch feature/foo -> ~/code/proj/feature-foo
