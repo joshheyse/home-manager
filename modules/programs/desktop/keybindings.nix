@@ -556,6 +556,19 @@ in {
   options.programs.tiling-wm = {
     enable = lib.mkEnableOption "tiling window manager (yabai/skhd on macOS, Hyprland on Linux)";
 
+    grantAccessibility = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        macOS only: after each activation, rewrite the TCC database to grant
+        Accessibility (and Screen Recording for Raycast) permissions to the
+        current nix store paths of skhd/yabai/raycast, then restart the
+        managed services. Fixes permissions breaking on every `hms` because
+        nix store paths change. Requires passwordless sudo for
+        sqlite3/killall/launchctl. Only supported on Darwin.
+      '';
+    };
+
     apps = {
       terminal = lib.mkOption {
         type = lib.types.str;
@@ -630,6 +643,13 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.grantAccessibility -> isDarwin;
+        message = "programs.tiling-wm.grantAccessibility is only supported on Darwin (macOS).";
+      }
+    ];
+
     # Expose generated data for consumption by platform modules
     # Hyprland binds (list of strings for settings.bind)
     programs.hyprland-desktop.generatedBinds = hyprlandBinds ++ [cheatsheetHyprlandLine];
@@ -654,7 +674,7 @@ in {
     # macOS: Grant TCC (Accessibility/Screen Recording) permissions for current nix store paths.
     # After every `hms`, nix store paths change and macOS TCC permissions break.
     # This activation script updates the TCC database so skhd/yabai/raycast work immediately.
-    home.activation.grantAccessibility = lib.mkIf isDarwin (
+    home.activation.grantAccessibility = lib.mkIf (isDarwin && cfg.grantAccessibility) (
       let
         raycastEnabled = config.programs.raycast.enable;
         raycastBin = "${pkgs.raycast}/Applications/Raycast.app/Contents/MacOS/Raycast";

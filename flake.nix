@@ -141,7 +141,10 @@
             gpg-agent.enable = true;
           };
           programs = {
-            tiling-wm.enable = true;
+            tiling-wm = {
+              enable = true;
+              grantAccessibility = true;
+            };
             firefox-profile.enable = false;
             raycast.enable = true;
             screenshots.enable = true;
