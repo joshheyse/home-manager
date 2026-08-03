@@ -269,7 +269,6 @@
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
         landrun = pkgs.callPackage ./pkgs/landrun {};
         db-wallpaper = pkgs.callPackage ./pkgs/db-wallpaper {};
-        portable-ssh = pkgs.callPackage ./pkgs/portable-ssh {};
       });
 
     # Shared nix-darwin modules
@@ -282,7 +281,7 @@
       default = final: _prev: let
         system = final.stdenv.hostPlatform.system;
         # Local packages, exposed via the overlay so modules can write
-        # `pkgs.portable-ssh` instead of doing relative path walks back
+        # `pkgs.ssh-fzf` instead of doing relative path walks back
         # to this flake's `pkgs/` directory. The flake is the only place
         # that knows the layout — modules stay layout-independent.
         localPkgs = self.packages.${system} or {};
@@ -302,7 +301,7 @@
           ;
         # Linux-only packages: inherit lazily so darwin doesn't error
         # unless something actually reads them.
-        inherit (localPkgs) landrun db-wallpaper portable-ssh;
+        inherit (localPkgs) landrun db-wallpaper;
       };
       sidra = final: _prev: {
         inherit (sidra.packages.${final.stdenv.hostPlatform.system} or {}) sidra;

@@ -1,7 +1,6 @@
 {
   pkgs,
   lib,
-  config,
   ...
 }: let
   # Window type icon system
@@ -26,7 +25,6 @@
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
-    export SSH_CMD="${config.programs.tmux.sshCommand}"
     ${builtins.readFile ./ssh-fzf.sh}
   '';
   devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
@@ -59,22 +57,6 @@
     done
   '';
 in {
-  options.programs.tmux.sshCommand = lib.mkOption {
-    type = lib.types.str;
-    default = "ssh";
-    description = ''
-      Command used by the ssh-fzf tmux popup binding to open a remote
-      session. Set to a portable-ssh path (e.g.
-      `''${pkgs.portable-ssh}/bin/portable-ssh`) to bootstrap a
-      nix-portable home-manager environment on first connect.
-
-      Declared as an option (rather than reaching into pkgs/ from
-      this module) because this submodule may live under different
-      paths in different consuming flakes — the consumer is the only
-      place that knows where portable-ssh comes from.
-    '';
-  };
-
   config = {
     programs.tmux = {
       enable = true;

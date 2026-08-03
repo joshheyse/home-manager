@@ -317,16 +317,11 @@ in {
         # Disable execute-named-cmd (Alt+x / Esc+x)
         zvm_after_init_commands+=('bindkey -r "\\ex"')
 
-        # portable-ssh wraps ssh: bootstraps a nix-portable home-manager
-        # environment on the remote (per ~/.config/portable-ssh/hosts.toml),
-        # then execs `kitten ssh` if in kitty or plain ssh otherwise.
-        # Falls through to a direct kitten ssh alias on hosts where
-        # portable-ssh isn't installed (mac, remote shells reached via
-        # kitten ssh) — kitten itself only exists in a desktop kitty
-        # install, so the binary check is the right gate.
-        if command -v portable-ssh &>/dev/null; then
-          alias ssh="portable-ssh"
-        elif [[ "$TERM_PROGRAM" == "kitty" ]] && command -v kitten &>/dev/null; then
+        # Inside kitty, use `kitten ssh` so the remote gets kitty's
+        # terminfo and shell integration. kitten only exists in a desktop
+        # kitty install, so the binary check is the right gate; plain ssh
+        # is used everywhere else.
+        if [[ "$TERM_PROGRAM" == "kitty" ]] && command -v kitten &>/dev/null; then
           alias ssh="kitten ssh"
         fi
       ''
