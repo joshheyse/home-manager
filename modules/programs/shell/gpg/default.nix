@@ -4,6 +4,7 @@
   ...
 }: let
   gpgKeyId = "0x06B3614378AFA59E";
+  inherit (pkgs.stdenv) isDarwin;
 in {
   # GPG/YubiKey configuration
   programs.gpg = {
@@ -23,9 +24,21 @@ in {
       trusted-key = gpgKeyId;
       no-greeting = true;
     };
-    scdaemonSettings = {
-      disable-ccid = false;
-    };
+    # macOS: route scdaemon through the system PC/SC service instead of
+    # its built-in CCID/libusb driver. macOS's com.apple.ctkpcscd claims
+    # the CCID interface, so the internal driver fails with "Operation not
+    # supported by device" (card appears absent -> "insert card" prompts).
+    # pcsc-shared avoids exclusive-lock contention with ykman/other PC/SC
+    # clients. On Linux the internal CCID driver works, so keep it there.
+    scdaemonSettings =
+      if isDarwin
+      then {
+        disable-ccid = true;
+        pcsc-shared = true;
+      }
+      else {
+        disable-ccid = false;
+      };
   };
 
   home = {
