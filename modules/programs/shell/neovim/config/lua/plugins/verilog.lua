@@ -1,18 +1,16 @@
 -- Verilog / SystemVerilog Development Configuration
 --
--- LSP: veridian (from the `veridian` nix package). slang-based diagnostics plus
--- completion, hover, goto-definition and document symbols. The nix package
--- bundles verible + verilator on veridian's own PATH for its extra features.
--- veridian builds against nixpkgs' slang 9.1 via the overlay in the
--- home-manager flake.nix (upstream pins slang 7.0; the API is unchanged).
+-- LSP: slang-server from Hudson River Trading, registered through nvim-lspconfig
+-- as `slang_server`. This is the only attached SystemVerilog LSP; Verible stays
+-- as an external formatter so diagnostics/goto/hover have one semantic owner.
 --
 -- Formatting: routed through none-ls `verible_verilog_format` (NOT the LSP) so
--- it uses 2-space indentation matching .editorconfig and the fpga_net `just
--- fmt` recipe. We disable veridian's own formatting to avoid fighting on save.
+-- it uses 2-space indentation matching .editorconfig and project `just fmt`
+-- recipes. We disable slang-server formatting to avoid fighting on save.
 --
 -- No Mason dependencies -- everything comes from PATH (nix).
 
-local has_veridian = vim.fn.exepath "veridian" ~= ""
+local has_slang_server = vim.fn.exepath "slang-server" ~= ""
 
 -- Keep editor format-on-save in lock-step with `just fmt` / .editorconfig.
 local verible_format_args = {
@@ -29,21 +27,22 @@ return {
     optional = true,
     opts = function(_, opts)
       opts.config = vim.tbl_deep_extend("keep", opts.config or {}, {
-        veridian = {
+        slang_server = {
           -- AstroLSP v6 uses the native vim.lsp.config backend, where
           -- root_markers is honored directly (the legacy fname-based root_dir
-          -- shim is gone -- native root_dir has a different signature and the
-          -- old one crashes). veridian's upstream default only looks for
-          -- `.git`, so add markers that resolve in non-git project dirs
-          -- (e.g. a fresh fpga_net).
-          root_markers = { ".git", "flake.nix", "justfile", "Makefile", "veridian.yml" },
+          -- shim is gone -- native root_dir has a different signature). Add
+          -- markers that resolve in non-git project dirs and Slang workspaces.
+          root_markers = { ".slang", ".git", "flake.nix", "justfile", "Makefile" },
         },
       })
-      -- Register veridian with lspconfig only when it is available in PATH.
-      if has_veridian then opts.servers = require("astrocore").list_insert_unique(opts.servers, { "veridian" }) end
+      -- Register slang-server with lspconfig only when it is available in PATH.
+      if has_slang_server then
+        opts.servers = require("astrocore").list_insert_unique(opts.servers, { "slang_server" })
+      end
       -- Format via none-ls (2-space verible) instead of the LSP.
       opts.formatting = opts.formatting or {}
-      opts.formatting.disabled = require("astrocore").list_insert_unique(opts.formatting.disabled or {}, { "veridian" })
+      opts.formatting.disabled =
+        require("astrocore").list_insert_unique(opts.formatting.disabled or {}, { "slang_server" })
     end,
   },
   {
@@ -64,7 +63,7 @@ return {
     opts = function(_, opts)
       local null_ls = require "null-ls"
       -- Formatter: verible (2-space), matching .editorconfig / `just fmt`.
-      -- Diagnostics come from the veridian LSP (slang), not none-ls.
+      -- Diagnostics come from slang-server, not none-ls.
       opts.sources = require("astrocore").list_insert_unique(opts.sources, {
         null_ls.builtins.formatting.verible_verilog_format.with {
           extra_args = verible_format_args,

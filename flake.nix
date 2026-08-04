@@ -268,6 +268,7 @@
         jupyter-bridge = pkgs.callPackage ./pkgs/jupyter-bridge {};
         kicad-parts-manager = pkgs.callPackage ./pkgs/kicad-parts-manager {};
         kvantum-tokyo-night = pkgs.callPackage ./pkgs/kvantum-tokyo-night {};
+        slang-server = pkgs.callPackage ./pkgs/slang-server {};
       }
       // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
         landrun = pkgs.callPackage ./pkgs/landrun {};
@@ -301,6 +302,7 @@
           jupyter-bridge
           kicad-parts-manager
           kvantum-tokyo-night
+          slang-server
           ;
         # Linux-only packages: inherit lazily so darwin doesn't error
         # unless something actually reads them.
