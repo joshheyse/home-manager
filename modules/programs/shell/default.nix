@@ -7,6 +7,30 @@
   theme = config.theme.tokyoNight;
   pagerPkg = pkgs.moor;
 
+  # gh has no token-file option (only GH_TOKEN/GITHUB_TOKEN or stored
+  # credentials), so inject the token into gh's own process rather than
+  # exporting it into every shell. A wrapper binary rather than a shell
+  # function: functions aren't visible to non-interactive shells or to other
+  # programs that invoke gh themselves.
+  #
+  # The path is resolved at runtime rather than from config.sops.secrets so
+  # this module stays usable on hosts without the secrets module (homelab),
+  # where it degrades to plain gh.
+  ghWrapped = pkgs.symlinkJoin {
+    name = "gh-wrapped";
+    paths = [pkgs.gh];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      wrapProgram $out/bin/gh --run '
+        if [ -z "''${GH_TOKEN:-}" ] && [ -z "''${GITHUB_TOKEN:-}" ] &&
+           [ -r "$HOME/.config/sops-nix/secrets/github/token" ]; then
+          GH_TOKEN="$(cat "$HOME/.config/sops-nix/secrets/github/token")"
+          export GH_TOKEN
+        fi
+      '
+    '';
+  };
+
   # Convert "#rrggbb" hex to "r;g;b" decimal for ANSI escape sequences
   hexToRgb = hex: let
     hexStr = builtins.substring 1 6 hex;
@@ -102,7 +126,7 @@ in {
     rsync
     wget
     curl
-    gh
+    ghWrapped
     glab
     git-extras
 

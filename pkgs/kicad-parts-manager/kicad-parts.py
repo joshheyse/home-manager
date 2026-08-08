@@ -49,9 +49,25 @@ class DigikeyClient:
     # Product Information API v4
     SEARCH_URL = "https://api.digikey.com/products/v4/search"
 
+    @staticmethod
+    def _credential(name: str) -> Optional[str]:
+        """Read a credential from a file if <NAME>_FILE is set, else from <NAME>.
+
+        Preferring the file keeps the secret out of the process environment,
+        where any child process would inherit it.
+        """
+        path = os.environ.get(f"{name}_FILE")
+        if path:
+            try:
+                return Path(path).read_text().strip() or None
+            except OSError as e:
+                warn(f"Cannot read {name}_FILE ({path}): {e}")
+                return None
+        return os.environ.get(name)
+
     def __init__(self):
-        self.client_id = os.environ.get("DIGIKEY_CLIENT_ID")
-        self.client_secret = os.environ.get("DIGIKEY_CLIENT_SECRET")
+        self.client_id = self._credential("DIGIKEY_CLIENT_ID")
+        self.client_secret = self._credential("DIGIKEY_CLIENT_SECRET")
         self._token: Optional[str] = None
         self._token_expires: float = 0
         self._token_file = Path(tempfile.gettempdir()) / "digikey_token.json"
@@ -113,7 +129,9 @@ class DigikeyClient:
     def search(self, mpn: str) -> Optional[dict]:
         if not self.available:
             warn(
-                "Digikey API credentials not set (DIGIKEY_CLIENT_ID, DIGIKEY_CLIENT_SECRET)"
+                "Digikey API credentials not set "
+                "(DIGIKEY_CLIENT_ID_FILE/DIGIKEY_CLIENT_SECRET_FILE, "
+                "or DIGIKEY_CLIENT_ID/DIGIKEY_CLIENT_SECRET)"
             )
             return None
 

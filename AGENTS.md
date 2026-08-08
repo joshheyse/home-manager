@@ -291,3 +291,35 @@ Overlays modify or replace packages that already exist in nixpkgs. They change t
   - **IMPORTANT**: You (Claude) are NEVER allowed to decrypt sops secret files
   - You can read the structure and understand the configuration
   - You cannot and must not attempt to decrypt or access secret values
+
+### Never Emit Secret Values
+
+**Absolute rule: never cause a secret value to appear in output.** Not
+decrypting the YAML is no protection when the same credential is already
+plaintext elsewhere. Treat all of these as unreadable:
+
+- Decrypted runtime files under `/run/user/<uid>/secrets.d/...` and their
+  `~/.config/sops-nix/secrets/` symlink — already decrypted, still a leak
+- Environment variables holding credentials, **including ones already set in the
+  session**; a shell-capable agent inherits them like any other child process
+- Values a wrapper injects at exec time (`with-secrets`, the `gh` wrapper)
+
+Never `cat`/`grep` a decrypted secret file, and never expand a secret-bearing
+variable. `${VAR:-fallback}` prints the **value** when set — as do `${VAR}`,
+`env`, and `printenv`. Do not print lengths or "is it set" probes either:
+`${#VAR}` and `${VAR:+yes}` are one typo from `${VAR:-yes}`. Do not rely on
+piping through `sed` to redact; there is no safe way to display a secret.
+
+**Verify by exit status, never by value**: `test -r "$path"`, or run the
+consuming command and check `$?` (`gh auth status >/dev/null 2>&1`). Assert on
+configuration — rendered Nix, file mode, whether an export exists — not on the
+secret itself.
+
+Relevant to this flake specifically: `modules/secrets.nix` deliberately keeps
+secrets **out** of the ambient shell environment. When testing it, resist the
+urge to prove a variable "made it" by printing it. Check the exit status of
+`with-secrets <group> -- <cmd>` instead.
+
+If a secret value does reach output, stop, say so immediately, and tell the user
+to rotate that credential. Output is persisted and transmitted; rotation is the
+only remedy.

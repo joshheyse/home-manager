@@ -12,6 +12,10 @@
   # we merge everything together and manage it via activation instead of home.file.
   ownSettings = {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
+    # Read the key from the sops tmpfs file on demand instead of exporting
+    # ANTHROPIC_API_KEY into the shell, where every child process inherits it.
+    # Falls through to interactive /login if the file isn't present.
+    apiKeyHelper = "cat ${config.home.homeDirectory}/.config/sops-nix/secrets/anthropic/api_key 2>/dev/null";
     sandbox = {
       enabled = true;
       autoAllowBashIfSandboxed = true;
@@ -55,6 +59,39 @@
 
     ## Git Commits
     - Never add a `Co-Authored-By` line to commit messages
+
+    ## Never Emit Secret Values
+    **Absolute rule: never cause a secret value to appear in your output.**
+    This is broader than "do not decrypt secrets" — a credential is usually
+    already plaintext somewhere, and refusing to decrypt is no protection.
+
+    Treat all of these as unreadable:
+    - Decrypted secret files on disk (e.g. `/run/user/<uid>/secrets.d/...`,
+      `~/.config/sops-nix/secrets/`, `.env`, `~/.aws/credentials`, `~/.netrc`).
+      Reading these needs no key, so it is not "decryption" — it is still a leak.
+    - Environment variables holding credentials, **including ones already set in
+      your session**. You inherit them exactly as any other child process does;
+      dumping them is precisely what credential-stealing malware does.
+    - Values injected into a process at exec time by a wrapper.
+
+    Never do any of the following:
+    - `cat`/`head`/`grep` a file containing a live credential
+    - Expand a secret-bearing variable. `''${VAR:-fallback}` prints the **value**
+      when the variable is set; so do `''${VAR}`, `env`, `printenv`, and `set`.
+    - Print a length, prefix, or "is it set" probe — `''${#VAR}` and
+      `''${VAR:+yes}` are one typo away from `''${VAR:-yes}`, which prints it.
+    - Rely on redaction. Piping through `sed`/`grep` to mask a value leaves the
+      plaintext one mistake from output. There is no safe way to display it.
+
+    **Verify by exit status, never by value:**
+    - `test -r "$path"` to confirm a secret file is present
+    - run the consuming command and check `$?`, e.g. `gh auth status >/dev/null 2>&1`
+    - assert on configuration — rendered config, file mode, whether an export
+      exists — rather than on the secret
+
+    If a secret value does reach your output, stop, say so immediately, and tell
+    the user to rotate that credential. Output is persisted to disk and sent to
+    the API; it cannot be un-sent, and rotation is the only remedy.
 
     ## Evidence and Epistemic Discipline
     When analyzing a problem, do not present guesses as facts.
