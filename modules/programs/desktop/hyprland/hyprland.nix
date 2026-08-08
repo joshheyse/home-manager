@@ -113,6 +113,11 @@ in {
           "match:class ^(pavucontrol)$, float on"
           "match:class ^(pavucontrol)$, size 600 400"
           "match:class ^(pavucontrol)$, move 100%-620 50"
+          # waybar's network module opens these; float them by the tray like
+          # pavucontrol rather than letting them tile.
+          "match:class ^(network-tui|nm-connection-editor)$, float on"
+          "match:class ^(network-tui|nm-connection-editor)$, size 700 500"
+          "match:class ^(network-tui|nm-connection-editor)$, move 100%-720 50"
           "match:class ^(kicad|eeschema|pcbnew|gerbview|pl_editor|bitmap2component|pcb_calculator)$, float on"
         ];
 
