@@ -92,25 +92,35 @@
         }
       }
 
-      function handOff(url) {
-        chrome.tabs.create({ url: "${escapeScheme}:" + url, active: false })
-          .then((t) => setTimeout(() => chrome.tabs.remove(t.id), 500))
+      // Navigate an EXISTING tab to the escape URL rather than opening one for
+      // it. Chromium hands an unknown scheme to the desktop and leaves the page
+      // where it was, so the app's own tab can carry the handoff and there is
+      // nothing left over to clean up.
+      //
+      // The first attempt created a tab for the escape URL and closed it after
+      // 500ms. That raced its own cleanup -- the tab was destroyed before the
+      // protocol launch completed -- and since an app window cannot host tabs,
+      // the tab appeared as a browser window that flashed open and shut.
+      function handOff(tabId, url) {
+        chrome.tabs.update(tabId, { url: "${escapeScheme}:" + url })
           .catch(() => {});
       }
 
       // A target=_blank link, which is how most links in a web app open.
+      // sourceTabId is the app's own tab; tabId is the popup Chromium just
+      // made for the link, which is closed since the desktop will handle it.
       chrome.webNavigation.onCreatedNavigationTarget.addListener((d) => {
         if (!isExternal(d.url)) return;
-        handOff(d.url);
+        handOff(d.sourceTabId, d.url);
         chrome.tabs.remove(d.tabId).catch(() => {});
       });
 
-      // A plain link navigating the app window itself away from the app.
+      // A plain link navigating the app window itself away from the app. The
+      // escape navigation supersedes it, so the app stays where it was.
       chrome.webNavigation.onBeforeNavigate.addListener((d) => {
         if (d.frameId !== 0) return;
         if (!isExternal(d.url)) return;
-        handOff(d.url);
-        chrome.tabs.goBack(d.tabId).catch(() => {});
+        handOff(d.tabId, d.url);
       });
       EOF
     '';
