@@ -347,7 +347,11 @@ in {
           color: ${theme.blue};
         }
 
-        #clock, #custom-cpu, #memory, #network, #pulseaudio, #tray {
+        /* Every module in modules-right belongs in this list. Waybar gives a
+           module no horizontal padding of its own, so one left out does not
+           look under-padded — it looks like the module beside it is overlapping
+           it. custom-tailscale and battery were both missing. */
+        #clock, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #battery, #tray {
           padding: 0 10px;
         }
 
