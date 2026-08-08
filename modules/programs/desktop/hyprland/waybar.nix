@@ -441,6 +441,22 @@ in {
           padding: 0 10px;
         }
 
+        /* Ethernet has no signal strength, so it must not take a
+           signal-derived severity. waybar reports signalStrength 0 on a wired
+           link and still applies the `states` thresholds, so the 0 floor added
+           to catch weak wifi was painting a perfectly healthy wired connection
+           critical red.
+
+           Scoped by state class rather than by dropping the floor, because the
+           floor is what makes weak wifi visible at all. `#network.ethernet`
+           outranks a bare `.critical` on specificity, so this holds wherever
+           it sits in the file. Note the module only reports `ethernet` once it
+           has an address -- a wired link without one is `linked`, which should
+           still go loud. */
+        #network.ethernet {
+          color: ${theme.cyan};
+        }
+
         /* Tailscale: connected is the expected state and says nothing. An exit
            node is worth flagging because it silently changes what every other
            network reading in this bar means. */

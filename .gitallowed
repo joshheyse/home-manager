@@ -27,6 +27,11 @@ flake\.lock:.*"rev":
 flake\.lock:.*"narHash":
 flake\.lock:.*"url":
 
+# Pinned flake inputs in flake.nix. A github: URL ending in a 40-hex commit
+# SHA trips the generic high-entropy rule, but a public commit hash is the
+# opposite of a secret -- pinning is only meaningful if the rev is visible.
+flake\.nix:.*github:.*/[0-9a-f]{40}
+
 # SOPS encrypted data (already encrypted, safe to commit)
 ENC\[AES256_GCM,
 -----BEGIN AGE ENCRYPTED FILE-----
