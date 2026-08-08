@@ -54,8 +54,24 @@ in {
       "text/html" = browser;
       "x-scheme-handler/about" = browser;
       "x-scheme-handler/unknown" = browser;
+
+      # Adopted from the hand-written mimeapps.list this file replaces.
+      # Registering them here is not optional tidying: taking ownership of the
+      # file without carrying these forward would silently break claude:// and
+      # claude-cli:// links, which nothing would report until one failed to
+      # open.
+      "x-scheme-handler/claude" = ["claude.desktop"];
+      "x-scheme-handler/claude-cli" = ["claude-code-url-handler.desktop"];
     };
   };
+
+  # The file already existed, written by whichever app last called
+  # xdg-settings, so Home Manager refused to clobber it and activation failed.
+  # Taking it over is the point -- link handling is declared here now -- but it
+  # does mean an app that calls xdg-settings can no longer make itself the
+  # default: the file is a store symlink, and the change has to come from this
+  # config instead.
+  xdg.configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
 
   programs.pwas-router.enable = true;
 
