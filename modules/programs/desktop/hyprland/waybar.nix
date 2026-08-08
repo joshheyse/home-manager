@@ -66,23 +66,45 @@
     };
   };
 in {
-  options.programs.hyprland-desktop.waybar.notchWidth = lib.mkOption {
-    type = lib.types.int;
-    default = 0;
-    example = 160;
-    description = ''
-      Width in LOGICAL pixels of the display notch, or 0 for a panel without
-      one (the default, so ordinary monitors are unaffected).
+  options.programs.hyprland-desktop.waybar = {
+    notchWidth = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      example = 227;
+      description = ''
+        Width in LOGICAL pixels of the display notch, or 0 for a panel without
+        one (the default, so ordinary monitors are unaffected).
 
-      When non-zero the clock is split in two and separated by a blank spacer
-      of this width, giving `DATE  <notch>  TIME`, and the bar is grown to the
-      full height of the notch row so none of it is wasted. Content never sits
-      behind the cutout.
+        When non-zero the clock is split in two and separated by a blank spacer
+        of this width, giving `DATE  <notch>  TIME`, so content never sits
+        behind the cutout.
 
-      Apple Silicon laptops only expose the notch row when the kernel is booted
-      with `appledrm.show_notch=1`; without it the panel is cropped below the
-      notch and this should stay 0.
-    '';
+        LOGICAL, so it depends on the monitor scale as well as the panel: the
+        same cutout is 170 at scale 2 and 227 at scale 1.5. Re-measure it when
+        the scale changes.
+
+        Apple Silicon laptops only expose the notch row when the kernel is told
+        to crop less than the full notch height (`appledrm.show_notch=1`, or
+        `appledrm.notch_crop_rows=` with our patch). Without that the panel is
+        cropped below the notch and this should stay 0.
+      '';
+    };
+
+    notchHeight = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      example = 48;
+      description = ''
+        Height in LOGICAL pixels of the reclaimed notch row. The bar is grown
+        to exactly this so the strip is all bar and no dead space.
+
+        Also scale-dependent, and not derivable from notchWidth: it is the
+        panel's notch height minus whatever the kernel crops, divided by the
+        scale. 72 physical rows at scale 1.5 gives 48.
+
+        Ignored unless notchWidth is set; the bar falls back to 30 otherwise.
+      '';
+    };
   };
 
   config = lib.mkIf (cfg.enable && isLinux) {
@@ -100,11 +122,11 @@ in {
         {
           layer = "top";
           position = "top";
-          # 74 physical px of notch at scale 2 = 37 logical. Matching it exactly
-          # means the reclaimed strip is entirely bar rather than dead space.
+          # Match the reclaimed strip exactly, so it is all bar rather than
+          # part bar and part dead space.
           height =
             if hasNotch
-            then 37
+            then cfg.waybar.notchHeight
             else 30;
           modules-left = ["hyprland/workspaces" "hyprland/window"];
           modules-center =
