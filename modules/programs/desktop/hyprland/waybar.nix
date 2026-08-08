@@ -249,7 +249,11 @@ in {
             exec = "${tailscaleStatus}";
             return-type = "json";
             interval = 10;
-            on-click = "${pkgs.kitty}/bin/kitty --class network-tui -e ${pkgs.tailscale}/bin/tailscale status";
+            # --hold, unlike the nmtui click above: `tailscale status` prints
+            # and exits, so without it kitty closes the instant it opens and
+            # the float rule turns that into a window sliding up and dropping
+            # straight back down.
+            on-click = "${pkgs.kitty}/bin/kitty --class network-tui --hold -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
           # The mic is deliberately in the bar and not only the tooltip: an
