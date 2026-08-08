@@ -133,7 +133,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/tailscale" "pulseaudio" "network" "custom/cpu" "memory" "battery" "tray"];
+          modules-right = ["custom/tailscale" "pulseaudio" "pulseaudio#microphone" "network" "custom/cpu" "memory" "battery" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -284,26 +284,46 @@ in {
             on-click-right = "${pkgs.kitty}/bin/kitty --class network-tui --hold -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
+          # Speaker and microphone are two instances of the same module
+          # rather than one, because waybar puts its state classes on the
+          # WHOLE widget: with both in one module, muting the speaker applied
+          # `muted` to the microphone half too and greyed out a live mic.
+          # Split, each instance carries only its own state.
+          pulseaudio = {
+            format = "{icon} {volume:3}%";
+            # Same shape as `format`, so muting cannot change the module's
+            # width: "muted" is wider than "100%" and shoved the bar around.
+            # The slashed glyph and the grey carry the state instead, and the
+            # volume stays readable so you know what unmuting will give you.
+            format-muted = "󰖁 {volume:3}%";
+            format-icons = {default = ["" "" ""];};
+            tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%";
+            on-click = "pavucontrol";
+            scroll-step = 5;
+          };
+
           # The mic is deliberately in the bar and not only the tooltip: an
           # unnoticed hot mic is the failure that actually costs you, and a
           # glance has to answer it. {format_source} renders format-source
           # normally and format-source-muted when the source is muted, so the
-          # crossed-out glyph IS the muted state -- there is no conditional in
-          # waybar's format language to express that any other way.
+          # crossed-out glyph IS the muted state -- waybar's format language
+          # has no conditional to express that any other way.
           #
-          # `.source-muted` in the stylesheet colours it, and left-click on the
-          # module toggles the source rather than opening a mixer, because
-          # unmuting is what you want at the moment you notice.
-          pulseaudio = {
-            format = "{icon} {volume:3}%  {format_source}";
-            format-muted = " muted  {format_source}";
-            format-icons = {default = ["" "" ""];};
+          # format-muted is set to the same thing on purpose. It selects on the
+          # SINK's mute state, which this instance does not report, so leaving
+          # it at the default would blank the microphone whenever the speakers
+          # were muted.
+          "pulseaudio#microphone" = {
+            format = "{format_source}";
+            format-muted = "{format_source}";
             format-source = " {volume:3}%";
-            format-source-muted = "";
-            tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%\n${dim "mic    "} {source_desc}\n${dim "input  "} {format_source}";
-            on-click = "${pkgs.pulseaudio}/bin/pactl set-source-mute @DEFAULT_SOURCE@ toggle";
+            format-source-muted = " {volume:3}%";
+            tooltip-format = "<span color='${theme.orange}'><b>{source_desc}</b></span>\n${dim "input  "} {format_source}";
+
+            # wpctl, not swayosd-client: see swayosd.nix. Also not pactl --
+            # the default source here is a PipeWire filter-chain node.
+            on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
             on-click-right = "pavucontrol";
-            scroll-step = 5;
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.
@@ -393,22 +413,35 @@ in {
           color: ${theme.yellow};
         }
 
+        /* Waybar puts `muted` on the module when the sink is muted and
+           `source-muted` when the microphone is -- and it puts BOTH on BOTH
+           instances, since they are the same module type. So each rule has to
+           name the instance it means, or muting the speakers greys out a live
+           microphone (which is exactly what happened before the split).
+
+           Order matters as much as specificity here: `.microphone` and
+           `.muted` are both id-plus-one-class, so the later rule wins, which
+           is what stops the sink's mute state reaching the mic. */
         #pulseaudio {
           color: ${theme.orange};
         }
 
-        /* Waybar puts `muted` on the module when the sink is muted and
-           `source-muted` when the microphone is. Both classes land on the whole
-           module, so this colours the pair rather than just the offending half.
-
-           Muted output greys out — you find that one instantly by turning the
-           volume up. Muted input goes red, because talking into a dead mic is
-           the state you discover a minute too late. */
+        /* Speaker muted: greys out. You find this one instantly by turning the
+           volume up, so it does not need to shout. */
         #pulseaudio.muted {
           color: ${theme.comment};
         }
 
-        #pulseaudio.source-muted {
+        /* Deliberately AFTER .muted, so the microphone keeps its colour when
+           the speakers are muted. */
+        #pulseaudio.microphone {
+          color: ${theme.orange};
+        }
+
+        /* Microphone muted: red. Talking into a dead mic is the state you
+           discover a minute too late. Scoped to the instance, so a muted mic
+           does not also recolour the speaker readout. */
+        #pulseaudio.microphone.source-muted {
           color: ${theme.red};
         }
 
