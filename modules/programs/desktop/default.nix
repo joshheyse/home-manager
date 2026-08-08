@@ -72,11 +72,20 @@ in {
       gimp
       vlc
       sioyek
-    ]
-    ++ pkgs.lib.optionals (!isDarwin && !isAarch64Linux) [
-      # x86_64-linux only (not available on aarch64-linux)
+      # Doubles as the PWA host (`chromium --app=<url>`) for services with no
+      # native Linux client.
+      chromium
+
+      # kicad and freecad gained aarch64-linux support; verified they evaluate
+      # on the MacBook, so they no longer belong in the exclusion list below.
       kicad
       freecad
+    ]
+    ++ pkgs.lib.optionals (!isDarwin && !isAarch64Linux) [
+      # Still x86_64-linux only. Both are prebuilt upstream binaries with no
+      # aarch64 Linux build, so nixpkgs refuses to evaluate them here:
+      #   "Refusing to evaluate package ... it is not available on the
+      #    requested hostPlatform"
       spotify
       discord
     ];

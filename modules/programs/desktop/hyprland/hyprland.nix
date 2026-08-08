@@ -83,6 +83,16 @@ in {
           sensitivity = 0;
         };
 
+        # Three-finger horizontal swipe moves between workspaces, like macOS.
+        #
+        # Hyprland 0.51 replaced the old `gestures { workspace_swipe = true; }`
+        # block with this unified keyword, so on 0.55 neither
+        # `gestures:workspace_swipe` nor `gesture` exists as an option any more
+        # (`hyprctl getoption` reports "no such option" for both) -- the syntax
+        # is `<fingers>, <direction>, <action>`. No-op on a desktop with no
+        # touchpad.
+        gesture = ["3, horizontal, workspace"];
+
         # Dwindle layout
         dwindle = {
           preserve_split = true;
