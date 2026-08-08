@@ -29,8 +29,7 @@
     export PATH="${lib.makeBinPath [pkgs.gawk pkgs.coreutils]}:$PATH"
 
     export TN_DIM=${theme.comment}
-    export TN_BLUE=${theme.blue}
-    export TN_GREEN=${theme.green}
+    export TN_FG=${theme.fg}
     export TN_YELLOW=${theme.yellow}
     export TN_RED=${theme.red}
 
@@ -240,7 +239,14 @@ in {
           # and also means RAM, but renders as a small square chip that reads
           # as a near-duplicate of the CPU microchip sitting next to it in the
           # bar -- the two are only a colour apart. The stick is unambiguous.
+          # Thresholds drive the shared .warning/.critical classes; see the
+          # colour policy in the stylesheet. Higher percentage is worse, so
+          # these read as "at or above".
           memory = {
+            states = {
+              warning = 75;
+              critical = 90;
+            };
             format = " {:3}%";
             # Plain text, no markup: waybar's memory module sets this with
             # set_tooltip_text (src/modules/memory/common.cpp), unlike network
@@ -251,7 +257,16 @@ in {
             interval = 2;
           };
 
+          # Signal strength inverts the usual sense: low is bad. waybar matches
+          # "at or above" and takes the first hit scanning downwards, so the
+          # bands need a 0 floor to catch weak signal at all -- without it a
+          # 10% signal matches nothing and renders as if it were fine.
           network = {
+            states = {
+              good = 50;
+              warning = 25;
+              critical = 0;
+            };
             format-wifi = " {signalStrength:3}%";
             format-ethernet = " {ipaddr}";
             format-disconnected = " Disconnected";
@@ -355,29 +370,48 @@ in {
           font-size: 13px;
         }
 
+        window#waybar {
+          background-color: ${theme.bg};
+          color: ${theme.fg};
+          border-bottom: 2px solid ${theme.border};
+        }
+
+        /* COLOUR POLICY
+           Colour is information, not decoration. Every module inherits the
+           bar's foreground and stays that way while it has nothing to say;
+           colour appears only when a value leaves its normal range or a state
+           needs attention. A bar where everything is always coloured trains
+           you to ignore all of it, and then the one readout that matters does
+           not stand out.
+
+           One scale, shared by everything that reports a magnitude, so the
+           same colour means the same severity in every module:
+
+             default   nothing to report
+             yellow    getting close
+             red       at the limit
+             dim       inactive or off -- present but not participating
+
+           `states` is waybar's own value-to-class mechanism: memory keys on
+           used percentage, network on signal strength, battery on capacity
+           (`lesser`, so its thresholds count down). Modules driven by our own
+           scripts do not need it -- they emit colour directly, which is how
+           the CPU readout gets a continuous gradient rather than steps. */
+        #warning,
+        .warning {
+          color: ${theme.yellow};
+        }
+
+        #critical,
+        .critical {
+          color: ${theme.red};
+        }
+
         /* Blank cutout the physical notch sits in. min-width is the whole
            mechanism -- an empty label with no width would collapse. */
         #custom-notch {
           min-width: ${toString notch}px;
           background: transparent;
-        }
-
-        #custom-tailscale.connected {
-          color: ${theme.green};
-        }
-
-        #custom-tailscale.exitnode {
-          color: ${theme.yellow};
-        }
-
-        #custom-tailscale.offline {
-          color: ${theme.fgDark};
-        }
-
-        window#waybar {
-          background-color: ${theme.bg};
-          color: ${theme.fg};
-          border-bottom: 2px solid ${theme.border};
         }
 
         #workspaces button {
@@ -387,65 +421,49 @@ in {
           border: none;
         }
 
+        /* An exception to the policy, deliberately: which workspace you are on
+           is not a severity, and the highlight is the only thing distinguishing
+           it. */
         #workspaces button.active {
           color: ${theme.blue};
         }
 
         /* Every module in modules-right belongs in this list. Waybar gives a
            module no horizontal padding of its own, so one left out does not
-           look under-padded — it looks like the module beside it is overlapping
-           it. custom-tailscale and battery were both missing. */
+           look under-padded -- it looks like the module beside it is
+           overlapping it. */
         #clock, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
           padding: 0 10px;
         }
 
-        #clock {
-          color: ${theme.cyan};
-        }
-
-        #custom-cpu {
-          color: ${theme.green};
-        }
-
-        #memory {
-          color: ${theme.magenta};
-        }
-
-        #network {
+        /* Tailscale: connected is the expected state and says nothing. An exit
+           node is worth flagging because it silently changes what every other
+           network reading in this bar means. */
+        #custom-tailscale.exitnode {
           color: ${theme.yellow};
         }
 
-        /* Waybar puts `muted` on the pulseaudio module when the sink is
-           muted. The microphone is a separate custom module now, so that class
-           can no longer reach it -- which was the bug that made muting the
-           speakers grey out a live mic. */
-        #pulseaudio {
-          color: ${theme.orange};
+        #custom-tailscale.offline {
+          color: ${theme.fgDark};
         }
 
-        #pulseaudio.muted {
-          color: ${theme.comment};
-        }
-
-        /* Microphone: capture drives the colour, mute drives the glyph.
-           Red means something is listening, which is the only state worth
-           interrupting you for. A muted idle mic is not that, so it greys out
-           rather than competing for the same alarm colour. */
-        #custom-mic.idle {
-          color: ${theme.green};
-        }
-
+        /* Audio: speaker and microphone are a pair and read as one, so they
+           share the default colour and diverge only on state. Muted greys out
+           -- off, not wrong. */
+        #pulseaudio.muted,
         #custom-mic.muted {
-          color: ${theme.comment};
+          color: ${theme.fgDark};
         }
 
+        /* The exception worth colouring: something is listening. Not a
+           severity but a privacy state, and the only one here you would want
+           to catch out of the corner of your eye. */
         #custom-mic.capturing {
           color: ${theme.red};
         }
 
-        /* Muted AND being recorded: the "why can't they hear me" state. It
-           flashes because it is the one case where the truthful answer is
-           neither "you are fine" nor "you are exposed" -- something is
+        /* Muted AND being recorded -- the "why can't they hear me" case. It
+           flashes because it is neither safe nor exposed: something is
            recording you and getting silence, and you almost certainly did not
            mean that. */
         #custom-mic.muted-capturing {
@@ -455,7 +473,7 @@ in {
 
         @keyframes mic-alarm {
           to {
-            color: ${theme.comment};
+            color: ${theme.fgDark};
           }
         }
 
@@ -467,11 +485,11 @@ in {
 
            The `*` rule at the top of this sheet does reach them, which is why
            tooltip bodies come out in the same monospace face the bar uses --
-           relied on below, where tooltip contents are laid out in columns. */
+           relied on by the tooltips that lay their contents out in columns. */
         tooltip {
           background: ${theme.bgDark};
           border: 1px solid ${theme.border};
-          /* Matches decoration.rounding in hyprland.nix — keep the two in step
+          /* Matches decoration.rounding in hyprland.nix -- keep the two in step
              or popups read as belonging to a different desktop than windows. */
           border-radius: 2px;
         }

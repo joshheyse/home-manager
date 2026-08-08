@@ -26,21 +26,40 @@ bars=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 
 scrub() { printf '%s' "$1" | tr -d '<>&"'\''' ; }
 
+# Continuous colour for a load percentage, rather than three steps.
+#
+# The bar's colour policy is "default until there is something to say", so this
+# starts at the ordinary foreground and only departs from it under load:
+# unchanged to 50%, blending into yellow by 80%, into red by 100%. Stepped
+# thresholds made a core flicker between two colours while it hovered on a
+# boundary; interpolating means the colour tracks the number instead.
+#
+# awk does the arithmetic because this runs once per core on every poll, and
+# spawning anything heavier would cost more than the readout is worth.
+heat_colour() {
+  awk -v pct="$1" -v fg="$TN_FG" -v warn="$TN_YELLOW" -v crit="$TN_RED" '
+    function hex(c, i) { return strtonum("0x" substr(c, 2 + (i * 2), 2)) }
+    function mix(a, b, t,   r, g, bl) {
+      r  = hex(a, 0) + (hex(b, 0) - hex(a, 0)) * t
+      g  = hex(a, 1) + (hex(b, 1) - hex(a, 1)) * t
+      bl = hex(a, 2) + (hex(b, 2) - hex(a, 2)) * t
+      return sprintf("#%02x%02x%02x", r, g, bl)
+    }
+    BEGIN {
+      if (pct <= 50) print fg
+      else if (pct <= 80) print mix(fg, warn, (pct - 50) / 30)
+      else print mix(warn, crit, (pct - 80) / 20)
+    }'
+}
+
 # One <span> per core: height encodes load, colour encodes the same thing in a
 # second channel so a wall of bars still reads at a glance.
 heat() {
-  local pct=$1 idx colour
+  local pct=$1 idx
   idx=$((pct * 8 / 100))
   [ "$idx" -gt 7 ] && idx=7
   [ "$idx" -lt 0 ] && idx=0
-  if [ "$pct" -ge 80 ]; then
-    colour="$TN_RED"
-  elif [ "$pct" -ge 50 ]; then
-    colour="$TN_YELLOW"
-  else
-    colour="$TN_GREEN"
-  fi
-  printf "<span color='%s'>%s</span>" "$colour" "${bars[$idx]}"
+  printf "<span color='%s'>%s</span>" "$(heat_colour "$pct")" "${bars[$idx]}"
 }
 
 label() { printf "<span color='%s'>%s</span>" "$TN_DIM" "$1"; }
@@ -158,9 +177,15 @@ for h in /sys/class/hwmon/hwmon*; do
   done
 done
 
-tooltip="<span color='$TN_BLUE'><b>CPU  $avg%</b></span>"
+tooltip="<span color='$(heat_colour "$avg")'><b>CPU  $avg%</b></span>"
 tooltip="$tooltip\n$(label 'cores  ') $row"
 tooltip="$tooltip\n$(label 'load   ') $l1 $l5 $l15$clusters"
 [ -n "$temps" ] && tooltip="$tooltip\n$(label 'sensors')$temps"
 
-printf '{"text":" %3d%%","tooltip":"%s","class":"cpu"}\n' "$avg" "$tooltip"
+# The bar text carries the gradient too, so the module shows load at a
+# glance without the tooltip being opened. Assembled separately because a
+# single-quoted printf format cannot contain the single quotes Pango wants
+# around the colour.
+text=$(printf "<span color='%s'> %3d%%</span>" "$(heat_colour "$avg")" "$avg")
+
+printf '{"text":"%s","tooltip":"%s","class":"cpu"}\n' "$text" "$tooltip"
