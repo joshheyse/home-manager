@@ -46,7 +46,10 @@ in {
 
         # Decorations (blur, rounding)
         decoration = {
-          rounding = 8;
+          # Just enough to take the hard pixel off the corner. 8 read as dated;
+          # 0 makes the blur edge look like a rendering artefact where a window
+          # meets the wallpaper, so this stops short of square.
+          rounding = 2;
           blur = {
             enabled = true;
             size = 8;
