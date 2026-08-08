@@ -60,7 +60,12 @@
             hyprland-desktop = {
               enable = true;
               wallpaper.enable = true;
-              lockOnStart = true;
+
+              # mkDefault so hosts can opt out. This pairs with greetd
+              # autologin on the desktop (boot straight into a live-but-locked
+              # session); a laptop that is logged into by hand does not want to
+              # be greeted by a lock screen.
+              lockOnStart = nixpkgs.lib.mkDefault true;
             };
             tiling-wm.enable = true;
             screenshots.enable = true;
