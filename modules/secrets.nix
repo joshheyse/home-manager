@@ -125,8 +125,32 @@
       exec "$@"
     '';
   };
+  exportLine = name: let
+    path = lib.escapeShellArg config.sops.secrets.${name}.path;
+  in ''
+    if [[ -r ${path} ]]; then
+      export ${injectable.${name}}="$(cat ${path})"
+    fi
+  '';
 in {
-  options.sops.userSecrets.enable = lib.mkEnableOption "shared user sops secrets";
+  options.sops.userSecrets = {
+    enable = lib.mkEnableOption "shared user sops secrets";
+
+    exportToShell = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum (lib.attrNames injectable));
+      default = [];
+      example = ["databento/api_key"];
+      description = ''
+        sops keys whose values are exported into the interactive shell.
+
+        Empty by default, and it should stay that way unless a tool genuinely
+        needs the value ambient: an exported secret is inherited by every child
+        process, which is exactly what environment-scraping malware harvests.
+        Prefer `with-secrets <group> -- cmd` or a wrapper. Listing a key here is
+        a deliberate, per-host exception to that rule.
+      '';
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     # Shared user secret declarations.
@@ -149,6 +173,7 @@ in {
       load-secrets() {
         eval "$(${lib.getExe withSecrets} --print "$@")"
       }
+      ${lib.concatStrings (map exportLine cfg.exportToShell)}
     '';
   };
 }

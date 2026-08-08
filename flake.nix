@@ -117,6 +117,9 @@
           );
           sops = {
             userSecrets.enable = true;
+            # Deliberate exception to the no-ambient-secrets rule: databento
+            # tooling is used interactively here and wants the key in the env.
+            userSecrets.exportToShell = ["databento/api_key"];
             defaultSopsFile = ./secrets/users/josh/secrets.yaml;
           };
         })
