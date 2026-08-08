@@ -110,7 +110,12 @@ in {
         exec-once =
           lib.optional cfg.lockOnStart "hyprlock --grace 0"
           ++ [
-            "waybar"
+            # NOTE: waybar is deliberately absent. waybar.nix enables Home
+            # Manager's systemd user service, which orders it after
+            # graphical-session.target and restarts it on failure. Listing it
+            # here as well starts a second, untracked instance the moment
+            # anything touches the unit (e.g. `systemctl --user restart
+            # waybar`), leaving two bars stacked on the screen.
             "hyprpaper"
             "mako"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
