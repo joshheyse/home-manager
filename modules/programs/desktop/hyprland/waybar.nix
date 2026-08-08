@@ -231,7 +231,7 @@ in {
           # as a near-duplicate of the CPU microchip sitting next to it in the
           # bar -- the two are only a colour apart. The stick is unambiguous.
           memory = {
-            format = " {}%";
+            format = " {:3}%";
             # Plain text, no markup: waybar's memory module sets this with
             # set_tooltip_text (src/modules/memory/common.cpp), unlike network
             # and pulseaudio which use set_tooltip_markup. Tags here would be
@@ -242,7 +242,7 @@ in {
           };
 
           network = {
-            format-wifi = " {signalStrength}%";
+            format-wifi = " {signalStrength:3}%";
             format-ethernet = " {ipaddr}";
             format-disconnected = " Disconnected";
             # Label column padded to a fixed width so the values line up. The
@@ -295,10 +295,10 @@ in {
           # module toggles the source rather than opening a mixer, because
           # unmuting is what you want at the moment you notice.
           pulseaudio = {
-            format = "{icon} {volume}%  {format_source}";
+            format = "{icon} {volume:3}%  {format_source}";
             format-muted = " muted  {format_source}";
             format-icons = {default = ["" "" ""];};
-            format-source = " {volume}%";
+            format-source = " {volume:3}%";
             format-source-muted = "";
             tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%\n${dim "mic    "} {source_desc}\n${dim "input  "} {format_source}";
             on-click = "${pkgs.pulseaudio}/bin/pactl set-source-mute @DEFAULT_SOURCE@ toggle";
@@ -314,9 +314,9 @@ in {
               warning = 30;
               critical = 15;
             };
-            format = "{icon} {capacity}%";
-            format-charging = " {capacity}%";
-            format-plugged = " {capacity}%";
+            format = "{icon} {capacity:3}%";
+            format-charging = " {capacity:3}%";
+            format-plugged = " {capacity:3}%";
             format-icons = ["" "" "" "" ""];
             interval = 30;
           };

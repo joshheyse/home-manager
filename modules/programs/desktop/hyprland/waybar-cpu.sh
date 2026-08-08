@@ -59,7 +59,7 @@ now=$(snapshot)
 
 if [ ! -r "$state" ]; then
   printf '%s\n' "$now" > "$state" 2>/dev/null || true
-  printf '{"text":" 0%%","tooltip":"CPU: sampling","class":"cpu"}\n'
+  printf '{"text":"   0%%","tooltip":"CPU: sampling","class":"cpu"}\n'
   exit 0
 fi
 
@@ -89,7 +89,7 @@ read -r -a core <<< "$percents"
 count=${#core[@]}
 
 if [ "$count" -eq 0 ]; then
-  printf '{"text":" 0%%","tooltip":"CPU: no samples","class":"cpu"}\n'
+  printf '{"text":"   0%%","tooltip":"CPU: no samples","class":"cpu"}\n'
   exit 0
 fi
 
@@ -163,4 +163,4 @@ tooltip="$tooltip\n$(label 'cores  ') $row"
 tooltip="$tooltip\n$(label 'load   ') $l1 $l5 $l15$clusters"
 [ -n "$temps" ] && tooltip="$tooltip\n$(label 'sensors')$temps"
 
-printf '{"text":" %d%%","tooltip":"%s","class":"cpu"}\n' "$avg" "$tooltip"
+printf '{"text":" %3d%%","tooltip":"%s","class":"cpu"}\n' "$avg" "$tooltip"
