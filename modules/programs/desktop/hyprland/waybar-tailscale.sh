@@ -24,7 +24,7 @@
 label() { printf "<span color='%s'>%s</span>" "$TN_DIM" "$1"; }
 
 status=$(tailscale status --json 2>/dev/null) || {
-  printf "{\"text\":\"\",\"tooltip\":\"<span color='%s'><b>Tailscale</b></span>\\\\ntailscaled not reachable\",\"class\":\"offline\"}\n" "$TN_RED"
+  printf "{\"text\":\"\",\"tooltip\":\"<span color='%s'><b>Tailscale</b></span>\\\\ntailscaled not reachable\",\"class\":\"error\"}\n" "$TN_RED"
   exit 0
 }
 
@@ -65,17 +65,17 @@ case "$state" in
     ;;
   Stopped)
     text=""
-    class="offline"
+    class="stopped"
     tooltip=$(heading "$TN_RED" 'Tailscale — stopped')
     ;;
   NeedsLogin)
     text=""
-    class="offline"
+    class="error"
     tooltip="$(heading "$TN_RED" 'Tailscale — logged out')\n$(label 'fix    ') run tailscale up"
     ;;
   *)
     text=""
-    class="offline"
+    class="error"
     tooltip=$(heading "$TN_RED" "Tailscale — $state")
     ;;
 esac

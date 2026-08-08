@@ -29,7 +29,7 @@
     export PATH="${lib.makeBinPath [pkgs.gawk pkgs.coreutils]}:$PATH"
 
     export TN_DIM=${theme.comment}
-    export TN_FG=${theme.fg}
+    export TN_FG=${theme.cyan}
     export TN_YELLOW=${theme.yellow}
     export TN_RED=${theme.red}
 
@@ -372,7 +372,12 @@ in {
 
         window#waybar {
           background-color: ${theme.bg};
-          color: ${theme.fg};
+          /* The bar's resting colour, and the baseline the whole policy below
+             is defined against. Cyan rather than the theme's plain foreground:
+             it reads as deliberate at a glance without being loud, and every
+             module inherits it, so "quiet" still looks like a choice. Tooltips
+             keep the plain foreground -- they carry paragraphs, not glances. */
+          color: ${theme.cyan};
           border-bottom: 2px solid ${theme.border};
         }
 
@@ -387,7 +392,7 @@ in {
            One scale, shared by everything that reports a magnitude, so the
            same colour means the same severity in every module:
 
-             default   nothing to report
+             cyan      nothing to report
              yellow    getting close
              red       at the limit
              dim       inactive or off -- present but not participating
@@ -443,8 +448,17 @@ in {
           color: ${theme.yellow};
         }
 
-        #custom-tailscale.offline {
-          color: ${theme.fgDark};
+        /* Deliberately stopped is "off", and dim says so. Logged out or
+           tailscaled unreachable is not off -- it is a tailnet you believe you
+           are on and are not, which is worth the same red as a failure
+           anywhere else. The script distinguishes them; collapsing both into
+           one class hid the difference that matters. */
+        #custom-tailscale.stopped {
+          color: ${theme.comment};
+        }
+
+        #custom-tailscale.error {
+          color: ${theme.red};
         }
 
         /* Audio: speaker and microphone are a pair and read as one, so they
@@ -452,7 +466,7 @@ in {
            -- off, not wrong. */
         #pulseaudio.muted,
         #custom-mic.muted {
-          color: ${theme.fgDark};
+          color: ${theme.comment};
         }
 
         /* The exception worth colouring: something is listening. Not a
@@ -473,7 +487,7 @@ in {
 
         @keyframes mic-alarm {
           to {
-            color: ${theme.fgDark};
+            color: ${theme.comment};
           }
         }
 

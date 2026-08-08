@@ -29,7 +29,7 @@ scrub() { printf '%s' "$1" | tr -d '<>&"'\''' ; }
 # Continuous colour for a load percentage, rather than three steps.
 #
 # The bar's colour policy is "default until there is something to say", so this
-# starts at the ordinary foreground and only departs from it under load:
+# starts at the bar's resting colour and only departs from it under load:
 # unchanged to 50%, blending into yellow by 80%, into red by 100%. Stepped
 # thresholds made a core flicker between two colours while it hovered on a
 # boundary; interpolating means the colour tracks the number instead.
