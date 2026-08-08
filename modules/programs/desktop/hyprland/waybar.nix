@@ -249,11 +249,17 @@ in {
             exec = "${tailscaleStatus}";
             return-type = "json";
             interval = 10;
-            # --hold, unlike the nmtui click above: `tailscale status` prints
-            # and exits, so without it kitty closes the instant it opens and
-            # the float rule turns that into a window sliding up and dropping
-            # straight back down.
-            on-click = "${pkgs.kitty}/bin/kitty --class network-tui --hold -e ${pkgs.tailscale}/bin/tailscale status";
+            # Left click goes to the admin console, because the questions
+            # this module raises -- who else is on the tailnet, what is
+            # advertising routes, which key is about to expire -- are answered
+            # there and not by the local daemon.
+            on-click = "${pkgs.xdg-utils}/bin/xdg-open https://login.tailscale.com/admin/machines";
+
+            # Right click keeps the local view. --hold, unlike the nmtui click
+            # above: `tailscale status` prints and exits, so without it kitty
+            # closes the instant it opens and the float rule turns that into a
+            # window sliding up and dropping straight back down.
+            on-click-right = "${pkgs.kitty}/bin/kitty --class network-tui --hold -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
           # The mic is deliberately in the bar and not only the tooltip: an
