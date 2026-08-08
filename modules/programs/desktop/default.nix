@@ -21,12 +21,72 @@ in {
     ./ghostty
     ./gpg-agent.nix
     ./kicad
+    ./pwas.nix
     ./sketchybar.nix
     ./raycast.nix
     ./screenshots.nix
     ./yabai.nix
     ./hyprland
   ];
+
+  # Firefox owns links, Chromium owns the PWAs.
+  #
+  # Chromium had drifted into being the system default simply by being
+  # installed, so every link from mail, the terminal or a chat opened in the
+  # browser kept around for two web apps. Setting this explicitly puts links
+  # back in the browser actually used for browsing.
+  #
+  # The PWAs are unaffected: their desktop entries Exec chromium directly
+  # rather than asking for "a browser", so the default can move without
+  # touching them.
+  #
+  # CAVEAT: this governs links handed to the desktop by other applications.
+  # A cross-origin link clicked INSIDE a Chromium --app window is opened by
+  # Chromium itself rather than handed to xdg, so those are expected to stay
+  # in Chromium. Unverified -- confirming it needs a real click.
+  # http/https go to the router (below), which hands most links to Firefox and
+  # the claimed hosts to their app. Everything else goes straight to Firefox.
+  xdg.mimeApps = lib.mkIf (!isDarwin) {
+    enable = true;
+    defaultApplications = let
+      browser = ["firefox.desktop"];
+    in {
+      "text/html" = browser;
+      "x-scheme-handler/about" = browser;
+      "x-scheme-handler/unknown" = browser;
+    };
+  };
+
+  programs.pwas-router.enable = true;
+
+  # Services with no Linux client worth running. Meet because meetings have to
+  # happen somewhere and it is the one platform that works on every machine
+  # here -- macOS, Windows, Linux x86_64 and, critically, Linux aarch64, where
+  # Zoom, Slack, Discord and Teams all ship no native client at all.
+  programs.pwas = {
+    # Firefox, not Chromium: chat answers are mostly links out, and a link
+    # clicked inside a Chromium app window opens in Chromium regardless of the
+    # system default. An ordinary Firefox window is the price of links landing
+    # in the browser actually used for browsing.
+    chatgpt = {
+      name = "ChatGPT";
+      url = "https://chatgpt.com";
+      browser = "firefox";
+    };
+
+    # Chromium here, deliberately differing from ChatGPT above: Meet is
+    # somewhere you sit rather than follow links out of, and Chromium is what
+    # Asahi users report working for Meet -- Google ships no Chrome for Linux
+    # aarch64 at all.
+    meet = {
+      name = "Google Meet";
+      url = "https://meet.google.com";
+
+      # A meeting link from mail or chat opens the app on that meeting rather
+      # than a browser tab, which is the whole point of having the app.
+      handles = ["meet.google.com"];
+    };
+  };
 
   # On macOS, symlink font files into ~/Library/Fonts/Nix so apps can discover them
   home.activation.installNixFonts = lib.mkIf isDarwin (
