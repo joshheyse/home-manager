@@ -10,6 +10,13 @@
   theme = config.theme.tokyoNight;
   inherit (pkgs.stdenv) isLinux;
 
+  # Colocated helper, per the repo convention for scripts only one module uses.
+  # PATH is pinned so the module never depends on the login shell.
+  tailscaleStatus = pkgs.writeShellScript "waybar-tailscale" ''
+    export PATH="${lib.makeBinPath [pkgs.tailscale pkgs.jq pkgs.coreutils]}:$PATH"
+    ${builtins.readFile ./waybar-tailscale.sh}
+  '';
+
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
 in {
@@ -50,7 +57,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["pulseaudio" "network" "cpu" "memory" "battery" "tray"];
+          modules-right = ["custom/tailscale" "pulseaudio" "network" "cpu" "memory" "battery" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -100,6 +107,25 @@ in {
             format-wifi = " {signalStrength}%";
             format-ethernet = " {ipaddr}";
             format-disconnected = " Disconnected";
+            tooltip-format-wifi = "{essid}  {signalStrength}%\n{ifname}  {ipaddr}/{cidr}\ngw {gwaddr}\nup {bandwidthUpBits} / down {bandwidthDownBits}";
+            tooltip-format-ethernet = "{ifname}  {ipaddr}/{cidr}\ngw {gwaddr}\nup {bandwidthUpBits} / down {bandwidthDownBits}";
+            tooltip-format-disconnected = "No network";
+            # Throughput figures are deltas between polls; without an interval
+            # they read zero forever.
+            interval = 5;
+            on-click = "${pkgs.kitty}/bin/kitty --class network-tui -e ${pkgs.networkmanager}/bin/nmtui";
+            on-click-right = "${pkgs.networkmanagerapplet}/bin/nm-connection-editor";
+          };
+
+          # Tailscale is invisible to the network module, which reports whatever
+          # carries the default route -- that stays wifi/ethernet even with the
+          # tailnet up. Separate indicator so "am I on the tailnet" is
+          # answerable at a glance.
+          "custom/tailscale" = {
+            exec = "${tailscaleStatus}";
+            return-type = "json";
+            interval = 10;
+            on-click = "${pkgs.kitty}/bin/kitty --class network-tui -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
           pulseaudio = {
@@ -141,6 +167,18 @@ in {
         #custom-notch {
           min-width: ${toString notch}px;
           background: transparent;
+        }
+
+        #custom-tailscale.connected {
+          color: ${theme.green};
+        }
+
+        #custom-tailscale.exitnode {
+          color: ${theme.yellow};
+        }
+
+        #custom-tailscale.offline {
+          color: ${theme.fgDark};
         }
 
         window#waybar {
