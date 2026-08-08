@@ -37,6 +37,16 @@
     ${builtins.readFile ./waybar-cpu.sh}
   '';
 
+  micStatus = pkgs.writeShellScript "waybar-mic" ''
+    export PATH="${lib.makeBinPath [pkgs.wireplumber pkgs.pipewire pkgs.jq pkgs.gawk pkgs.gnugrep pkgs.coreutils]}:$PATH"
+
+    export TN_DIM=${theme.comment}
+    export TN_GREEN=${theme.green}
+    export TN_RED=${theme.red}
+
+    ${builtins.readFile ./waybar-mic.sh}
+  '';
+
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
 
@@ -133,7 +143,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/tailscale" "pulseaudio" "pulseaudio#microphone" "network" "custom/cpu" "memory" "battery" "tray"];
+          modules-right = ["custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -304,24 +314,16 @@ in {
 
           # The mic is deliberately in the bar and not only the tooltip: an
           # unnoticed hot mic is the failure that actually costs you, and a
-          # glance has to answer it. {format_source} renders format-source
-          # normally and format-source-muted when the source is muted, so the
-          # crossed-out glyph IS the muted state -- waybar's format language
-          # has no conditional to express that any other way.
+          # glance has to answer it.
           #
-          # format-muted is set to the same thing on purpose. It selects on the
-          # SINK's mute state, which this instance does not report, so leaving
-          # it at the default would blank the microphone whenever the speakers
-          # were muted.
-          "pulseaudio#microphone" = {
-            format = "{format_source}";
-            format-muted = "{format_source}";
-            format-source = " {volume:3}%";
-            format-source-muted = " {volume:3}%";
-            tooltip-format = "<span color='${theme.orange}'><b>{source_desc}</b></span>\n${dim "input  "} {format_source}";
-
-            # wpctl, not swayosd-client: see swayosd.nix. Also not pactl --
-            # the default source here is a PipeWire filter-chain node.
+          # A custom module rather than a second pulseaudio instance, because
+          # pulseaudio only knows the mute state -- what you set -- and not
+          # whether anything is actually capturing. PipeWire knows both, and
+          # the combination is where the useful states are. See waybar-mic.sh.
+          "custom/mic" = {
+            exec = "${micStatus}";
+            return-type = "json";
+            interval = 2;
             on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
             on-click-right = "pavucontrol";
           };
@@ -393,7 +395,7 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded — it looks like the module beside it is overlapping
            it. custom-tailscale and battery were both missing. */
-        #clock, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #battery, #tray {
+        #clock, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
           padding: 0 10px;
         }
 
@@ -413,36 +415,48 @@ in {
           color: ${theme.yellow};
         }
 
-        /* Waybar puts `muted` on the module when the sink is muted and
-           `source-muted` when the microphone is -- and it puts BOTH on BOTH
-           instances, since they are the same module type. So each rule has to
-           name the instance it means, or muting the speakers greys out a live
-           microphone (which is exactly what happened before the split).
-
-           Order matters as much as specificity here: `.microphone` and
-           `.muted` are both id-plus-one-class, so the later rule wins, which
-           is what stops the sink's mute state reaching the mic. */
+        /* Waybar puts `muted` on the pulseaudio module when the sink is
+           muted. The microphone is a separate custom module now, so that class
+           can no longer reach it -- which was the bug that made muting the
+           speakers grey out a live mic. */
         #pulseaudio {
           color: ${theme.orange};
         }
 
-        /* Speaker muted: greys out. You find this one instantly by turning the
-           volume up, so it does not need to shout. */
         #pulseaudio.muted {
           color: ${theme.comment};
         }
 
-        /* Deliberately AFTER .muted, so the microphone keeps its colour when
-           the speakers are muted. */
-        #pulseaudio.microphone {
-          color: ${theme.orange};
+        /* Microphone: capture drives the colour, mute drives the glyph.
+           Red means something is listening, which is the only state worth
+           interrupting you for. A muted idle mic is not that, so it greys out
+           rather than competing for the same alarm colour. */
+        #custom-mic.idle {
+          color: ${theme.green};
         }
 
-        /* Microphone muted: red. Talking into a dead mic is the state you
-           discover a minute too late. Scoped to the instance, so a muted mic
-           does not also recolour the speaker readout. */
-        #pulseaudio.microphone.source-muted {
+        #custom-mic.muted {
+          color: ${theme.comment};
+        }
+
+        #custom-mic.capturing {
           color: ${theme.red};
+        }
+
+        /* Muted AND being recorded: the "why can't they hear me" state. It
+           flashes because it is the one case where the truthful answer is
+           neither "you are fine" nor "you are exposed" -- something is
+           recording you and getting silence, and you almost certainly did not
+           mean that. */
+        #custom-mic.muted-capturing {
+          color: ${theme.red};
+          animation: mic-alarm 1s steps(12) infinite alternate;
+        }
+
+        @keyframes mic-alarm {
+          to {
+            color: ${theme.comment};
+          }
         }
 
         /* Tooltips are GTK3 toplevels, not part of the bar, so none of the
