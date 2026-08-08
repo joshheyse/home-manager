@@ -57,7 +57,11 @@ info "GPG_AGENT_INFO=${GPG_AGENT_INFO:-<unset> (expected, deprecated)}"
 # --- SSH Agent ---
 header "SSH Agent"
 
-SWITCHER_SOCK="/tmp/ssh-agent.${USER}"
+# Must track ssh-agent-switcher.nix. This previously looked in /tmp, a location
+# the module had long since moved away from, so the check "passed" against a
+# path nothing created and never caught a switcher that was finding no agent.
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+SWITCHER_SOCK="$RUNTIME_DIR/ssh-agent.sock"
 if [[ "${SSH_AUTH_SOCK:-}" == "$SWITCHER_SOCK" ]]; then
   pass "SSH_AUTH_SOCK points to ssh-agent-switcher ($SWITCHER_SOCK)"
 else
@@ -169,14 +173,18 @@ else
   fi
 fi
 
-# GPG agent symlink for ssh-agent-switcher
-GPG_AGENT_LINK="$HOME/.gnupg/agent.gpg-ssh"
+# GPG agent symlink for ssh-agent-switcher. The enclosing "ssh-" prefixed
+# directory is not cosmetic: outside $HOME the switcher only descends into
+# sshd-style session dirs, so a socket placed directly in $XDG_RUNTIME_DIR is
+# invisible to it. Keep this path in sync with ssh-agent-switcher.nix.
+GPG_AGENT_LINK="$RUNTIME_DIR/ssh-gpg/agent.gpg-ssh"
 if [[ -L "$GPG_AGENT_LINK" ]]; then
   pass "GPG-SSH discovery symlink exists"
   LINK_TARGET=$(readlink "$GPG_AGENT_LINK")
   info "Points to: $LINK_TARGET"
 else
   warn "GPG-SSH discovery symlink missing: $GPG_AGENT_LINK"
+  ERRORS=$((ERRORS + 1))
 fi
 
 # --- YubiKey ---

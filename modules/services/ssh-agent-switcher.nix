@@ -14,10 +14,19 @@
   # In systemd unit lines, %t expands to $XDG_RUNTIME_DIR.
   switcherSocketShell = "$XDG_RUNTIME_DIR/ssh-agent.sock";
   switcherSocketSystemd = "%t/ssh-agent.sock";
-  # ssh-agent-switcher only matches socket names starting with "agent." or
-  # containing ".sshd.".  Create a symlink with a compatible name so the
-  # GPG agent SSH socket is discoverable.
-  gpgAgentLinkSystemd = "%t/agent.gpg-ssh";
+  # ssh-agent-switcher models the layouts sshd itself uses, and applies TWO
+  # checks at different levels. Satisfying only the first is why this silently
+  # discovered nothing and every request logged "No agent found":
+  #   * try_open (find.rs:55)           socket NAME must start with "agent." or
+  #                                     contain ".sshd."
+  #   * try_shared_subdir (find.rs:143) for a search dir NOT under $HOME, the
+  #                                     socket must live inside a subdirectory
+  #                                     named "ssh-*" (an sshd session dir)
+  # $XDG_RUNTIME_DIR is not under $HOME, so a correctly-named socket sitting
+  # directly in it can never match. Nesting it one level down satisfies both
+  # rules while keeping the logout-wiped tmpfs property described above.
+  gpgAgentDirSystemd = "%t/ssh-gpg";
+  gpgAgentLinkSystemd = "${gpgAgentDirSystemd}/agent.gpg-ssh";
   defaultAgentsDirs = "${homeDir}/.ssh/agent:/tmp";
   agentsDirs =
     if gpgEnabled
@@ -43,10 +52,14 @@ in {
             # Cross-session staleness is handled by tmpfs wipe on logout.
             ${pkgs.coreutils}/bin/rm -f "$XDG_RUNTIME_DIR/ssh-agent.sock"
             ${lib.optionalString gpgEnabled ''
-              # Create symlink with agent.* name so ssh-agent-switcher can discover it.
+              # Expose the gpg-agent SSH socket where ssh-agent-switcher will
+              # actually look: an "ssh-"-prefixed directory (so the non-$HOME
+              # scan accepts it) holding an "agent."-prefixed entry. See the
+              # gpgAgentDirSystemd comment for the two rules involved.
               # Use gpgconf to get the correct socket path — on NixOS it's in
               # $XDG_RUNTIME_DIR/gnupg/, not ~/.gnupg/.
-              ${pkgs.coreutils}/bin/ln -sf "$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)" "$XDG_RUNTIME_DIR/agent.gpg-ssh"
+              ${pkgs.coreutils}/bin/mkdir -p "$XDG_RUNTIME_DIR/ssh-gpg"
+              ${pkgs.coreutils}/bin/ln -sf "$(${pkgs.gnupg}/bin/gpgconf --list-dirs agent-ssh-socket)" "$XDG_RUNTIME_DIR/ssh-gpg/agent.gpg-ssh"
             ''}
           '';
         in "${preStart}";
