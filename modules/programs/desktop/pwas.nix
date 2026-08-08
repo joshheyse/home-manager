@@ -31,9 +31,89 @@
   launcher = pwa: url:
     if pwa.browser == "firefox"
     then "${lib.getExe pkgs.firefox} --new-window ${url}"
-    else "${lib.getExe pkgs.chromium} --app=${url}";
+    else
+      "${lib.getExe pkgs.chromium} --app=${url}"
+      + lib.optionalString pwa.externalLinksOut " --load-extension=${escapeDir pwa}"
+      + lib.optionalString pwa.isolate " --user-data-dir=${profileDir pwa}";
 
   claimants = lib.filter (pwa: pwa.handles != []) (lib.attrValues cfg);
+
+  # Keyed on the app's own URL so the directory is stable across renames and
+  # cannot collide between two apps.
+  profileDir = pwa: "${config.xdg.dataHome}/pwas/${builtins.substring 0 16 (builtins.hashString "sha256" pwa.url)}";
+
+  # Scheme used to hand a URL back out of Chromium. Chromium refuses to give
+  # web links to the desktop -- it considers itself the handler -- but it does
+  # defer schemes it cannot handle, which is the only seam available.
+  escapeScheme = "pwa-open";
+
+  origin = url: let
+    afterScheme = lib.removePrefix "http://" (lib.removePrefix "https://" url);
+    host = lib.head (lib.splitString "/" afterScheme);
+    scheme = lib.head (lib.splitString "://" url);
+  in "${scheme}://${host}";
+
+  # An unpacked extension is just a directory, so it is an ordinary
+  # derivation -- no Web Store, no policy JSON, no per-machine install step.
+  # Verified that Chromium 151 still honours --load-extension by loading a
+  # probe extension and watching it rewrite a window title.
+  escapeExtension = pwa:
+    pkgs.writeTextFile {
+      name = "pwa-escape-${builtins.hashString "sha256" pwa.url}";
+      destination = "/manifest.json";
+      text = builtins.toJSON {
+        manifest_version = 3;
+        name = "Open external links outside ${pwa.name}";
+        version = "1.0";
+        permissions = ["webNavigation" "tabs"];
+        host_permissions = ["<all_urls>"];
+        background.service_worker = "background.js";
+      };
+    };
+
+  # Kept separate from the manifest so the JS stays readable rather than
+  # becoming a quoted blob inside toJSON.
+  escapeDir = pwa:
+    pkgs.runCommand "pwa-escape-${pwa.name}" {} ''
+      mkdir -p $out
+      cp ${escapeExtension pwa}/manifest.json $out/manifest.json
+      cat > $out/background.js <<'EOF'
+      // Anything that leaves this app's origin is not part of the app, so it
+      // belongs in the real browser. Chromium will not hand a web URL to the
+      // desktop, but it will hand over a scheme it does not recognise -- so
+      // the URL is re-emitted under ${escapeScheme}: and the desktop routes it.
+      const APP_ORIGIN = "${origin pwa.url}";
+
+      function isExternal(url) {
+        try {
+          return new URL(url).origin !== APP_ORIGIN;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function handOff(url) {
+        chrome.tabs.create({ url: "${escapeScheme}:" + url, active: false })
+          .then((t) => setTimeout(() => chrome.tabs.remove(t.id), 500))
+          .catch(() => {});
+      }
+
+      // A target=_blank link, which is how most links in a web app open.
+      chrome.webNavigation.onCreatedNavigationTarget.addListener((d) => {
+        if (!isExternal(d.url)) return;
+        handOff(d.url);
+        chrome.tabs.remove(d.tabId).catch(() => {});
+      });
+
+      // A plain link navigating the app window itself away from the app.
+      chrome.webNavigation.onBeforeNavigate.addListener((d) => {
+        if (d.frameId !== 0) return;
+        if (!isExternal(d.url)) return;
+        handOff(d.url);
+        chrome.tabs.goBack(d.tabId).catch(() => {});
+      });
+      EOF
+    '';
 
   # One case arm per claimed host. Anchored on the scheme so a host cannot be
   # spoofed by appearing later in the URL: without the leading https://, a
@@ -43,6 +123,19 @@
     http://${host}/*|https://${host}/*|http://${host}|https://${host})
       exec ${launcher pwa "\"$url\""}
       ;;
+  '';
+
+  # Catches the escaped URLs and puts them back on the normal path. Kept
+  # separate from the router so the escape hatch is visible rather than being
+  # a special case buried in routing.
+  escapeHandler = pkgs.writeShellScript "pwa-escape-open" ''
+    url="''${1#${escapeScheme}:}"
+
+    if [ -z "$url" ]; then
+      exit 0
+    fi
+
+    exec ${rcfg.fallback} "$url"
   '';
 
   # Dispatcher registered as the http/https handler, because xdg associations
@@ -130,6 +223,48 @@ in {
           '';
         };
 
+        isolate = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Give the app its own browser profile, so its cookies, storage and
+            fingerprinting surface are its own.
+
+            Without this every app shares the default profile: one cookie jar,
+            one identity, and an ad network embedded in two of them can join
+            the sessions up. Isolated, each app is a separate browser as far as
+            the sites inside it can tell.
+
+            The cost is that isolation is per APP, not per account: apps from
+            the same provider no longer share a sign-in, so Gmail and Meet each
+            want their own login. Set false on a group you would rather have
+            share a session -- they then share everything else too.
+
+            Profiles live under $XDG_DATA_HOME/pwas, which impermanence
+            persists, so logins survive a reboot.
+
+            chromium only; the Firefox path uses your normal profile.
+          '';
+        };
+
+        externalLinksOut = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Send links that leave the app's own origin to the normal browser
+            instead of opening them in Chromium.
+
+            Chromium only does this if made to. It treats itself as the handler
+            for web links and will not pass one to the desktop, so a sideloaded
+            extension re-emits external URLs under a scheme Chromium does NOT
+            handle, which it then does hand over. Chromium asks for
+            confirmation the first time; tick "always allow".
+
+            chromium only -- a Firefox-hosted app already opens links in
+            Firefox, being Firefox.
+          '';
+        };
+
         handles = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [];
@@ -188,6 +323,7 @@ in {
       defaultApplications = {
         "x-scheme-handler/http" = ["pwa-router.desktop"];
         "x-scheme-handler/https" = ["pwa-router.desktop"];
+        "x-scheme-handler/${escapeScheme}" = ["pwa-escape-open.desktop"];
       };
     };
 
@@ -195,6 +331,15 @@ in {
       lib.optionalAttrs rcfg.enable {
         # Registered as the http/https handler, so it must not also appear in
         # the launcher as something you could click.
+        pwa-escape-open = {
+          name = "PWA external link";
+          type = "Application";
+          terminal = false;
+          noDisplay = true;
+          exec = "${escapeHandler} %u";
+          mimeType = ["x-scheme-handler/${escapeScheme}"];
+        };
+
         pwa-router = {
           name = "Web link router";
           type = "Application";
@@ -209,14 +354,16 @@ in {
         type = "Application";
         terminal = false;
 
+        # Same `launcher` the router uses. It was briefly built here as well
+        # and the two drifted immediately -- the launcher grew --load-extension
+        # and --user-data-dir while these entries silently kept launching a
+        # bare, un-isolated window. One definition, both callers.
+        #
         # No --class on the chromium path, on purpose: Chromium accepts the
         # flag and then ignores it in --app mode, deriving the class from the
         # URL instead -- observed as chrome-meet.google.com__-Default rather
         # than the requested value.
-        exec =
-          if pwa.browser == "firefox"
-          then "${lib.getExe pkgs.firefox} --new-window ${pwa.url}"
-          else "${lib.getExe pkgs.chromium} --app=${pwa.url}";
+        exec = launcher pwa pwa.url;
 
         # StartupWMClass matches the window back to this entry so the taskbar
         # shows the app rather than an anonymous second browser. It has to be

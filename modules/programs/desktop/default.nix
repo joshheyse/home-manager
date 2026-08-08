@@ -64,14 +64,25 @@ in {
   # here -- macOS, Windows, Linux x86_64 and, critically, Linux aarch64, where
   # Zoom, Slack, Discord and Teams all ship no native client at all.
   programs.pwas = {
-    # Firefox, not Chromium: chat answers are mostly links out, and a link
-    # clicked inside a Chromium app window opens in Chromium regardless of the
-    # system default. An ordinary Firefox window is the price of links landing
-    # in the browser actually used for browsing.
+    # Chromium, so this is a real app window rather than another tabbed
+    # browser -- the whole point being to keep a daily tool out of tab hell.
+    # externalLinksOut is what makes that affordable: chat answers are mostly
+    # links out, and without it they would open in Chromium.
     chatgpt = {
       name = "ChatGPT";
       url = "https://chatgpt.com";
-      browser = "firefox";
+      externalLinksOut = true;
+    };
+
+    gmail = {
+      name = "Gmail";
+      url = "https://mail.google.com";
+      externalLinksOut = true;
+
+      # Mail is the biggest source of links into other things, so claiming its
+      # own host keeps a mail link from a chat opening the app rather than a
+      # tab.
+      handles = ["mail.google.com"];
     };
 
     # Chromium here, deliberately differing from ChatGPT above: Meet is
@@ -81,6 +92,8 @@ in {
     meet = {
       name = "Google Meet";
       url = "https://meet.google.com";
+
+      externalLinksOut = true;
 
       # A meeting link from mail or chat opens the app on that meeting rather
       # than a browser tab, which is the whole point of having the app.
