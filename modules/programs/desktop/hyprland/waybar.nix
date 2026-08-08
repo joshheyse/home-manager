@@ -20,7 +20,7 @@ in {
           height = 30;
           modules-left = ["hyprland/workspaces" "hyprland/window"];
           modules-center = ["clock"];
-          modules-right = ["pulseaudio" "network" "cpu" "memory" "tray"];
+          modules-right = ["pulseaudio" "network" "cpu" "memory" "battery" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -28,32 +28,47 @@ in {
           };
 
           clock = {
-            format = "{:%H:%M}";
+            format = " {:%H:%M}";
             format-alt = "{:%Y-%m-%d %H:%M}";
             tooltip-format = "{:%Y-%m-%d | %H:%M}";
           };
 
           cpu = {
-            format = " {usage}%";
+            format = " {usage}%";
             interval = 2;
           };
 
           memory = {
-            format = " {}%";
+            format = " {}%";
             interval = 2;
           };
 
           network = {
-            format-wifi = " {signalStrength}%";
-            format-ethernet = " {ipaddr}";
-            format-disconnected = " Disconnected";
+            format-wifi = " {signalStrength}%";
+            format-ethernet = " {ipaddr}";
+            format-disconnected = " Disconnected";
           };
 
           pulseaudio = {
             format = "{icon} {volume}%";
-            format-muted = " Muted";
-            format-icons = {default = ["" "" ""];};
+            format-muted = " Muted";
+            format-icons = {default = ["" "" ""];};
             on-click = "pavucontrol";
+          };
+
+          # Laptop only; on a desktop `battery` renders nothing and is harmless.
+          # Icons are FA4-era codepoints, which this MesloLGS patch carries
+          # (the FA5 nf-fa-memory/network_wired glyphs are absent from it).
+          battery = {
+            states = {
+              warning = 30;
+              critical = 15;
+            };
+            format = "{icon} {capacity}%";
+            format-charging = " {capacity}%";
+            format-plugged = " {capacity}%";
+            format-icons = ["" "" "" "" ""];
+            interval = 30;
           };
 
           tray = {
