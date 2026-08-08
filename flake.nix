@@ -77,7 +77,11 @@
           ];
         }
         ({pkgs, ...}: {
-          home.packages = nixpkgs.lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") (
+          # Linux generally, not just x86_64: upstream publishes
+          # packages.aarch64-linux.{claude-desktop,claude-desktop-with-fhs,
+          # patchy-cnb} too, so the MacBook can have it as well. The app is
+          # repackaged JS plus a Rust native binding, both arch-portable.
+          home.packages = nixpkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (
             # Rebuild claude-desktop's FHS env with docker_29. Upstream pins
             # `docker` (= nixpkgs default 28.x, now insecure/unmaintained) in its
             # targetPkgs and builds the FHS in its own pkgs instance, so our
@@ -89,7 +93,7 @@
               # nodePackages.asar in nativeBuildInputs, which throws under our pinned
               # 26.05 nixpkgs. Replace the whole list (same inputs, new asar attr) so
               # the throwing alias is never forced.
-              cd = claude-desktop.packages.x86_64-linux.claude-desktop.overrideAttrs (_: {
+              cd = claude-desktop.packages.${pkgs.stdenv.hostPlatform.system}.claude-desktop.overrideAttrs (_: {
                 nativeBuildInputs = with pkgs; [p7zip asar makeWrapper imagemagick icoutils perl];
               });
             in [
