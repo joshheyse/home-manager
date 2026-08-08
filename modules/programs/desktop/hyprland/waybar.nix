@@ -14,11 +14,57 @@
   # PATH is pinned so the module never depends on the login shell.
   tailscaleStatus = pkgs.writeShellScript "waybar-tailscale" ''
     export PATH="${lib.makeBinPath [pkgs.tailscale pkgs.jq pkgs.coreutils]}:$PATH"
+
+    # Palette for the script's Pango tooltip, injected rather than hardcoded so
+    # the theme module stays the single source of truth for these colours.
+    export TN_DIM=${theme.comment}
+    export TN_GREEN=${theme.green}
+    export TN_YELLOW=${theme.yellow}
+    export TN_RED=${theme.red}
+
     ${builtins.readFile ./waybar-tailscale.sh}
+  '';
+
+  cpuHeat = pkgs.writeShellScript "waybar-cpu" ''
+    export PATH="${lib.makeBinPath [pkgs.gawk pkgs.coreutils]}:$PATH"
+
+    export TN_DIM=${theme.comment}
+    export TN_BLUE=${theme.blue}
+    export TN_GREEN=${theme.green}
+    export TN_YELLOW=${theme.yellow}
+    export TN_RED=${theme.red}
+
+    ${builtins.readFile ./waybar-cpu.sh}
   '';
 
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
+
+  # Tooltip bodies are Pango markup, NOT html: a small fixed tag set (b, i, u,
+  # tt, small, big, s, sub, sup, span) with `span` taking Pango attributes such
+  # as color/weight/size. There is no box model — no divs, no padding, no
+  # alignment — so anything tabular has to be laid out with literal spaces and
+  # lean on the monospace face the stylesheet gives tooltips.
+  #
+  # Pango parses the whole string, so a literal '<' or '&' arriving from a
+  # substitution (an SSID, a hostname) makes the markup invalid and the tooltip
+  # renders as raw text. Only apply markup where the interpolated values are
+  # known-safe, or escape at the source.
+  dim = s: "<span color='${theme.comment}'>${s}</span>";
+
+  # Month grid for the clock tooltips. Waybar's own calendar formatter, so the
+  # markup below is applied per-cell rather than to a pre-rendered block.
+  calendar = {
+    mode = "month";
+    weeks-pos = "";
+    on-scroll = 1;
+    format = {
+      months = "<span color='${theme.fg}'><b>{}</b></span>";
+      days = "<span color='${theme.fgDark}'>{}</span>";
+      weekdays = "<span color='${theme.yellow}'><b>{}</b></span>";
+      today = "<span color='${theme.cyan}'><b><u>{}</u></b></span>";
+    };
+  };
 in {
   options.programs.hyprland-desktop.waybar.notchWidth = lib.mkOption {
     type = lib.types.int;
@@ -42,6 +88,14 @@ in {
   config = lib.mkIf (cfg.enable && isLinux) {
     programs.waybar = {
       enable = true;
+
+      # Required, not optional: `programs.waybar.enable` alone only installs the
+      # package and writes the config — it starts nothing. Home Manager's unit is
+      # gated behind this option (upstream `systemd.enable = mkEnableOption`), and
+      # hyprland.nix deliberately keeps waybar out of exec-once on the assumption
+      # that the unit exists. Without this the bar has no launcher at all.
+      systemd.enable = true;
+
       settings = [
         {
           layer = "top";
@@ -57,7 +111,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/tailscale" "pulseaudio" "network" "cpu" "memory" "battery" "tray"];
+          modules-right = ["custom/tailscale" "pulseaudio" "network" "custom/cpu" "memory" "battery" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -67,7 +121,8 @@ in {
           clock = {
             format = " {:%H:%M:%S}";
             format-alt = "{:%Y-%m-%d %H:%M:%S}";
-            tooltip-format = "{:%Y-%m-%d | %H:%M:%S}";
+            inherit calendar;
+            tooltip-format = "<span color='${theme.blue}'><b>{:%A %d %B %Y}</b></span>\n<tt>{calendar}</tt>";
             # Seconds are pointless without a matching tick rate; waybar
             # defaults to 60s and the display would sit stale for a minute.
             interval = 1;
@@ -78,28 +133,89 @@ in {
           # them: date to its left, time to its right. Keeping the two roughly
           # equal in width keeps the spacer centred on the screen.
           "clock#date" = {
+            inherit calendar;
             format = "{:%a %d %b}";
-            tooltip-format = "{:%Y-%m-%d}";
+            tooltip-format = "<span color='${theme.blue}'><b>{:%A %d %B %Y}</b></span>\n<tt>{calendar}</tt>";
           };
 
           "clock#time" = {
             format = " {:%H:%M:%S}";
             interval = 1;
-            tooltip-format = "{:%Y-%m-%d | %H:%M:%S}";
+            # Two constraints from waybar's formatter, both verified against
+            # the binary rather than inferred:
+            #
+            #   1. Exactly one positional `{:...}` field. A second one is
+            #      "invalid arg-id in format string" — the time is passed as a
+            #      single argument and fmt's auto-indexing then runs off the
+            #      end. Named fields ({calendar}) do not consume an index,
+            #      which is how the date tooltip above manages two fields.
+            #   2. The spec must OPEN with a '%' code, or chrono rejects it
+            #      with "no '%' at start of chrono-specs".
+            #
+            # Together those force the heading's <span><b> to open outside the
+            # field and close inside it, which looks unbalanced here but is
+            # not: Pango only ever sees the assembled string, where the tags
+            # pair up. Everything after the first %-code is literal to chrono,
+            # so the remaining markup and labels sit inside the one spec.
+            tooltip-format = "<span color='${theme.blue}'><b>{:%H:%M:%S %Z</b></span>\n${dim "date   "} %A %d %B %Y\n${dim "week   "} W%V, day %j}\n{tz_list}";
+
+            # {tz_list} is NOT a fmt argument. Waybar regex-substitutes it (and
+            # {calendar}) into the format string before handing the result to
+            # fmt, so it does not consume a positional index and coexists with
+            # the single `{:...}` field above.
+            #
+            # The leading "" is the local zone, and waybar always omits the
+            # local zone from the list — no duplicate of the heading, and the
+            # bar keeps showing local time.
+            timezones = ["" "UTC" "Europe/London" "Europe/Amsterdam" "Asia/Singapore"];
+
+            # One format for every zone, so the zones cannot be labelled
+            # individually; %Z is what distinguishes them (UTC, BST, CEST,
+            # +08). Same two constraints as the tooltip above — one positional
+            # field, opening with a %-code — hence the same span-opened-outside
+            # shape. Abbreviation widths vary, so this column is slightly
+            # ragged and there is no strftime padding to fix it with.
+            timezone-tooltip-format = "<span color='${theme.comment}'>{:%Z</span>\t%H:%M  %a %d %b}";
           };
 
+          # The label must not be empty. Waybar hides a custom module whose
+          # output text is empty, and a hidden widget gets no width — the
+          # min-width below silently does nothing and the two clock halves
+          # close up in the middle of the bar, directly behind the cutout.
+          # A single space is enough to keep the widget realised.
           "custom/notch" = {
-            format = "";
+            format = " ";
             tooltip = false;
           };
 
-          cpu = {
-            format = " {usage}%";
+          # Replaces the built-in `cpu` module, which cannot render this: it
+          # builds its tooltip internally with set_tooltip_text and honours no
+          # tooltip-format, so per-core bars and markup are unreachable from
+          # config. See waybar-cpu.sh.
+          "custom/cpu" = {
+            exec = "${cpuHeat}";
+            return-type = "json";
             interval = 2;
+            on-click = "${pkgs.kitty}/bin/kitty --class system-tui -e ${pkgs.btop}/bin/btop";
           };
 
+          # Was nf-fa-database (U+F1C0): a stack of platters, which reads as
+          # disk rather than RAM. nf-fa-memory (U+F538) would be the obvious
+          # replacement but is genuinely absent from this MesloLGS patch
+          # (`fc-list :charset=f538` finds nothing).
+          #
+          # U+EFC5 draws a DIMM stick. nf-md-memory (U+F035B) is also present
+          # and also means RAM, but renders as a small square chip that reads
+          # as a near-duplicate of the CPU microchip sitting next to it in the
+          # bar -- the two are only a colour apart. The stick is unambiguous.
           memory = {
-            format = " {}%";
+            format = " {}%";
+            # Plain text, no markup: waybar's memory module sets this with
+            # set_tooltip_text (src/modules/memory/common.cpp), unlike network
+            # and pulseaudio which use set_tooltip_markup. Tags here would be
+            # shown literally. The column alignment still works, because the
+            # monospace face comes from the stylesheet rather than from markup.
+            tooltip-format = "Memory\nused   {used:.1f}G / {total:.1f}G  ({percentage}%)\nfree   {avail:.1f}G\nswap   {swapUsed:.1f}G / {swapTotal:.1f}G  ({swapState})";
             interval = 2;
           };
 
@@ -107,9 +223,17 @@ in {
             format-wifi = " {signalStrength}%";
             format-ethernet = " {ipaddr}";
             format-disconnected = " Disconnected";
-            tooltip-format-wifi = "{essid}  {signalStrength}%\n{ifname}  {ipaddr}/{cidr}\ngw {gwaddr}\nup {bandwidthUpBits} / down {bandwidthDownBits}";
-            tooltip-format-ethernet = "{ifname}  {ipaddr}/{cidr}\ngw {gwaddr}\nup {bandwidthUpBits} / down {bandwidthDownBits}";
-            tooltip-format-disconnected = "No network";
+            # Label column padded to a fixed width so the values line up. The
+            # stylesheet gives tooltips the bar's monospace face specifically
+            # so this works; in a proportional font it would come out ragged.
+            #
+            # {essid} is the one field here that carries arbitrary text from
+            # the outside world, so it is deliberately left outside any markup
+            # tag — an SSID containing '<' or '&' would otherwise make the
+            # whole tooltip invalid and drop it back to raw text.
+            tooltip-format-wifi = "<span color='${theme.blue}'><b>{essid}</b></span>\n${dim "signal "} {signalStrength}%  ({frequency} GHz)\n${dim "iface  "} {ifname}\n${dim "addr   "} {ipaddr}/{cidr}\n${dim "gateway"} {gwaddr}\n${dim "up     "} {bandwidthUpBits}\n${dim "down   "} {bandwidthDownBits}";
+            tooltip-format-ethernet = "<span color='${theme.blue}'><b>{ifname}</b></span>\n${dim "addr   "} {ipaddr}/{cidr}\n${dim "gateway"} {gwaddr}\n${dim "up     "} {bandwidthUpBits}\n${dim "down   "} {bandwidthDownBits}";
+            tooltip-format-disconnected = "<span color='${theme.red}'><b>No network</b></span>";
             # Throughput figures are deltas between polls; without an interval
             # they read zero forever.
             interval = 5;
@@ -128,11 +252,26 @@ in {
             on-click = "${pkgs.kitty}/bin/kitty --class network-tui -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
+          # The mic is deliberately in the bar and not only the tooltip: an
+          # unnoticed hot mic is the failure that actually costs you, and a
+          # glance has to answer it. {format_source} renders format-source
+          # normally and format-source-muted when the source is muted, so the
+          # crossed-out glyph IS the muted state -- there is no conditional in
+          # waybar's format language to express that any other way.
+          #
+          # `.source-muted` in the stylesheet colours it, and left-click on the
+          # module toggles the source rather than opening a mixer, because
+          # unmuting is what you want at the moment you notice.
           pulseaudio = {
-            format = "{icon} {volume}%";
-            format-muted = " Muted";
+            format = "{icon} {volume}%  {format_source}";
+            format-muted = " muted  {format_source}";
             format-icons = {default = ["" "" ""];};
-            on-click = "pavucontrol";
+            format-source = " {volume}%";
+            format-source-muted = "";
+            tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%\n${dim "mic    "} {source_desc}\n${dim "input  "} {format_source}";
+            on-click = "${pkgs.pulseaudio}/bin/pactl set-source-mute @DEFAULT_SOURCE@ toggle";
+            on-click-right = "pavucontrol";
+            scroll-step = 5;
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.
@@ -198,7 +337,7 @@ in {
           color: ${theme.blue};
         }
 
-        #clock, #cpu, #memory, #network, #pulseaudio, #tray {
+        #clock, #custom-cpu, #memory, #network, #pulseaudio, #tray {
           padding: 0 10px;
         }
 
@@ -206,7 +345,7 @@ in {
           color: ${theme.cyan};
         }
 
-        #cpu {
+        #custom-cpu {
           color: ${theme.green};
         }
 
@@ -220,6 +359,43 @@ in {
 
         #pulseaudio {
           color: ${theme.orange};
+        }
+
+        /* Waybar puts `muted` on the module when the sink is muted and
+           `source-muted` when the microphone is. Both classes land on the whole
+           module, so this colours the pair rather than just the offending half.
+
+           Muted output greys out — you find that one instantly by turning the
+           volume up. Muted input goes red, because talking into a dead mic is
+           the state you discover a minute too late. */
+        #pulseaudio.muted {
+          color: ${theme.comment};
+        }
+
+        #pulseaudio.source-muted {
+          color: ${theme.red};
+        }
+
+        /* Tooltips are GTK3 toplevels, not part of the bar, so none of the
+           rules above reach them -- unstyled they render in the ambient GTK
+           theme and look nothing like the bar. `tooltip` is the GTK CSS node
+           name; the inner `label` is what actually carries the text, so colour
+           and padding have to go there rather than on the container.
+
+           The `*` rule at the top of this sheet does reach them, which is why
+           tooltip bodies come out in the same monospace face the bar uses --
+           relied on below, where tooltip contents are laid out in columns. */
+        tooltip {
+          background: ${theme.bgDark};
+          border: 1px solid ${theme.border};
+          /* Matches decoration.rounding in hyprland.nix — keep the two in step
+             or popups read as belonging to a different desktop than windows. */
+          border-radius: 2px;
+        }
+
+        tooltip label {
+          color: ${theme.fg};
+          padding: 6px 10px;
         }
       '';
     };
