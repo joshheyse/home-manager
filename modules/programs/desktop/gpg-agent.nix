@@ -107,6 +107,13 @@ in {
   services.gpg-agent = {
     enable = lib.mkDefault false;
     enableSshSupport = true;
+    # The `dev`/`homelab` ssh blocks RemoteForward the remote S.gpg-agent to
+    # this socket, so it has to exist locally or every forwarded session prints
+    #   connect to .../S.gpg-agent.extra port -2: No such file or directory
+    # into the terminal and remote gpg gets no agent. "extra" is the restricted
+    # socket, which is the correct one to expose to a remote host: it refuses
+    # key management and admin commands.
+    enableExtraSocket = true;
     defaultCacheTtl = 60;
     maxCacheTtl = 120;
     # On Linux we override HM's zsh integration below to add `--no-autostart`
