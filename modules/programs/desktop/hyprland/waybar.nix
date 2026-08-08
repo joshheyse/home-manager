@@ -132,38 +132,38 @@ in {
           # the notch's width between the two halves lands the cutout between
           # them: date to its left, time to its right. Keeping the two roughly
           # equal in width keeps the spacer centred on the screen.
+          #
+          # Two constraints on waybar's clock formatter, both established by
+          # probing the binary rather than inferred:
+          #
+          #   1. Exactly one positional `{:...}` field. A second one is
+          #      "invalid arg-id in format string" — the time arrives as a
+          #      single argument and fmt's auto-indexing then runs off the end.
+          #      Named fields ({calendar}, {tz_list}) are substituted before
+          #      fmt runs, consume no index, and can be used freely.
+          #   2. The spec must OPEN with a '%' code, or chrono rejects it with
+          #      "no '%' at start of chrono-specs".
+          #
+          # Together those force the heading's <span><b> to open outside the
+          # field and close inside it below, which looks unbalanced but is not:
+          # Pango only ever sees the assembled string, where the tags pair up.
+          # Everything after the first %-code is literal to chrono, so the week
+          # line sits inside the same spec.
           "clock#date" = {
             inherit calendar;
             format = "{:%a %d %b}";
-            tooltip-format = "<span color='${theme.blue}'><b>{:%A %d %B %Y}</b></span>\n<tt>{calendar}</tt>";
+            tooltip-format = "<span color='${theme.blue}'><b>{:%A %d %B %Y</b></span>\n${dim "week   "} W%V, day %j}\n<tt>{calendar}</tt>";
           };
 
           "clock#time" = {
             format = " {:%H:%M:%S}";
             interval = 1;
-            # Two constraints from waybar's formatter, both verified against
-            # the binary rather than inferred:
-            #
-            #   1. Exactly one positional `{:...}` field. A second one is
-            #      "invalid arg-id in format string" — the time is passed as a
-            #      single argument and fmt's auto-indexing then runs off the
-            #      end. Named fields ({calendar}) do not consume an index,
-            #      which is how the date tooltip above manages two fields.
-            #   2. The spec must OPEN with a '%' code, or chrono rejects it
-            #      with "no '%' at start of chrono-specs".
-            #
-            # Together those force the heading's <span><b> to open outside the
-            # field and close inside it, which looks unbalanced here but is
-            # not: Pango only ever sees the assembled string, where the tags
-            # pair up. Everything after the first %-code is literal to chrono,
-            # so the remaining markup and labels sit inside the one spec.
-            tooltip-format = "<span color='${theme.blue}'><b>{:%H:%M:%S %Z</b></span>\n${dim "date   "} %A %d %B %Y\n${dim "week   "} W%V, day %j}\n{tz_list}";
+            # Local time and nothing else, then the other zones. The date and
+            # week live on the date half of the clock, next to the calendar
+            # they belong with; repeating them here only made this tooltip
+            # longer than the answer it exists to give.
+            tooltip-format = "<span color='${theme.blue}'><b>{:%H:%M:%S %Z}</b></span>\n{tz_list}";
 
-            # {tz_list} is NOT a fmt argument. Waybar regex-substitutes it (and
-            # {calendar}) into the format string before handing the result to
-            # fmt, so it does not consume a positional index and coexists with
-            # the single `{:...}` field above.
-            #
             # The leading "" is the local zone, and waybar always omits the
             # local zone from the list — no duplicate of the heading, and the
             # bar keeps showing local time.
@@ -171,9 +171,9 @@ in {
 
             # One format for every zone, so the zones cannot be labelled
             # individually; %Z is what distinguishes them (UTC, BST, CEST,
-            # +08). Same two constraints as the tooltip above — one positional
-            # field, opening with a %-code — hence the same span-opened-outside
-            # shape. Abbreviation widths vary, so this column is slightly
+            # +08). Same two constraints as the date tooltip above — one
+            # positional field, opening with a %-code — hence the same
+            # span-opened-outside shape. Abbreviation widths vary, so this column is slightly
             # ragged and there is no strftime padding to fix it with.
             timezone-tooltip-format = "<span color='${theme.comment}'>{:%Z</span>\t%H:%M  %a %d %b}";
           };
