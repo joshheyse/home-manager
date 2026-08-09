@@ -23,10 +23,15 @@
     updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed "s|#([^)]*netspeed\.sh)|#(${netspeedScript})|g")
     ${pkgs.tmux}/bin/tmux set -g status-right "$updated"
   '';
+  devStatusScript = pkgs.writeShellScript "tmux-dev-status" ''
+    export PATH="${lib.makeBinPath [pkgs.direnv pkgs.gnused pkgs.starship pkgs.coreutils]}:$PATH"
+    ${builtins.readFile ./dev-status.sh}
+  '';
   statusRightSetupScript = pkgs.writeShellScript "tmux-status-right-setup" ''
-    # The directory may naturally change width. Provider and state reserve
-    # fixed-width fields, so lifecycle transitions never shift the bar.
-    dev_right='#[fg=#565f89] #{b:pane_current_path} #[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},  }'
+    # Starship supplies directory/Git/dev-shell context every status interval.
+    # Provider and state reserve fixed-width fields, so lifecycle transitions
+    # never shift the bar.
+    dev_right='#[fg=#565f89]#(${devStatusScript} #{q:pane_current_path})#[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},  }'
     ${pkgs.tmux}/bin/tmux set -g @dev_status_right "$dev_right"
 
     ${
@@ -253,7 +258,7 @@ in {
           # replaced ours, then keep lifecycle transitions responsive.
           run-shell '${agentSetupScript}'
 
-          set -g status-interval 3
+          set -g status-interval 5
 
         '';
     };
