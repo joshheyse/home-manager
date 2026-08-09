@@ -82,11 +82,11 @@
       // belongs in the real browser. Chromium will not hand a web URL to the
       // desktop, but it will hand over a scheme it does not recognise -- so
       // the URL is re-emitted under ${escapeScheme}: and the desktop routes it.
-      const APP_ORIGIN = "${origin pwa.url}";
+      const INTERNAL_ORIGINS = new Set(${builtins.toJSON ([(origin pwa.url)] ++ pwa.internalOrigins)});
 
       function isExternal(url) {
         try {
-          return new URL(url).origin !== APP_ORIGIN;
+          return !INTERNAL_ORIGINS.has(new URL(url).origin);
         } catch (e) {
           return false;
         }
@@ -289,6 +289,17 @@ in {
 
             chromium only -- a Firefox-hosted app already opens links in
             Firefox, being Firefox.
+          '';
+        };
+
+        internalOrigins = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          example = ["https://auth.example.com"];
+          description = ''
+            Additional origins that remain inside this app when
+            externalLinksOut is enabled. Use this for authentication origins
+            whose redirects must share the app's isolated browser profile.
           '';
         };
 

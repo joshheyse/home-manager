@@ -88,6 +88,7 @@ in {
       name = "ChatGPT";
       url = "https://chatgpt.com";
       externalLinksOut = true;
+      internalOrigins = ["https://auth.openai.com"];
     };
 
     gmail = {
