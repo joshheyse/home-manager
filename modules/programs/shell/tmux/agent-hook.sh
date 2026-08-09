@@ -18,6 +18,9 @@ notify_attention() {
 case "$EVENT" in
   start|idle|stop)
     "$AGENT_STATE_COMMAND" set "$PROVIDER" idle
+    if [[ "$PROVIDER" == "codex" && "$EVENT" == "stop" ]]; then
+      printf '{}\n'
+    fi
     ;;
   submit|working|permission-replied)
     "$AGENT_STATE_COMMAND" set "$PROVIDER" working

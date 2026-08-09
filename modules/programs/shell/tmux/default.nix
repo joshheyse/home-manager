@@ -81,6 +81,7 @@
     export AGENT_STATE_COMMAND="${agentStateScript}"
     ${builtins.readFile ./agent-hook.sh}
   '';
+  agentHookCommand = "${config.home.homeDirectory}/.local/bin/tmux-agent-hook";
   agentSetupScript = pkgs.writeShellScript "tmux-agent-setup" ''
     # Inject #{@agent_tab_icon} into custom window formats that lack the slot.
     for fmt_opt in window-status-format window-status-current-format; do
@@ -109,7 +110,7 @@
     hooks = [
       {
         type = "command";
-        command = "${agentHookScript} codex ${event}";
+        command = "${agentHookCommand} codex ${event}";
         timeout = 3;
       }
     ];
@@ -312,6 +313,10 @@ in {
       ];
 
       file.".codex/hooks.json".source = codexHooksFile;
+      file.".local/bin/tmux-agent-hook" = {
+        source = agentHookScript;
+        executable = true;
+      };
 
       sessionVariables = {
         TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
@@ -366,7 +371,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude start";
+              command = "${agentHookCommand} claude start";
             }
           ];
         }
@@ -376,7 +381,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude submit";
+              command = "${agentHookCommand} claude submit";
             }
           ];
         }
@@ -387,7 +392,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude permission";
+              command = "${agentHookCommand} claude permission";
             }
           ];
         }
@@ -396,7 +401,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude attention";
+              command = "${agentHookCommand} claude attention";
             }
           ];
         }
@@ -405,7 +410,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude idle";
+              command = "${agentHookCommand} claude idle";
             }
           ];
         }
@@ -415,7 +420,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude stop";
+              command = "${agentHookCommand} claude stop";
             }
           ];
         }
@@ -425,7 +430,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude error";
+              command = "${agentHookCommand} claude error";
             }
           ];
         }
@@ -435,7 +440,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${agentHookScript} claude end";
+              command = "${agentHookCommand} claude end";
             }
           ];
         }
