@@ -24,18 +24,24 @@
     ${pkgs.tmux}/bin/tmux set -g status-right "$updated"
   '';
   statusRightSetupScript = pkgs.writeShellScript "tmux-status-right-setup" ''
+    # The directory may naturally change width. Provider and state reserve
+    # fixed-width fields, so lifecycle transitions never shift the bar.
+    dev_right='#[fg=#565f89] #{b:pane_current_path} #[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},  }'
+    ${pkgs.tmux}/bin/tmux set -g @dev_status_right "$dev_right"
+
     ${
       if hasWaybar
       then ''
-        # Waybar already carries the local system information.
-        ${pkgs.tmux}/bin/tmux set -g status-right ""
+        # Waybar carries local system information; dev windows replace the
+        # otherwise empty right side with workspace-specific information.
+        ${pkgs.tmux}/bin/tmux set -g status-right '#{?#{==:#{@window_type},dev},#{E:@dev_status_right},}'
       ''
       else ''
         # Preserve the theme's widgets for ordinary remote/macOS windows, but
-        # suppress them while the selected window is a dev workspace.
+        # replace them while the selected window is a dev workspace.
         default_right=$(${pkgs.tmux}/bin/tmux show -gv status-right 2>/dev/null) || exit 0
         ${pkgs.tmux}/bin/tmux set -g @non_dev_status_right "$default_right"
-        ${pkgs.tmux}/bin/tmux set -g status-right '#{?#{==:#{@window_type},dev},,#{E:@non_dev_status_right}}'
+        ${pkgs.tmux}/bin/tmux set -g status-right '#{?#{==:#{@window_type},dev},#{E:@dev_status_right},#{E:@non_dev_status_right}}'
       ''
     }
   '';
@@ -89,6 +95,7 @@
       ];
       UserPromptSubmit = [(codexHook "submit")];
       PermissionRequest = [(codexHook "permission")];
+      PostToolUse = [(codexHook "working")];
       Stop = [(codexHook "stop")];
       SessionEnd = [(codexHook "end")];
     };
