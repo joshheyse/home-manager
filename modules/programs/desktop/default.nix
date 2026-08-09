@@ -16,6 +16,7 @@ in {
   imports = [
     ../../theme.nix
     ./firefox.nix
+    ./evolution.nix
     ./keybindings.nix
     ./kitty.nix
     ./ghostty
