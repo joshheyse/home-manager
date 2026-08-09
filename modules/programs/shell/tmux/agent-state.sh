@@ -66,16 +66,16 @@ refresh_window() {
   tmux set-option -w -t "$window_id" @agent_state "$best_state"
   case "$best_state" in
     error)
-      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#f7768e]󰧑#[fg=default]"
+      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#f7768e]󰧑 #[fg=default]"
       ;;
     attention)
-      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#e0af68,blink]󰧑#[noblink,fg=default]"
+      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#e0af68,blink]󰧑 #[noblink,fg=default]"
       ;;
     working)
-      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#9ece6a]󰧑#[fg=default]"
+      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#9ece6a]󰧑 #[fg=default]"
       ;;
     idle)
-      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#565f89]󰧑#[fg=default]"
+      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#565f89]󰧑 #[fg=default]"
       ;;
   esac
 }

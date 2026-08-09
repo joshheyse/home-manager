@@ -31,7 +31,7 @@
     # Starship supplies directory/Git/dev-shell context every status interval.
     # Provider and state reserve fixed-width fields, so lifecycle transitions
     # never shift the bar.
-    dev_right='#[fg=#565f89]#(${devStatusScript} #{q:pane_current_path})#[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},  }'
+    dev_right='#[fg=#565f89]#(${devStatusScript} #{q:pane_current_path})#[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},   }'
     ${pkgs.tmux}/bin/tmux set -g @dev_status_right "$dev_right"
 
     ${

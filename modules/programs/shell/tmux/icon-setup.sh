@@ -30,10 +30,11 @@ ICON+=",#{?#{==:#{pane_current_command},top},${I_MON} "
 ICON+=",${I_TERM} "
 ICON+="}}}}}}"
 
-# Window names retain their natural width. The agent slot is always two
-# columns: either a space plus its state icon, or two spaces when inactive.
+# Window names retain their natural width. The agent slot is always three
+# columns: a space, its state icon, and a trailing styled cell. Keeping that
+# trailing cell inside blink styling prevents half-painted Nerd Font glyphs.
 NAME='#W'
-AGENT='#{?#{@agent_icon},#{@agent_icon},  }'
+AGENT='#{?#{@agent_icon},#{@agent_icon},   }'
 
 # Current (focused) window: green icon on dark bg, bold name
 tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#I ${NAME}${AGENT} #[nobold] "
