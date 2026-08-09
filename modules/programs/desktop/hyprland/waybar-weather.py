@@ -83,6 +83,24 @@ def bearing(degrees):
     return COMPASS[int((degrees % 360) / 22.5 + 0.5) % 16]
 
 
+def temperature_color(temperature, args):
+    """Return a five-band color, with thresholds expressed in Fahrenheit."""
+    fahrenheit = temperature if args.units == "imperial" else temperature * 9 / 5 + 32
+    if fahrenheit < 20:
+        return args.color_temp_very_low
+    if fahrenheit < 40:
+        return args.color_temp_low
+    if fahrenheit <= 75:
+        return args.color_temp_normal
+    if fahrenheit < 90:
+        return args.color_temp_high
+    return args.color_temp_very_high
+
+
+def colored(text, color):
+    return f"<span color='{escape(color, quote=True)}'>{escape(text)}</span>"
+
+
 def get_json(url, params=None):
     if params:
         url = f"{url}?{urllib.parse.urlencode(params, doseq=True)}"
@@ -177,7 +195,11 @@ def build(weather, alerts, args):
     )
     temperature = round(current["temperature_2m"])
     feels = round(current["apparent_temperature"])
-    text = f"{glyph} {temperature}{degree if args.unit_in_bar else '°'}"
+    temperature_text = f"{temperature}{degree if args.unit_in_bar else '°'}"
+    text = (
+        f"{colored(glyph, args.color_status)} "
+        f"{colored(temperature_text, temperature_color(temperature, args))}"
+    )
     lines = []
 
     for severity, event, headline in alerts[:3]:
@@ -278,7 +300,7 @@ def build(weather, alerts, args):
             ]
         )
         if args.alert_in_bar:
-            text = f" {text}"
+            text = f"{colored('', args.color_alert)} {text}"
 
     return {
         "text": text,
@@ -341,6 +363,13 @@ def parse_args():
     parser.add_argument("--unit-in-bar", action="store_true")
     parser.add_argument("--pop-floor", type=int, default=10)
     parser.add_argument("--stale-after", type=int, default=7200)
+    parser.add_argument("--color-alert", default="#f7768e")
+    parser.add_argument("--color-status", default="#7aa2f7")
+    parser.add_argument("--color-temp-very-low", default="#7aa2f7")
+    parser.add_argument("--color-temp-low", default="#7dcfff")
+    parser.add_argument("--color-temp-normal", default="#9ece6a")
+    parser.add_argument("--color-temp-high", default="#ff9e64")
+    parser.add_argument("--color-temp-very-high", default="#f7768e")
     return parser.parse_args()
 
 

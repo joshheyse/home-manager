@@ -52,7 +52,16 @@
   '';
 
   weatherStatus = pkgs.writeShellScript "waybar-weather" ''
-    exec ${pkgs.python3}/bin/python3 ${./waybar-weather.py} --h24 "$@"
+    exec ${pkgs.python3}/bin/python3 ${./waybar-weather.py} \
+      --h24 \
+      --color-alert ${lib.escapeShellArg theme.red} \
+      --color-status ${lib.escapeShellArg theme.blue} \
+      --color-temp-very-low ${lib.escapeShellArg theme.blue} \
+      --color-temp-low ${lib.escapeShellArg theme.cyan} \
+      --color-temp-normal ${lib.escapeShellArg theme.green} \
+      --color-temp-high ${lib.escapeShellArg theme.orange} \
+      --color-temp-very-high ${lib.escapeShellArg theme.red} \
+      "$@"
   '';
 
   notch = cfg.waybar.notchWidth;
@@ -479,29 +488,14 @@ in {
           padding: 0 10px;
         }
 
-        #custom-weather.stale,
-        #custom-weather.error,
-        #custom-weather.alert-unknown {
+        /* Pango spans own the live weather colours. Dim the entire rendered
+           label for cached data so those child colours fade together. */
+        #custom-weather.stale {
+          opacity: 0.55;
+        }
+
+        #custom-weather.error {
           color: ${theme.comment};
-        }
-
-        #custom-weather.alert-minor {
-          color: ${theme.yellow};
-        }
-
-        #custom-weather.alert-moderate {
-          color: ${theme.orange};
-        }
-
-        #custom-weather.alert-severe,
-        #custom-weather.alert-extreme {
-          color: ${theme.red};
-        }
-
-        /* Reuse the microphone alarm's proven GTK keyframes: extreme alerts
-           flash foreground red-to-dim without painting the module background. */
-        #custom-weather.alert-extreme {
-          animation: mic-alarm 1s steps(12) infinite alternate;
         }
 
         /* Ethernet has no signal strength, so it must not take a
