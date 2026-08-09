@@ -83,7 +83,13 @@ in {
           repeat_rate = 50;
           repeat_delay = 300;
           follow_mouse = 1;
-          sensitivity = 0;
+
+          # mkDefault so a host can compensate for its own geometry. Pointer
+          # deltas arrive in LOGICAL pixels, so the same finger movement
+          # crosses less of a larger logical desktop -- a host running a
+          # fractional scale needs a faster pointer to feel the same, and one
+          # at scale 1 does not.
+          sensitivity = lib.mkDefault 0;
         };
 
         # Three-finger horizontal swipe moves between workspaces, like macOS.
