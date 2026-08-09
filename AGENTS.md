@@ -231,7 +231,7 @@ Modules declare *how programs are configured* for the user. They set options, wr
 Scripts that are tightly coupled to a single module live alongside it, not in `/pkgs/`. Use `writeShellScript` or `writeShellApplication` inline in the module's `default.nix` and read the `.sh` file with `builtins.readFile`.
 
 **Examples:**
-- `tmux/claude-toggle.sh`, `tmux/pane-icon.sh`, `tmux/netspeed.sh` — only used by tmux config
+- `tmux/agent-toggle.sh`, `tmux/pane-icon.sh`, `tmux/netspeed.sh` — only used by tmux config
 - `claude-code/claude-sandbox.sh` — only meaningful alongside the claude-code module
 
 **When to colocate:** The script is an implementation detail of one module. Nobody else imports it. It wouldn't make sense as a standalone command without the module's configuration.

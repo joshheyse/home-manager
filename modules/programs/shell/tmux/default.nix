@@ -40,7 +40,7 @@
     }
   '';
 
-  claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
+  agentToggleScript = pkgs.writeShellScript "tmux-agent-toggle" (builtins.readFile ./agent-toggle.sh);
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
@@ -52,21 +52,47 @@
     ${builtins.readFile ./dev-workspace.sh}
   '';
 
-  # Claude Code tmux integration scripts
-  claudeHookScript = pkgs.writeShellScript "tmux-claude-hook" ''
-    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux pkgs.notify]}:$PATH"
-    ${builtins.readFile ./claude-hook.sh}
+  # Provider-neutral agent state, with thin lifecycle-hook adapters.
+  agentStateScript = pkgs.writeShellScript "tmux-agent-state" ''
+    export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
+    ${builtins.readFile ./agent-state.sh}
   '';
-  claudeSetupScript = pkgs.writeShellScript "tmux-claude-setup" ''
-    # Inject #{@claude_icon} into window-status-format (after #W) if not already present
+  agentHookScript = pkgs.writeShellScript "tmux-agent-hook" ''
+    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux pkgs.notify]}:$PATH"
+    export AGENT_STATE_COMMAND="${agentStateScript}"
+    ${builtins.readFile ./agent-hook.sh}
+  '';
+  agentSetupScript = pkgs.writeShellScript "tmux-agent-setup" ''
+    # Inject #{@agent_icon} into custom window formats that lack the slot.
     for fmt_opt in window-status-format window-status-current-format; do
       current=$(${pkgs.tmux}/bin/tmux show -gv "$fmt_opt" 2>/dev/null)
-      if [[ "$current" != *"@claude_icon"* ]]; then
-        updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed 's/#W/#W#{@claude_icon}/g')
+      if [[ "$current" != *"@agent_icon"* ]]; then
+        updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed 's/#W/#W#{@agent_icon}/g')
         ${pkgs.tmux}/bin/tmux set -g "$fmt_opt" "$updated"
       fi
     done
   '';
+  codexHook = event: {
+    hooks = [
+      {
+        type = "command";
+        command = "${agentHookScript} codex ${event}";
+        timeout = 3;
+      }
+    ];
+  };
+  codexHooksFile = pkgs.writeText "codex-tmux-hooks.json" (builtins.toJSON {
+    description = "Update provider-neutral tmux agent state.";
+    hooks = {
+      SessionStart = [
+        ((codexHook "start") // {matcher = "startup|resume|clear";})
+      ];
+      UserPromptSubmit = [(codexHook "submit")];
+      PermissionRequest = [(codexHook "permission")];
+      Stop = [(codexHook "stop")];
+      SessionEnd = [(codexHook "end")];
+    };
+  });
 in {
   config = {
     programs.tmux = {
@@ -208,7 +234,7 @@ in {
           bind-key -N "Open lazygit in popup" g display-popup -d '#{pane_current_path}' -w90% -h90% -E lazygit
           bind-key -N "Launch ssh-fzf in popup" s display-popup -d '#{pane_current_path}' -w80% -h60% -E '${sshFzfScript}'
           bind-key -N "Open dev workspace picker" d display-popup -d '#{pane_current_path}' -w80% -h80% -E '${devWorkspaceScript} --pick'
-          bind-key -N "Open/focus claude-code pane" a run-shell '${claudeToggleScript}'
+          bind-key -N "Open/focus agent pane" a run-shell '${agentToggleScript}'
           bind-key -N "Show key bindings" ? display-popup -w75% -h75% -E 'sh -c "tmux list-keys -N | ''${PAGER:-less}"'
 
           # Post-theme customizations (runs after tokyo-night theme sets formats)
@@ -216,10 +242,10 @@ in {
           run-shell '${netspeedSetupScript}'
           run-shell '${statusRightSetupScript}'
 
-          # Claude Code integration: inject icon into window tab (no-op if already present)
-          run-shell '${claudeSetupScript}'
+          # Agent integration: inject the fixed icon slot if a custom format
+          # replaced ours, then keep lifecycle transitions responsive.
+          run-shell '${agentSetupScript}'
 
-          # Faster status refresh for Claude icon responsiveness
           set -g status-interval 3
 
         '';
@@ -236,7 +262,9 @@ in {
 
       packages = [
         (pkgs.writeShellScriptBin "dev" ''
-          inplace_dir=$(${devWorkspaceScript} "''${1:-$(pwd)}")
+          set -euo pipefail
+
+          inplace_dir=$(${devWorkspaceScript} "$@")
           if [[ -n "''${inplace_dir:-}" ]]; then
             cd "$inplace_dir" || exit 1
             eval "$(direnv export zsh 2>/dev/null)"
@@ -245,6 +273,8 @@ in {
           fi
         '')
       ];
+
+      file.".codex/hooks.json".source = codexHooksFile;
 
       sessionVariables = {
         TMUX_TMPDIR = lib.mkForce "\${XDG_RUNTIME_DIR:-/tmp}";
@@ -255,13 +285,51 @@ in {
       };
     };
 
+    xdg.configFile."opencode/plugins/tmux-agent-state.js".text = ''
+      const stateCommand = ${builtins.toJSON (toString agentStateScript)};
+
+      async function setState($, state) {
+        await $`''${stateCommand} set opencode ''${state}`.quiet();
+      }
+
+      export const TmuxAgentState = async ({ $ }) => ({
+        event: async ({ event }) => {
+          switch (event.type) {
+            case "session.created":
+            case "session.idle":
+              await setState($, "idle");
+              break;
+            case "session.status": {
+              const status = event.properties?.status?.type;
+              if (status === "idle") await setState($, "idle");
+              else if (status === "busy" || status === "retry") await setState($, "working");
+              break;
+            }
+            case "permission.asked":
+              await setState($, "attention");
+              break;
+            case "permission.replied":
+              await setState($, "working");
+              break;
+            case "session.error":
+              await setState($, "error");
+              break;
+            case "session.deleted":
+              await $`''${stateCommand} clear`.quiet();
+              break;
+          }
+        },
+      });
+    '';
+
     programs.claude-code.settings.hooks = {
       SessionStart = [
         {
+          matcher = "startup|resume|clear";
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} start";
+              command = "${agentHookScript} claude start";
             }
           ];
         }
@@ -271,7 +339,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} submit";
+              command = "${agentHookScript} claude submit";
             }
           ];
         }
@@ -282,7 +350,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} permission";
+              command = "${agentHookScript} claude permission";
             }
           ];
         }
@@ -291,7 +359,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} question";
+              command = "${agentHookScript} claude attention";
             }
           ];
         }
@@ -300,27 +368,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} idle";
-            }
-          ];
-        }
-      ];
-      PostToolUse = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} tool-done";
-            }
-          ];
-        }
-      ];
-      PostToolUseFailure = [
-        {
-          hooks = [
-            {
-              type = "command";
-              command = "${claudeHookScript} tool-done";
+              command = "${agentHookScript} claude idle";
             }
           ];
         }
@@ -330,7 +378,17 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} stop";
+              command = "${agentHookScript} claude stop";
+            }
+          ];
+        }
+      ];
+      StopFailure = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${agentHookScript} claude error";
             }
           ];
         }
@@ -340,7 +398,7 @@ in {
           hooks = [
             {
               type = "command";
-              command = "${claudeHookScript} end";
+              command = "${agentHookScript} claude end";
             }
           ];
         }

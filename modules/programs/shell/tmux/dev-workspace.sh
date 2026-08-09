@@ -6,6 +6,20 @@ set -euo pipefail
 DEV_ROOT="${TMUX_DEV_ROOT:-$HOME/code}"
 HISTORY_DIR="$HOME/.local/state/tmux-dev-workspaces"
 HISTORY_FILE="$HISTORY_DIR/history"
+AGENT="${TMUX_DEV_AGENT:-claude}"
+
+if [[ "${1:-}" == "--agent" ]]; then
+  AGENT="${2:?--agent requires claude, codex, opencode, or none}"
+  shift 2
+fi
+
+case "$AGENT" in
+  claude|codex|opencode|none) ;;
+  *)
+    echo "Unsupported agent: $AGENT" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "$HISTORY_DIR"
 touch "$HISTORY_FILE"
@@ -224,12 +238,19 @@ create_workspace() {
   # Tag window as dev type for icon display and script queries
   "$PANE_ICON" set dev
 
-  # Claude pane (right, 40% width, full height)
-  tmux split-window -h -l 40% -c "$project_dir" \
-    "zsh -i -c 'eval \"\$(direnv export zsh 2>/dev/null)\" && claude'"
+  if [[ "$AGENT" != "none" ]]; then
+    # Agent pane (right, 40% width, full height). AGENT is allowlisted above.
+    tmux split-window -h -l 40% -c "$project_dir" \
+      "zsh -i -c 'eval \"\$(direnv export zsh 2>/dev/null)\" && $AGENT'"
+    tmux set-option -p @pane_role agent
+    tmux set-option -p @agent_provider "$AGENT"
+    tmux select-pane -T "$AGENT"
+  fi
 
   # Terminal pane (bottom-left, 30% height)
-  tmux select-pane -t '{left}'
+  if [[ "$AGENT" != "none" ]]; then
+    tmux select-pane -t '{left}'
+  fi
   tmux split-window -v -l 30% -c "$project_dir"
 
   # Focus nvim/main pane
