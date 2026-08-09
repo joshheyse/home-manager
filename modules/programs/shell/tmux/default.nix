@@ -4,6 +4,7 @@
   lib,
   ...
 }: let
+  cfg = config.programs.tmux;
   hasWaybar = config.programs.hyprland-desktop.enable or false;
   theme = config.theme.tokyoNight;
 
@@ -58,7 +59,10 @@
     }
   '';
 
-  agentToggleScript = pkgs.writeShellScript "tmux-agent-toggle" (builtins.readFile ./agent-toggle.sh);
+  agentToggleScript = pkgs.writeShellScript "tmux-agent-toggle" ''
+    export TMUX_DEV_AGENT="''${TMUX_DEV_AGENT:-${cfg.devAgent}}"
+    ${builtins.readFile ./agent-toggle.sh}
+  '';
   smartSplitScript = pkgs.writeShellScript "tmux-smart-split" (builtins.readFile ./smart-split.sh);
   sshFzfScript = pkgs.writeShellScript "tmux-ssh-fzf" ''
     export PANE_ICON="${paneIconScript}"
@@ -67,6 +71,7 @@
   devWorkspaceScript = pkgs.writeShellScript "tmux-dev-workspace" ''
     export PANE_ICON="${paneIconScript}"
     export PATH="${lib.makeBinPath [pkgs.git]}:$PATH"
+    export TMUX_DEV_AGENT="''${TMUX_DEV_AGENT:-${cfg.devAgent}}"
     ${builtins.readFile ./dev-workspace.sh}
   '';
 
@@ -129,6 +134,16 @@
     };
   });
 in {
+  options.programs.tmux.devAgent = lib.mkOption {
+    type = lib.types.enum ["claude" "codex" "opencode" "none"];
+    default = "claude";
+    description = ''
+      Default AI agent launched by tmux development workspaces. The
+      TMUX_DEV_AGENT environment variable and dev --agent override it for an
+      individual invocation.
+    '';
+  };
+
   config = {
     programs.tmux = {
       enable = true;
