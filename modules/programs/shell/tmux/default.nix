@@ -36,9 +36,9 @@
   '';
   statusRightSetupScript = pkgs.writeShellScript "tmux-status-right-setup" ''
     # Starship supplies directory/Git/dev-shell context every status interval.
-    # Provider and state reserve fixed-width fields, so lifecycle transitions
-    # never shift the bar.
-    dev_right='#(${devStatusScript} #{q:pane_current_path})  #[fg=${theme.blue5}]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},   }'
+    # The fixed-width provider and constant brain identify the agent without
+    # duplicating the lifecycle state already shown in the window tab.
+    dev_right='#(${devStatusScript} #{q:pane_current_path})  #[fg=${theme.blue5}]#{p-8:#{=8:#{@agent_provider}}}#[fg=${theme.cyan}]#{?#{@agent_provider}, 󰧑 ,   }'
     ${pkgs.tmux}/bin/tmux set -g @dev_status_right "$dev_right"
 
     ${
