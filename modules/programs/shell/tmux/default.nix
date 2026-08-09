@@ -93,6 +93,9 @@
   '';
   tmuxReloadScript = pkgs.writeShellScript "tmux-reload" ''
     if ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf >/dev/null; then
+      while IFS= read -r pane_id; do
+        TMUX_PANE="$pane_id" ${agentStateScript} refresh
+      done < <(${pkgs.tmux}/bin/tmux list-panes -a -F '#{pane_id}')
       ${pkgs.tmux}/bin/tmux display-message "Config reloaded!"
       exit 0
     else
