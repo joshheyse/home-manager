@@ -22,15 +22,11 @@ Private key headers:
 # Allow GPG keygrips (public identifiers, not secrets)
 015B64C5064DC1FEE3E6CCF5BF4C9374F3DDF06B
 
-# Allow git commit SHAs in flake.lock files (rev and narHash fields)
-flake\.lock:.*"rev":
-flake\.lock:.*"narHash":
-flake\.lock:.*"url":
-
-# Pinned flake inputs in flake.nix. A github: URL ending in a 40-hex commit
-# SHA trips the generic high-entropy rule, but a public commit hash is the
-# opposite of a secret -- pinning is only meaningful if the rev is visible.
-flake\.nix:.*github:.*/[0-9a-f]{40}
+# NOTE: exemptions for flake.lock revs/narHashes and pinned flake.nix URLs
+# used to live here. They existed solely to suppress the generic
+# high-entropy rule, which .git-secrets-patterns no longer has, so they are
+# gone with it. An allowlist entry that no longer suppresses anything is not
+# free -- it is a hole kept open for a threat that was retired.
 
 # SOPS encrypted data (already encrypted, safe to commit)
 ENC\[AES256_GCM,
