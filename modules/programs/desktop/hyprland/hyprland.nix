@@ -92,6 +92,12 @@ in {
           sensitivity = lib.mkDefault 0;
         };
 
+        # Honor activation tokens from applications. Firefox reuses its
+        # existing window for externally opened links; without this, the new
+        # tab opens successfully but Hyprland leaves focus on the originating
+        # terminal/app (and even leaves Firefox on another workspace).
+        misc.focus_on_activate = true;
+
         # Three-finger horizontal swipe moves between workspaces, like macOS.
         #
         # Hyprland 0.51 replaced the old `gestures { workspace_swipe = true; }`
