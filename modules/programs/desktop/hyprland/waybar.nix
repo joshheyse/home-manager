@@ -413,9 +413,17 @@ in {
         }
 
         /* Blank cutout the physical notch sits in. min-width is the whole
-           mechanism -- an empty label with no width would collapse. */
+           mechanism -- an empty label with no width would collapse.
+
+           The padding is not decoration: notchWidth is the cutout itself, so
+           without it the date and time butt right up against the bezel. It is
+           the same 0 10px every other module gets, which is what makes the gap
+           read as deliberate spacing rather than text that ran out of room --
+           and it keeps notchWidth meaning the physical cutout instead of
+           quietly absorbing a margin. */
         #custom-notch {
           min-width: ${toString notch}px;
+          padding: 0 10px;
           background: transparent;
         }
 
