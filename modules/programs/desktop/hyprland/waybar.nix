@@ -495,19 +495,13 @@ in {
 
         #custom-weather.alert-severe,
         #custom-weather.alert-extreme {
-          color: ${theme.bg};
-          background-color: ${theme.red};
-          border-radius: 2px;
+          color: ${theme.red};
         }
 
+        /* Reuse the microphone alarm's proven GTK keyframes: extreme alerts
+           flash foreground red-to-dim without painting the module background. */
         #custom-weather.alert-extreme {
-          animation: weather-flash 1.4s steps(1) infinite alternate;
-        }
-
-        @keyframes weather-flash {
-          to {
-            opacity: 0.45;
-          }
+          animation: mic-alarm 1s steps(12) infinite alternate;
         }
 
         /* Ethernet has no signal strength, so it must not take a
