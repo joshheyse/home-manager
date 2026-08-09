@@ -51,6 +51,10 @@
     ${builtins.readFile ./waybar-health.sh}
   '';
 
+  weatherStatus = pkgs.writeShellScript "waybar-weather" ''
+    exec ${pkgs.python3}/bin/python3 ${./waybar-weather.py} --h24 "$@"
+  '';
+
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
 
@@ -147,7 +151,18 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "tray"];
+          modules-right = ["custom/weather" "custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "tray"];
+
+          "custom/weather" = {
+            format = "{}";
+            return-type = "json";
+            exec = "${weatherStatus}";
+            interval = 600;
+            tooltip = true;
+            on-click = "${pkgs.xdg-utils}/bin/xdg-open 'https://radar.weather.gov/station/klot/standard'";
+            on-click-right = "${pkgs.procps}/bin/pkill -RTMIN+9 waybar";
+            signal = 9;
+          };
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -460,8 +475,45 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
+        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
           padding: 0 10px;
+        }
+
+        #custom-weather.stale,
+        #custom-weather.error,
+        #custom-weather.alert-unknown {
+          color: ${theme.comment};
+        }
+
+        #custom-weather.alert-minor {
+          color: ${theme.yellow};
+        }
+
+        #custom-weather.alert-moderate {
+          color: ${theme.orange};
+        }
+
+        #custom-weather.alert-severe,
+        #custom-weather.alert-extreme {
+          color: ${theme.bg};
+          background-color: ${theme.red};
+          border-radius: 2px;
+        }
+
+        #custom-weather.alert-extreme {
+          animation: weather-flash 1.4s steps(1) infinite;
+        }
+
+        @keyframes weather-flash {
+          0%, 49% {
+            background-color: ${theme.red};
+            color: ${theme.bg};
+          }
+
+          50%, 99% {
+            background-color: ${theme.bg};
+            color: ${theme.red};
+          }
         }
 
         /* Ethernet has no signal strength, so it must not take a
