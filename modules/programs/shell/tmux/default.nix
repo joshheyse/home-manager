@@ -5,6 +5,7 @@
   ...
 }: let
   hasWaybar = config.programs.hyprland-desktop.enable or false;
+  theme = config.theme.tokyoNight;
 
   # Window type icon system
   paneIconScript = pkgs.writeShellScript "tmux-pane-icon" (builtins.readFile ./pane-icon.sh);
@@ -25,13 +26,19 @@
   '';
   devStatusScript = pkgs.writeShellScript "tmux-dev-status" ''
     export PATH="${lib.makeBinPath [pkgs.direnv pkgs.gnused pkgs.starship pkgs.coreutils]}:$PATH"
+    export DEV_STATUS_BLUE="${theme.blue}"
+    export DEV_STATUS_BLUE1="${theme.blue1}"
+    export DEV_STATUS_BLUE5="${theme.blue5}"
+    export DEV_STATUS_CYAN="${theme.cyan}"
+    export DEV_STATUS_ORANGE="${theme.orange}"
+    export DEV_STATUS_YELLOW="${theme.yellow}"
     ${builtins.readFile ./dev-status.sh}
   '';
   statusRightSetupScript = pkgs.writeShellScript "tmux-status-right-setup" ''
     # Starship supplies directory/Git/dev-shell context every status interval.
     # Provider and state reserve fixed-width fields, so lifecycle transitions
     # never shift the bar.
-    dev_right='#[fg=#565f89]#(${devStatusScript} #{q:pane_current_path})#[fg=#7dcfff]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},   }'
+    dev_right='#(${devStatusScript} #{q:pane_current_path})  #[fg=${theme.blue5}]#{p-8:#{=8:#{@agent_provider}}}#{?#{@agent_icon},#{@agent_icon},   }'
     ${pkgs.tmux}/bin/tmux set -g @dev_status_right "$dev_right"
 
     ${
@@ -66,6 +73,7 @@
   # Provider-neutral agent state, with thin lifecycle-hook adapters.
   agentStateScript = pkgs.writeShellScript "tmux-agent-state" ''
     export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
+    export AGENT_CYAN="${theme.cyan}"
     ${builtins.readFile ./agent-state.sh}
   '';
   agentHookScript = pkgs.writeShellScript "tmux-agent-hook" ''

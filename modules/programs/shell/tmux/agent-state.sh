@@ -75,8 +75,8 @@ refresh_window() {
       tmux set-option -w -t "$window_id" @agent_tab_icon "#[fg=#e0af68,blink] 󰧑 #[noblink,fg=default]"
       ;;
     working)
-      tmux set-option -w -t "$window_id" @agent_icon " #[fg=#9ece6a]󰧑 #[fg=default]"
-      tmux set-option -w -t "$window_id" @agent_tab_icon " #[fg=#9ece6a]󰧑 #[fg=default]"
+      tmux set-option -w -t "$window_id" @agent_icon " #[fg=${AGENT_CYAN:-#7dcfff}]󰧑 #[fg=default]"
+      tmux set-option -w -t "$window_id" @agent_tab_icon " #[fg=${AGENT_CYAN:-#7dcfff}]󰧑 #[fg=default]"
       ;;
     idle)
       tmux set-option -w -t "$window_id" @agent_icon " #[fg=#565f89]󰧑 #[fg=default]"
