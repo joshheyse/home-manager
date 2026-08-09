@@ -46,6 +46,11 @@
     ${builtins.readFile ./waybar-mic.sh}
   '';
 
+  healthStatus = pkgs.writeShellScript "waybar-health" ''
+    export PATH="${lib.makeBinPath [pkgs.jq pkgs.coreutils pkgs.xdg-utils]}:$PATH"
+    ${builtins.readFile ./waybar-health.sh}
+  '';
+
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
 
@@ -142,7 +147,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "tray"];
+          modules-right = ["custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "tray"];
 
           "hyprland/workspaces" = {
             format = "{icon}";
@@ -309,6 +314,16 @@ in {
             on-click-right = "${pkgs.kitty}/bin/kitty --class network-tui --hold -e ${pkgs.tailscale}/bin/tailscale status";
           };
 
+          # The NixOS daemon owns the checks and atomic state file. This module
+          # only maps its worst status to the bar and independently rejects a
+          # missing, malformed or stale snapshot.
+          "custom/health" = {
+            exec = "${healthStatus}";
+            return-type = "json";
+            interval = 15;
+            on-click = "${healthStatus} --open";
+          };
+
           # Speaker and microphone are two instances of the same module
           # rather than one, because waybar puts its state classes on the
           # WHOLE widget: with both in one module, muting the speaker applied
@@ -445,7 +460,7 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
+        #clock, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
           padding: 0 10px;
         }
 
@@ -470,6 +485,18 @@ in {
            network reading in this bar means. */
         #custom-tailscale.exitnode {
           color: ${theme.yellow};
+        }
+
+        #custom-health.warn {
+          color: ${theme.yellow};
+        }
+
+        #custom-health.crit {
+          color: ${theme.red};
+        }
+
+        #custom-health.unknown {
+          color: ${theme.comment};
         }
 
         /* Deliberately stopped is "off", and dim says so. Logged out or
