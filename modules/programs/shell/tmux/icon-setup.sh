@@ -32,9 +32,11 @@ ICON+="}}}}}}"
 
 # Window names retain their natural width. The agent slot is always three
 # columns: a space, its state icon, and a trailing styled cell. Keeping that
-# trailing cell inside blink styling prevents half-painted Nerd Font glyphs.
+# trailing cell keeps the slot stable. For attention, blink covers the entire
+# three-cell region so both cells neighboring the wide Nerd Font glyph share
+# the same terminal attribute inside tmux window tabs.
 NAME='#W'
-AGENT='#{?#{@agent_icon},#{@agent_icon},   }'
+AGENT='#{?#{@agent_tab_icon},#{@agent_tab_icon},   }'
 
 # Current (focused) window: green icon on dark bg, bold name
 tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#I ${NAME}${AGENT} #[nobold] "

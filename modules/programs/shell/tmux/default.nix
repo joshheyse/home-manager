@@ -74,11 +74,11 @@
     ${builtins.readFile ./agent-hook.sh}
   '';
   agentSetupScript = pkgs.writeShellScript "tmux-agent-setup" ''
-    # Inject #{@agent_icon} into custom window formats that lack the slot.
+    # Inject #{@agent_tab_icon} into custom window formats that lack the slot.
     for fmt_opt in window-status-format window-status-current-format; do
       current=$(${pkgs.tmux}/bin/tmux show -gv "$fmt_opt" 2>/dev/null)
-      if [[ "$current" != *"@agent_icon"* ]]; then
-        updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed 's/#W/#W#{@agent_icon}/g')
+      if [[ "$current" != *"@agent_tab_icon"* ]]; then
+        updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed 's/#W/#W#{@agent_tab_icon}/g')
         ${pkgs.tmux}/bin/tmux set -g "$fmt_opt" "$updated"
       fi
     done
