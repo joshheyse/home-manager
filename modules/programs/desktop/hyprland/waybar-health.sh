@@ -46,7 +46,7 @@ fi
 
 printf '%s' "$snapshot" | jq -c '
   def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
-  def label: {crit: "critical", warn: "warning", unknown: "unknown", ok: "healthy"}[.] // "unknown";
+  def status_label: {crit: "critical", warn: "warning", unknown: "unknown", ok: "healthy"}[.] // "unknown";
   .status as $status
   | ([.checks[] | select(.status == "crit" or .status == "warn" or .status == "unknown")]
      | sort_by(if .status == "crit" then 0 elif .status == "warn" then 1 else 2 end)
@@ -54,7 +54,7 @@ printf '%s' "$snapshot" | jq -c '
   | {
       text: "♥",
       class: $status,
-      tooltip: (("System health: " + ($status | label)
+      tooltip: (("System health: " + ($status | status_label)
         + "\n" + (.summary.crit | tostring) + " critical, "
         + (.summary.warn | tostring) + " warning, "
         + (.summary.unknown | tostring) + " unknown")
