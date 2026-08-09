@@ -501,11 +501,11 @@ in {
         }
 
         #custom-weather.alert-extreme {
-          animation: weather-flash 1.4s steps(1) infinite;
+          animation: weather-flash 1.4s steps(1) infinite alternate;
         }
 
         @keyframes weather-flash {
-          50% {
+          to {
             opacity: 0.45;
           }
         }
