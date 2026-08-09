@@ -211,7 +211,10 @@ in {
           unbind-key "s"
           unbind-key "r"
 
-          bind-key -N "Reload tmux config" r source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!"
+          # tmux-which-key's generated init file uses `display -p` while being
+          # sourced. Run the reload through the shell and discard stdout only;
+          # genuine source/configuration errors remain visible on stderr.
+          bind-key -N "Reload tmux config" r run-shell '${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf >/dev/null && ${pkgs.tmux}/bin/tmux display-message "Config reloaded!"'
 
           bind-key -N "New pane to the right" "\\" run-shell '${smartSplitScript} -h'
           bind-key -N "New outer pane to the right" "|" run-shell '${smartSplitScript} -fh'
