@@ -505,14 +505,8 @@ in {
         }
 
         @keyframes weather-flash {
-          0%, 49% {
-            background-color: ${theme.red};
-            color: ${theme.bg};
-          }
-
-          50%, 99% {
-            background-color: ${theme.bg};
-            color: ${theme.red};
+          50% {
+            opacity: 0.45;
           }
         }
 
