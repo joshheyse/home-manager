@@ -83,6 +83,17 @@
       fi
     done
   '';
+  tmuxReloadScript = pkgs.writeShellScript "tmux-reload" ''
+    if ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf >/dev/null; then
+      ${pkgs.tmux}/bin/tmux display-message "Config reloaded!"
+      exit 0
+    else
+      status=$?
+    fi
+
+    ${pkgs.tmux}/bin/tmux display-message "Tmux config reload failed (exit $status)" || true
+    exit "$status"
+  '';
   codexHook = event: {
     hooks = [
       {
@@ -214,7 +225,7 @@ in {
           # tmux-which-key's generated init file uses `display -p` while being
           # sourced. Run the reload through the shell and discard stdout only;
           # genuine source/configuration errors remain visible on stderr.
-          bind-key -N "Reload tmux config" r run-shell '${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf >/dev/null && ${pkgs.tmux}/bin/tmux display-message "Config reloaded!"'
+          bind-key -N "Reload tmux config" r run-shell '${tmuxReloadScript}'
 
           bind-key -N "New pane to the right" "\\" run-shell '${smartSplitScript} -h'
           bind-key -N "New outer pane to the right" "|" run-shell '${smartSplitScript} -fh'
@@ -270,7 +281,7 @@ in {
       activation = {
         tmuxReload = lib.hm.dag.entryAfter ["writeBoundary"] ''
           if ${pkgs.tmux}/bin/tmux info &>/dev/null; then
-            ${pkgs.tmux}/bin/tmux source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded!" || true
+            ${tmuxReloadScript} || true
           fi
         '';
       };
