@@ -71,5 +71,8 @@ vpnNamespaces
 # ISO image syslinux/GRUB menu entries (MENU BEGIN is not a secret)
 iso-image.*\.nix:.*MENU BEGIN
 
+# AWK program blocks in local health checks (BEGIN { ... } is not key material)
+modules/nixos/common/health/checks/.*\.sh:.*BEGIN \{
+
 # NixOS artwork URLs used in ISO bootloader theming
 raw\.githubusercontent\.com/NixOS/nixos-artwork/
