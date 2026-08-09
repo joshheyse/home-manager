@@ -125,12 +125,12 @@ in {
     programs.waybar = {
       enable = true;
 
-      # Required, not optional: `programs.waybar.enable` alone only installs the
-      # package and writes the config — it starts nothing. Home Manager's unit is
-      # gated behind this option (upstream `systemd.enable = mkEnableOption`), and
-      # hyprland.nix deliberately keeps waybar out of exec-once on the assumption
-      # that the unit exists. Without this the bar has no launcher at all.
-      systemd.enable = true;
+      # Hyprland launches Waybar itself so every bar is tied to exactly one
+      # compositor instance and inherits that instance's WAYLAND_DISPLAY and
+      # HYPRLAND_INSTANCE_SIGNATURE. A persistent systemd user unit can survive
+      # `hyprctl dispatch exit`, restart while no display exists, and retain the
+      # previous instance signature when the next session starts.
+      systemd.enable = false;
 
       settings = [
         {
