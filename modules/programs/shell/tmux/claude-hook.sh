@@ -4,7 +4,6 @@ set -euo pipefail
 # Claude Code hook script for tmux integration
 # Called by Claude Code hooks with: $1 = event type
 # Stdin: JSON from Claude Code (for permission/question events)
-# Stdout: JSON decision (for permission events only)
 
 EVENT="${1:-}"
 STATE_DIR="${TMPDIR:-/tmp}/claude-tmux"
@@ -17,7 +16,6 @@ fi
 
 STATE_FILE="${STATE_DIR}/${PANE_ID}"
 DETAIL_FILE="${STATE_DIR}/${PANE_ID}.detail"
-RESPONSE_FILE="${STATE_DIR}/${PANE_ID}.response"
 
 mkdir -p "$STATE_DIR"
 
@@ -32,22 +30,26 @@ set_window_icon() {
   window_id=$(tmux display-message -t "$PANE_ID" -p '#{window_id}' 2>/dev/null) || return
   case "$state" in
     permission|question)
+      tmux set-option -w -t "$window_id" @claude_state "attention"
       tmux set-option -w -t "$window_id" @claude_icon " #[fg=#e0af68,blink]󰧑#[noblink,fg=default]"
       ;;
     running)
+      tmux set-option -w -t "$window_id" @claude_state "working"
       tmux set-option -w -t "$window_id" @claude_icon " #[fg=#9ece6a]󰧑#[fg=default]"
       ;;
     idle)
+      tmux set-option -w -t "$window_id" @claude_state "idle"
       tmux set-option -w -t "$window_id" @claude_icon " #[fg=#565f89]󰧑#[fg=default]"
       ;;
     *)
+      tmux set-option -wu -t "$window_id" @claude_state 2>/dev/null || true
       tmux set-option -wu -t "$window_id" @claude_icon 2>/dev/null || true
       ;;
   esac
 }
 
 cleanup() {
-  rm -f "$STATE_FILE" "$DETAIL_FILE" "$RESPONSE_FILE"
+  rm -f "$STATE_FILE" "$DETAIL_FILE"
 }
 
 send_notification() {
@@ -62,32 +64,6 @@ send_notification() {
   fi
 }
 
-wait_for_response() {
-  local timeout="${1:-300}" # 5 minutes default
-  local elapsed=0
-  while [[ $elapsed -lt $timeout ]]; do
-    if [[ -f "$RESPONSE_FILE" ]]; then
-      local response
-      response=$(cat "$RESPONSE_FILE")
-      rm -f "$RESPONSE_FILE"
-      echo "$response"
-      return 0
-    fi
-    sleep 0.5
-    elapsed=$((elapsed + 1))
-    # Check every 2 iterations (1 second)
-    if (( elapsed % 2 == 0 )); then
-      # Verify the pane still exists
-      if ! tmux has-session -t "$PANE_ID" 2>/dev/null; then
-        cleanup
-        return 1
-      fi
-    fi
-  done
-  # Timeout - return empty to fall through to normal dialog
-  return 1
-}
-
 case "$EVENT" in
   start)
     set_state "idle"
@@ -100,39 +76,13 @@ case "$EVENT" in
     ;;
 
   permission)
-    # Read JSON from stdin
     input=$(cat)
-    tool_name=$(echo "$input" | jq -r '.tool_name // "unknown"')
-    tool_input_summary=$(echo "$input" | jq -c '.tool_input // {}' | head -c 200)
+    message=$(echo "$input" | jq -r '.message // "Permission required"')
 
     set_state "permission"
     set_window_icon "permission"
-    echo "{\"tool_name\": \"$tool_name\", \"tool_input\": $tool_input_summary}" > "$DETAIL_FILE"
-
-    send_notification "Claude Code" "${tool_name} needs permission"
-
-    # Block and wait for response from F-key handler
-    if response=$(wait_for_response 300); then
-      set_state "running"
-      set_window_icon "running"
-      case "$response" in
-        allow)
-          echo '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
-          ;;
-        deny)
-          echo '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied via tmux hotkey"}}}'
-          ;;
-        *)
-          # Unknown response, allow by default
-          echo '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
-          ;;
-      esac
-    else
-      # Timeout or pane gone - exit 0 so normal dialog appears
-      set_state "running"
-      set_window_icon "running"
-      exit 0
-    fi
+    echo "$input" > "$DETAIL_FILE"
+    send_notification "Claude Code" "$message"
     ;;
 
   question)

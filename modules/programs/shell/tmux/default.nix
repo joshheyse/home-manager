@@ -1,8 +1,11 @@
 {
+  config,
   pkgs,
   lib,
   ...
 }: let
+  hasWaybar = config.programs.hyprland-desktop.enable or false;
+
   # Window type icon system
   paneIconScript = pkgs.writeShellScript "tmux-pane-icon" (builtins.readFile ./pane-icon.sh);
   iconSetupScript = pkgs.writeShellScript "tmux-icon-setup" ''
@@ -19,6 +22,22 @@
     current=$(${pkgs.tmux}/bin/tmux show -gv status-right 2>/dev/null) || exit 0
     updated=$(printf '%s' "$current" | ${pkgs.gnused}/bin/sed "s|#([^)]*netspeed\.sh)|#(${netspeedScript})|g")
     ${pkgs.tmux}/bin/tmux set -g status-right "$updated"
+  '';
+  statusRightSetupScript = pkgs.writeShellScript "tmux-status-right-setup" ''
+    ${
+      if hasWaybar
+      then ''
+        # Waybar already carries the local system information.
+        ${pkgs.tmux}/bin/tmux set -g status-right ""
+      ''
+      else ''
+        # Preserve the theme's widgets for ordinary remote/macOS windows, but
+        # suppress them while the selected window is a dev workspace.
+        default_right=$(${pkgs.tmux}/bin/tmux show -gv status-right 2>/dev/null) || exit 0
+        ${pkgs.tmux}/bin/tmux set -g @non_dev_status_right "$default_right"
+        ${pkgs.tmux}/bin/tmux set -g status-right '#{?#{==:#{@window_type},dev},,#{E:@non_dev_status_right}}'
+      ''
+    }
   '';
 
   claudeToggleScript = pkgs.writeShellScript "tmux-claude-toggle" (builtins.readFile ./claude-toggle.sh);
@@ -37,14 +56,6 @@
   claudeHookScript = pkgs.writeShellScript "tmux-claude-hook" ''
     export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux pkgs.notify]}:$PATH"
     ${builtins.readFile ./claude-hook.sh}
-  '';
-  claudeRespondScript = pkgs.writeShellScript "tmux-claude-respond" ''
-    export PATH="${lib.makeBinPath [pkgs.jq pkgs.tmux]}:$PATH"
-    ${builtins.readFile ./claude-respond.sh}
-  '';
-  claudeHasPromptScript = pkgs.writeShellScript "tmux-claude-has-prompt" ''
-    export PATH="${lib.makeBinPath [pkgs.tmux]}:$PATH"
-    ${builtins.readFile ./claude-has-prompt.sh}
   '';
   claudeSetupScript = pkgs.writeShellScript "tmux-claude-setup" ''
     # Inject #{@claude_icon} into window-status-format (after #W) if not already present
@@ -203,22 +214,13 @@ in {
           # Post-theme customizations (runs after tokyo-night theme sets formats)
           run-shell '${iconSetupScript}'
           run-shell '${netspeedSetupScript}'
+          run-shell '${statusRightSetupScript}'
 
           # Claude Code integration: inject icon into window tab (no-op if already present)
           run-shell '${claudeSetupScript}'
 
           # Faster status refresh for Claude icon responsiveness
           set -g status-interval 3
-
-          # F-key bindings: active when Claude has a prompt, otherwise pass through
-          bind-key -N "Claude: Allow / Option 1" -T root F1 if-shell '${claudeHasPromptScript}' \
-            'run-shell "${claudeRespondScript} 1"' 'send-keys F1'
-          bind-key -N "Claude: Allow always / Option 2" -T root F2 if-shell '${claudeHasPromptScript}' \
-            'run-shell "${claudeRespondScript} 2"' 'send-keys F2'
-          bind-key -N "Claude: Deny / Option 3" -T root F3 if-shell '${claudeHasPromptScript}' \
-            'run-shell "${claudeRespondScript} 3"' 'send-keys F3'
-          bind-key -N "Claude: Focus Claude pane" -T root F4 if-shell '${claudeHasPromptScript}' \
-            'run-shell "${claudeRespondScript} focus"' 'send-keys F4'
 
         '';
     };
@@ -274,18 +276,16 @@ in {
           ];
         }
       ];
-      PermissionRequest = [
+      Notification = [
         {
+          matcher = "permission_prompt";
           hooks = [
             {
               type = "command";
               command = "${claudeHookScript} permission";
-              timeout = 300;
             }
           ];
         }
-      ];
-      Notification = [
         {
           matcher = "elicitation_dialog";
           hooks = [

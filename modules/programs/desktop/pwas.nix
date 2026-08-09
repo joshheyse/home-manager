@@ -145,7 +145,17 @@
       exit 0
     fi
 
-    exec ${rcfg.fallback} "$url"
+    ${rcfg.fallback} "$url" &
+
+    # Hyprland's global focus_on_activate is deliberately off: honoring every
+    # activation request lets an agent prompt in one terminal steal focus from
+    # another. Browser-bound links are the narrow exception the user expects.
+    if command -v hyprctl >/dev/null 2>&1; then
+      for _ in {1..20}; do
+        hyprctl dispatch focuswindow 'class:^(firefox)$' >/dev/null 2>&1 && exit 0
+        sleep 0.05
+      done
+    fi
   '';
 
   # Dispatcher registered as the http/https handler, because xdg associations
@@ -161,7 +171,14 @@
     ${lib.concatMapStringsSep "\n" (pwa: lib.concatMapStringsSep "\n" (routerArm pwa) pwa.handles) claimants}
     esac
 
-    exec ${rcfg.fallback} "$url"
+    ${rcfg.fallback} "$url" &
+
+    if command -v hyprctl >/dev/null 2>&1; then
+      for _ in {1..20}; do
+        hyprctl dispatch focuswindow 'class:^(firefox)$' >/dev/null 2>&1 && exit 0
+        sleep 0.05
+      done
+    fi
   '';
 
   # Chromium's own naming for an --app window: "chrome-" then the host, then

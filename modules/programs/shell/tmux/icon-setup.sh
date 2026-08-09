@@ -30,8 +30,13 @@ ICON+=",#{?#{==:#{pane_current_command},top},${I_MON} "
 ICON+=",${I_TERM} "
 ICON+="}}}}}}"
 
+# Window names retain their natural width. The agent slot is always two
+# columns: either a space plus its state icon, or two spaces when inactive.
+NAME='#W'
+AGENT='#{?#{@claude_icon},#{@claude_icon},  }'
+
 # Current (focused) window: green icon on dark bg, bold name
-tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#I #W#{@claude_icon} #[nobold] "
+tmux set -g window-status-current-format "${RESET}#[fg=${GREEN},bg=${BBLACK}] ${ICON}#[fg=${FG},bold,nodim]#I ${NAME}${AGENT} #[nobold] "
 
 # Unfocused window: muted icon, dim name
-tmux set -g window-status-format "${RESET}#[fg=${FG}] ${ICON}${RESET}#I #W#{@claude_icon} #[nobold,dim] "
+tmux set -g window-status-format "${RESET}#[fg=${FG}] ${ICON}${RESET}#I ${NAME}${AGENT} #[nobold,dim] "
