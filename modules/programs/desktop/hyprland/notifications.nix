@@ -30,6 +30,7 @@ in {
         timeout-critical = 0;
         fit-to-screen = true;
         control-center-close-on-click = false;
+        notification-grouping = true;
         widgets = ["title" "dnd" "notifications"];
         widget-config = {
           title = {
@@ -63,8 +64,52 @@ in {
 
         .notification-row .notification-background {
           background: transparent;
-          margin: 6px;
           padding: 0;
+        }
+
+        .floating-notifications .notification-row .notification-background {
+          margin: 6px;
+        }
+
+        /* SwayNC gives every widget 8px margin plus 8px padding by default.
+           That is useful for the title and DND cards but double-indents the
+           notifications list, especially visibly at fractional scale. */
+        .control-center .widget-notifications {
+          margin: 0;
+          padding: 0;
+        }
+
+        .control-center .notification-row .notification-background {
+          margin: 2px 0;
+        }
+
+        /* Make grouping discoverable. SwayNC expands a group by clicking its
+           header/stack but ships the header as nearly unstyled text next to a
+           prominent delete X, so it otherwise reads like one cramped card. */
+        .notification-group .notification-group-headers {
+          background: ${theme.bgHighlight};
+          color: ${theme.fg};
+          border: 1px solid ${theme.border};
+          border-radius: 8px;
+          margin: 8px 0 4px;
+          padding: 8px 12px;
+        }
+
+        .notification-group .notification-group-headers .notification-group-header {
+          color: ${theme.fg};
+          font-weight: bold;
+        }
+
+        .notification-group .notification-group-headers .notification-group-icon {
+          color: ${theme.blue};
+        }
+
+        .notification-group .notification-row .notification-background {
+          margin: 4px 0;
+        }
+
+        .notification-group .notification-group-close-button .close-button {
+          margin: 8px;
         }
 
         /* Floating notifications deliberately retain Mako's visual language:
