@@ -44,6 +44,22 @@ volume=$(printf '%s' "$status" | awk '
   /Volume:/ { v = ($2 * 100) + 0.5 }
   END { printf "%d", v }')
 
+# PipeWire names BlueZ nodes `bluez_input.*`; depending on the active profile,
+# WirePlumber may also expose device.api or api.bluez5 properties. Check all of
+# them so both the high-quality and headset profiles get the device-aware icon.
+source_info=$(wpctl inspect @DEFAULT_AUDIO_SOURCE@ 2>/dev/null || true)
+if printf '%s\n' "$source_info" | grep -Eq \
+  'node\.name = "bluez_input\.|device\.api = "bluez5"|api\.bluez5\.'; then
+  bluetooth=1
+else
+  bluetooth=0
+fi
+
+source_description=$(printf '%s\n' "$source_info" | awk -F ' = ' '
+  /node.description/ { gsub(/^"|"$/, "", $2); print $2; found=1; exit }
+  END { if (!found) print "Microphone" }')
+source_description=$(printf '%s' "$source_description" | jq -Rr @html)
+
 # Names of everything currently pulling from an input, minus the DSP plumbing.
 # @html so an application.name containing markup metacharacters can neither
 # break the Pango tooltip nor the JSON assembled below.
@@ -70,45 +86,57 @@ label() { printf "<span color='%s'>%s</span>" "$TN_DIM" "$1"; }
 # The glyph carries mute, the class carries capture. Width is fixed at three
 # digits so the module never resizes -- see the percentage padding elsewhere.
 if [ "$muted" -eq 1 ]; then
-  icon=""
+  if [ "$bluetooth" -eq 1 ]; then
+    icon="󰋐"
+  else
+    icon=""
+  fi
   state_text="muted"
 else
-  icon=""
+  if [ "$bluetooth" -eq 1 ]; then
+    icon="󰋎"
+  else
+    icon=""
+  fi
   state_text="live"
 fi
 
 if [ "$capturing" -eq 1 ]; then
   if [ "$muted" -eq 1 ]; then
     class="muted-capturing"
-    heading="Microphone — muted, but $count app(s) recording"
+    heading="$source_description — muted, but $count app(s) recording"
     colour="$TN_RED"
   else
     class="capturing"
-    heading="Microphone — in use by $count app(s)"
+    heading="$source_description — in use by $count app(s)"
     colour="$TN_RED"
   fi
 else
   if [ "$muted" -eq 1 ]; then
     class="muted"
-    heading="Microphone — muted"
+    heading="$source_description — muted"
     colour="$TN_DIM"
   else
     class="idle"
-    heading="Microphone — idle"
+    heading="$source_description — idle"
     colour="$TN_GREEN"
   fi
 fi
 
 tooltip=$(printf "<span color='%s'><b>%s</b></span>" "$colour" "$heading")
-tooltip="$tooltip\n$(label 'state  ') $state_text"
-tooltip="$tooltip\n$(label 'volume ') $volume%"
+tooltip="$tooltip"$'\n'"$(label 'state  ') $state_text"
+tooltip="$tooltip"$'\n'"$(label 'volume ') $volume%"
 
 if [ "$capturing" -eq 1 ]; then
-  tooltip="$tooltip\n$(label 'used by')"
+  tooltip="$tooltip"$'\n'"$(label 'used by')"
   while IFS= read -r app; do
     [ -n "$app" ] || continue
-    tooltip="$tooltip\n  $app"
+    tooltip="$tooltip"$'\n'"  $app"
   done <<< "$apps"
 fi
 
-printf '{"text":"%3d%% %s","tooltip":"%s","class":"%s"}\n' "$volume" "$icon" "$tooltip" "$class"
+jq -cn \
+  --arg text "$(printf '%3d%% %s' "$volume" "$icon")" \
+  --arg tooltip "$tooltip" \
+  --arg class "$class" \
+  '{text: $text, tooltip: $tooltip, class: $class}'

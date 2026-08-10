@@ -19,6 +19,11 @@ in {
       enable = true;
     };
 
+    # MPRIS router that remembers the most recently active player. Targeting
+    # playerctld keeps media keys useful across isolated Chromium PWAs instead
+    # of whichever Chromium/Firefox instance playerctl happens to list first.
+    services.playerctld.enable = true;
+
     # Media key bindings using binde (repeat-enabled)
     wayland.windowManager.hyprland.extraConfig = ''
 
@@ -37,6 +42,13 @@ in {
       # covers it and covers it better -- it is on screen the whole time
       # rather than for two seconds after a keypress.
       bind  = , XF86AudioMicMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+
+      # Playback keys (MPRIS, routed to the last active player)
+      bind = , XF86AudioPlay, exec, ${lib.getExe pkgs.playerctl} --player=playerctld play-pause
+      bind = , XF86AudioPause, exec, ${lib.getExe pkgs.playerctl} --player=playerctld pause
+      bind = , XF86AudioNext, exec, ${lib.getExe pkgs.playerctl} --player=playerctld next
+      bind = , XF86AudioPrev, exec, ${lib.getExe pkgs.playerctl} --player=playerctld previous
+      bind = , XF86AudioStop, exec, ${lib.getExe pkgs.playerctl} --player=playerctld stop
 
       # Brightness keys (SwayOSD)
       binde = , XF86MonBrightnessUp, exec, ${brightness "raise"}

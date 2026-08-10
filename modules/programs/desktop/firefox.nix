@@ -87,6 +87,11 @@ in {
           "services.sync.declinedEngines" = "passwords,creditcards";
 
           # --- Misc ---
+          # HTTP/HTTPS deliberately belong to pwa-router.desktop, which sends
+          # ordinary links here and claimed hosts to their PWAs. Firefox sees
+          # the router as "not Firefox" and otherwise prompts forever to undo
+          # the routing policy.
+          "browser.shell.checkDefaultBrowser" = false;
           "extensions.pocket.enabled" = false;
           "general.autoScroll" = false;
           "browser.aboutConfig.showWarning" = false;

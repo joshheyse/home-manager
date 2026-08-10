@@ -51,10 +51,16 @@ in {
     enable = true;
     defaultApplications = let
       browser = ["firefox.desktop"];
+      mail = ["org.gnome.Evolution.desktop"];
     in {
       "text/html" = browser;
       "x-scheme-handler/about" = browser;
       "x-scheme-handler/unknown" = browser;
+
+      "x-scheme-handler/mailto" = mail;
+      "x-scheme-handler/mid" = mail;
+      "message/rfc822" = mail;
+      "application/mbox" = mail;
 
       # Adopted from the hand-written mimeapps.list this file replaces.
       # Registering them here is not optional tidying: taking ownership of the

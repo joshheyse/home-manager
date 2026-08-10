@@ -46,6 +46,15 @@
     ${builtins.readFile ./waybar-mic.sh}
   '';
 
+  speakerStatus = pkgs.writeShellScript "waybar-speaker" ''
+    export PATH="${lib.makeBinPath [pkgs.wireplumber pkgs.jq pkgs.gawk pkgs.gnugrep pkgs.coreutils]}:$PATH"
+
+    export TN_DIM=${theme.comment}
+    export TN_ORANGE=${theme.orange}
+
+    ${builtins.readFile ./waybar-speaker.sh}
+  '';
+
   audioDevicePicker = pkgs.writeShellScript "audio-device-picker" ''
     export PATH="${lib.makeBinPath [pkgs.wireplumber pkgs.pipewire pkgs.jq pkgs.gawk pkgs.rofi]}:$PATH"
     ${builtins.readFile ./audio-device-picker.sh}
@@ -165,7 +174,7 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/weather" "custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
+          modules-right = ["custom/weather" "custom/tailscale" "custom/speaker" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
           "custom/notification" = {
             tooltip = true;
@@ -374,23 +383,18 @@ in {
             on-click = "${healthStatus} --open";
           };
 
-          # Speaker and microphone are two instances of the same module
-          # rather than one, because waybar puts its state classes on the
-          # WHOLE widget: with both in one module, muting the speaker applied
-          # `muted` to the microphone half too and greyed out a live mic.
-          # Split, each instance carries only its own state.
-          pulseaudio = {
-            format = "{volume:3}% {icon}";
-            # Same shape as `format`, so muting cannot change the module's
-            # width: "muted" is wider than "100%" and shoved the bar around.
-            # The slashed glyph and the grey carry the state instead, and the
-            # volume stays readable so you know what unmuting will give you.
-            format-muted = "{volume:3}% 󰖁";
-            format-icons = {default = ["" "" ""];};
-            tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%";
+          # Speaker and microphone are separate custom modules because Waybar
+          # puts state classes on the whole widget. The built-in PulseAudio
+          # module also cannot combine its Bluetooth and muted formats, so it
+          # loses the headphones device identity exactly when muted.
+          "custom/speaker" = {
+            exec = "${speakerStatus}";
+            return-type = "json";
+            interval = 2;
             on-click = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
             on-click-right = "${audioDevicePicker} output";
-            scroll-step = 5;
+            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+";
+            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
           };
 
           # The mic is deliberately in the bar and not only the tooltip: an
@@ -407,6 +411,8 @@ in {
             interval = 2;
             on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
             on-click-right = "${audioDevicePicker} input";
+            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SOURCE@ 5%+";
+            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%-";
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.
@@ -511,7 +517,7 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #custom-notification, #tray {
+        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #custom-speaker, #custom-mic, #battery, #custom-notification, #tray {
           padding: 0 10px;
         }
 
@@ -582,7 +588,7 @@ in {
         /* Audio: speaker and microphone are a pair and read as one, so they
            share the default colour and diverge only on state. Muted greys out
            -- off, not wrong. */
-        #pulseaudio.muted,
+        #custom-speaker.muted,
         #custom-mic.muted {
           color: ${theme.comment};
         }
