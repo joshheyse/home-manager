@@ -636,7 +636,7 @@ in {
         default =
           if isDarwin
           then "open ~"
-          else "nautilus";
+          else "${pkgs.nautilus}/bin/nautilus";
         description = "File manager launch command";
       };
       claude = lib.mkOption {
