@@ -37,6 +37,11 @@ in {
         exitOnSwitch = true;
         switchOnDrop = true;
         autoDrag = true;
+        # Upstream defaults gestures off. Its un-reversed delta expects a
+        # downward physical swipe for a panel placed at the top, so reverse it
+        # for the macOS-style three-finger swipe up requested here.
+        disableGestures = false;
+        reverseSwipe = true;
       };
     };
   };

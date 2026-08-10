@@ -504,7 +504,7 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #tray {
+        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #custom-notification, #tray {
           padding: 0 10px;
         }
 
