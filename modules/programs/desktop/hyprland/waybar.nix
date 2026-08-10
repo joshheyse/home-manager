@@ -164,6 +164,7 @@ in {
 
           "custom/notification" = {
             tooltip = true;
+            tooltip-format = "Notifications";
             format = "{icon}";
             format-icons = {
               notification = "󱅫";
