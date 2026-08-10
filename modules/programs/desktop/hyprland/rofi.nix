@@ -60,5 +60,33 @@ in {
         };
       };
     };
+
+    home.packages = [pkgs.networkmanager_dmenu];
+
+    # Fast NetworkManager frontend for the Waybar Wi-Fi indicator. Rofi loads
+    # the Tokyo Night theme above, including its sizing and selected-row
+    # colours; networkmanager-dmenu supplies nearby networks and actions.
+    xdg.configFile."networkmanager-dmenu/config.ini".text = ''
+      [dmenu]
+      dmenu_command = ${lib.getExe pkgs.rofi} -dmenu -i
+      active_chars = ✓
+      highlight = True
+      compact = True
+      wifi_icons = 󰤯󰤟󰤢󰤥󰤨
+      format = {name}  {sec}  {signal:>3}% {icon}
+      list_saved = True
+      prompt = Networks
+
+      [dmenu_passphrase]
+      obscure = True
+
+      [editor]
+      gui_if_available = True
+      gui = ${pkgs.networkmanagerapplet}/bin/nm-connection-editor
+
+      [nmdm]
+      rescan_delay = 3
+      show_notifications = True
+    '';
   };
 }

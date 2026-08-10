@@ -334,7 +334,7 @@ in {
             # Throughput figures are deltas between polls; without an interval
             # they read zero forever.
             interval = 5;
-            on-click = "${pkgs.kitty}/bin/kitty --class network-tui -e ${pkgs.networkmanager}/bin/nmtui";
+            on-click = lib.getExe pkgs.networkmanager_dmenu;
             on-click-right = "${pkgs.networkmanagerapplet}/bin/nm-connection-editor";
           };
 
