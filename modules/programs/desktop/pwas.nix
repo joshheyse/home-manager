@@ -12,10 +12,9 @@
 # Firefox because Google Meet in particular is better supported there, and
 # Google ships no Chrome build for Linux on aarch64.
 #
-# These deliberately share the default browser profile rather than each taking
-# a --user-data-dir. Isolation sounds tidier but means signing in separately
-# per app and losing the session on every profile change; a PWA you have to log
-# into twice is worse than a bookmark.
+# Each app gets an isolated profile by default. Apps from the same vendor can
+# opt into a named profile so they share one login without sharing cookies with
+# unrelated PWAs or the ordinary browser.
 {
   config,
   lib,
@@ -33,14 +32,42 @@
     then "${lib.getExe pkgs.firefox} --new-window ${url}"
     else
       "${lib.getExe pkgs.chromium} --app=${url}"
-      + lib.optionalString pwa.externalLinksOut " --load-extension=${escapeDir pwa}"
+      + lib.optionalString (usesEscape pwa) " --load-extension=${escapeDir pwa}"
       + lib.optionalString pwa.isolate " --user-data-dir=${profileDir pwa}";
 
   claimants = lib.filter (pwa: pwa.handles != []) (lib.attrValues cfg);
 
-  # Keyed on the app's own URL so the directory is stable across renames and
-  # cannot collide between two apps.
-  profileDir = pwa: "${config.xdg.dataHome}/pwas/${builtins.substring 0 16 (builtins.hashString "sha256" pwa.url)}";
+  # Named profiles let apps from one vendor share authentication without also
+  # sharing it with unrelated vendors. An unnamed isolated app still gets its
+  # own URL-keyed profile, preserving the original behaviour.
+  profileKey = pwa:
+    if pwa.profile != null
+    then "group:${pwa.profile}"
+    else "app:${pwa.url}";
+  profileLabel = pwa:
+    if pwa.profile != null
+    then pwa.profile
+    else pwa.name;
+  profileDir = pwa: "${config.xdg.dataHome}/pwas/${builtins.substring 0 16 (builtins.hashString "sha256" (profileKey pwa))}";
+
+  profilePeers = pwa:
+    if pwa.profile == null
+    then [pwa]
+    else lib.filter (peer: peer.profile == pwa.profile) (lib.attrValues cfg);
+
+  escapePeers = pwa: lib.filter (peer: peer.externalLinksOut) (profilePeers pwa);
+  usesEscape = pwa: escapePeers pwa != [];
+
+  # One extension is shared by every app in a named profile. This matters
+  # because Chromium runs one process per user-data-dir: whichever app starts
+  # first owns the process and later --load-extension flags are ignored.
+  # Rules remain per source origin, so Gmail can send external links out while
+  # YouTube (externalLinksOut = false) keeps its own navigation untouched.
+  escapeRules = pwa:
+    map (peer: {
+      source = origin peer.url;
+      internal = [(origin peer.url)] ++ peer.internalOrigins;
+    }) (escapePeers pwa);
 
   # Scheme used to hand a URL back out of Chromium. Chromium refuses to give
   # web links to the desktop -- it considers itself the handler -- but it does
@@ -59,11 +86,11 @@
   # probe extension and watching it rewrite a window title.
   escapeExtension = pwa:
     pkgs.writeTextFile {
-      name = "pwa-escape-${builtins.hashString "sha256" pwa.url}";
+      name = "pwa-escape-${builtins.hashString "sha256" (profileKey pwa)}";
       destination = "/manifest.json";
       text = builtins.toJSON {
         manifest_version = 3;
-        name = "Open external links outside ${pwa.name}";
+        name = "Open external links outside ${profileLabel pwa} profile";
         version = "1.0";
         permissions = ["webNavigation" "tabs"];
         host_permissions = ["<all_urls>"];
@@ -74,7 +101,7 @@
   # Kept separate from the manifest so the JS stays readable rather than
   # becoming a quoted blob inside toJSON.
   escapeDir = pwa:
-    pkgs.runCommand "pwa-escape-${pwa.name}" {} ''
+    pkgs.runCommand "pwa-escape-${builtins.substring 0 16 (builtins.hashString "sha256" (profileKey pwa))}" {} ''
       mkdir -p $out
       cp ${escapeExtension pwa}/manifest.json $out/manifest.json
       cat > $out/background.js <<'EOF'
@@ -82,11 +109,15 @@
       // belongs in the real browser. Chromium will not hand a web URL to the
       // desktop, but it will hand over a scheme it does not recognise -- so
       // the URL is re-emitted under ${escapeScheme}: and the desktop routes it.
-      const INTERNAL_ORIGINS = new Set(${builtins.toJSON ([(origin pwa.url)] ++ pwa.internalOrigins)});
+      const RULES = new Map(
+        ${builtins.toJSON (map (rule: [rule.source rule.internal]) (escapeRules pwa))}
+          .map(([source, internal]) => [source, new Set(internal)])
+      );
 
-      function isExternal(url) {
+      function isExternal(sourceUrl, targetUrl) {
         try {
-          return !INTERNAL_ORIGINS.has(new URL(url).origin);
+          const internal = RULES.get(new URL(sourceUrl).origin);
+          return internal ? !internal.has(new URL(targetUrl).origin) : false;
         } catch (e) {
           return false;
         }
@@ -110,17 +141,21 @@
       // sourceTabId is the app's own tab; tabId is the popup Chromium just
       // made for the link, which is closed since the desktop will handle it.
       chrome.webNavigation.onCreatedNavigationTarget.addListener((d) => {
-        if (!isExternal(d.url)) return;
-        handOff(d.sourceTabId, d.url);
-        chrome.tabs.remove(d.tabId).catch(() => {});
+        chrome.tabs.get(d.sourceTabId).then((source) => {
+          if (!isExternal(source.url, d.url)) return;
+          handOff(d.sourceTabId, d.url);
+          chrome.tabs.remove(d.tabId).catch(() => {});
+        }).catch(() => {});
       });
 
       // A plain link navigating the app window itself away from the app. The
       // escape navigation supersedes it, so the app stays where it was.
       chrome.webNavigation.onBeforeNavigate.addListener((d) => {
         if (d.frameId !== 0) return;
-        if (!isExternal(d.url)) return;
-        handOff(d.tabId, d.url);
+        chrome.tabs.get(d.tabId).then((source) => {
+          if (!isExternal(source.url, d.url)) return;
+          handOff(d.tabId, d.url);
+        }).catch(() => {});
       });
       EOF
     '';
@@ -262,15 +297,28 @@ in {
             the sessions up. Isolated, each app is a separate browser as far as
             the sites inside it can tell.
 
-            The cost is that isolation is per APP, not per account: apps from
-            the same provider no longer share a sign-in, so Gmail and Meet each
-            want their own login. Set false on a group you would rather have
-            share a session -- they then share everything else too.
+            Isolation is per app unless profile names a group. Apps from the
+            same provider can therefore share a sign-in while remaining
+            isolated from unrelated PWAs and the ordinary browser. Setting
+            isolate to false instead uses Chromium's ordinary default profile.
 
             Profiles live under $XDG_DATA_HOME/pwas, which impermanence
             persists, so logins survive a reboot.
 
             chromium only; the Firefox path uses your normal profile.
+          '';
+        };
+
+        profile = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "google";
+          description = ''
+            Optional named isolation group. Isolated apps with the same name
+            share one Chromium profile and therefore one vendor login, while
+            remaining separate from every other named or per-app profile.
+
+            Only meaningful when isolate is true.
           '';
         };
 

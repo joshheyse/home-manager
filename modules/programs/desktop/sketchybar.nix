@@ -72,7 +72,7 @@
           click_script="${pkgs.yabai}/bin/yabai -m space --focus $sid"
     done
 
-    # Media (Spotify/Music)
+    # Media (Music)
     $SKETCHYBAR --add item media left \
       --set media \
         icon= \
@@ -174,11 +174,11 @@ in {
           SKETCHYBAR="${pkgs.sketchybar}/bin/sketchybar"
 
           # Get current media info
-          STATE=$(osascript -e 'tell application "Spotify" to player state as string' 2>/dev/null)
+          STATE=$(osascript -e 'tell application "Music" to player state as string' 2>/dev/null)
 
           if [ "$STATE" = "playing" ]; then
-            TRACK=$(osascript -e 'tell application "Spotify" to name of current track as string')
-            ARTIST=$(osascript -e 'tell application "Spotify" to artist of current track as string')
+            TRACK=$(osascript -e 'tell application "Music" to name of current track as string')
+            ARTIST=$(osascript -e 'tell application "Music" to artist of current track as string')
             $SKETCHYBAR --set media label="$TRACK - $ARTIST" drawing=on
           else
             $SKETCHYBAR --set media drawing=off

@@ -46,6 +46,11 @@
     ${builtins.readFile ./waybar-mic.sh}
   '';
 
+  audioDevicePicker = pkgs.writeShellScript "audio-device-picker" ''
+    export PATH="${lib.makeBinPath [pkgs.wireplumber pkgs.pipewire pkgs.jq pkgs.gawk pkgs.rofi]}:$PATH"
+    ${builtins.readFile ./audio-device-picker.sh}
+  '';
+
   healthStatus = pkgs.writeShellScript "waybar-health" ''
     export PATH="${lib.makeBinPath [pkgs.jq pkgs.coreutils pkgs.xdg-utils]}:$PATH"
     ${builtins.readFile ./waybar-health.sh}
@@ -384,6 +389,7 @@ in {
             format-icons = {default = ["" "" ""];};
             tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%";
             on-click = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
+            on-click-right = "${audioDevicePicker} output";
             scroll-step = 5;
           };
 
@@ -400,7 +406,7 @@ in {
             return-type = "json";
             interval = 2;
             on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
-            on-click-right = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
+            on-click-right = "${audioDevicePicker} input";
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.

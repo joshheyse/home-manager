@@ -7,6 +7,7 @@
   ...
 }: let
   inherit (pkgs.stdenv) isDarwin isLinux;
+  isAarch64Linux = pkgs.stdenv.hostPlatform.system == "aarch64-linux";
 
   cfg = config.programs.tiling-wm;
 
@@ -120,8 +121,10 @@
     music = {
       id =
         if isDarwin
-        then "Spotify"
-        else "spotify";
+        then "Music"
+        else if isAarch64Linux
+        then "chrome-music.apple.com__-Default"
+        else "sidra";
       launch = apps.music;
     };
     mail = {
@@ -603,8 +606,10 @@ in {
         type = lib.types.str;
         default =
           if isDarwin
-          then "open -a Spotify"
-          else "spotify";
+          then "open -a Music"
+          else if isAarch64Linux
+          then "${lib.getExe' pkgs.gtk3 "gtk-launch"} apple-music"
+          else "sidra";
         description = "Music player launch command";
       };
       mail = lib.mkOption {

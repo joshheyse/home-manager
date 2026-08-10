@@ -46,7 +46,6 @@ in {
       ]
       ++ lib.optionals (!isAarch64Linux) [
         discord
-        spotify
       ];
   };
 }

@@ -82,6 +82,12 @@ in {
   # here -- macOS, Windows, Linux x86_64 and, critically, Linux aarch64, where
   # Zoom, Slack, Discord and Teams all ship no native client at all.
   programs.pwas = {
+    apple-music = {
+      name = "Apple Music";
+      url = "https://music.apple.com";
+      categories = ["AudioVideo" "Audio" "Player"];
+    };
+
     # Chromium, so this is a real app window rather than another tabbed
     # browser -- the whole point being to keep a daily tool out of tab hell.
     # externalLinksOut is what makes that affordable: chat answers are mostly
@@ -97,6 +103,7 @@ in {
       name = "Gmail";
       url = "https://mail.google.com";
       externalLinksOut = true;
+      profile = "google";
 
       # Mail is the biggest source of links into other things, so claiming its
       # own host keeps a mail link from a chat opening the app rather than a
@@ -113,10 +120,27 @@ in {
       url = "https://meet.google.com";
 
       externalLinksOut = true;
+      profile = "google";
 
       # A meeting link from mail or chat opens the app on that meeting rather
       # than a browser tab, which is the whole point of having the app.
       handles = ["meet.google.com"];
+    };
+
+    # Google apps share one vendor-isolated profile: one login, without making
+    # those cookies available to Apple Music, ChatGPT, or ordinary Chromium.
+    youtube = {
+      name = "YouTube";
+      url = "https://www.youtube.com";
+      categories = ["AudioVideo" "Video"];
+      profile = "google";
+    };
+
+    youtube-tv = {
+      name = "YouTube TV";
+      url = "https://tv.youtube.com";
+      categories = ["AudioVideo" "Video" "TV"];
+      profile = "google";
     };
   };
 
@@ -179,7 +203,6 @@ in {
       # aarch64 Linux build, so nixpkgs refuses to evaluate them here:
       #   "Refusing to evaluate package ... it is not available on the
       #    requested hostPlatform"
-      spotify
       discord
     ];
 
