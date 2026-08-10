@@ -156,6 +156,7 @@ in {
             # environment to the current Hyprland instance and lets it exit
             # naturally with that instance during logout.
             "waybar"
+            "${pkgs.blueman}/bin/blueman-applet"
             "hyprpaper"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --type text --watch cliphist store"
