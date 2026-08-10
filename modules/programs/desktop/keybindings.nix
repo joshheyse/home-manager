@@ -149,7 +149,7 @@
       id =
         if isDarwin
         then "Finder"
-        else "thunar";
+        else "org.gnome.Nautilus";
       launch = apps.fileManager;
     };
     claude = {
@@ -636,7 +636,7 @@ in {
         default =
           if isDarwin
           then "open ~"
-          else "thunar";
+          else "nautilus";
         description = "File manager launch command";
       };
       claude = lib.mkOption {

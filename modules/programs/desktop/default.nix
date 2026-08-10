@@ -63,6 +63,7 @@ in {
       # open.
       "x-scheme-handler/claude" = ["claude.desktop"];
       "x-scheme-handler/claude-cli" = ["claude-code-url-handler.desktop"];
+      "inode/directory" = ["org.gnome.Nautilus.desktop"];
     };
   };
 
@@ -160,6 +161,7 @@ in {
       signal-desktop
       evolution
       gnome-online-accounts-gtk
+      nautilus
       gimp
       vlc
       sioyek
