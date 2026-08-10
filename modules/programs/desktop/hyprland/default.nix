@@ -43,7 +43,6 @@ in {
         hyprpwcenter
         slurp
         wl-clipboard
-        rose-pine-hyprcursor
       ]
       ++ lib.optionals (!isAarch64Linux) [
         discord

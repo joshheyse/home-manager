@@ -31,9 +31,9 @@ in {
         # GTK/XWayland retain Bibata below through gtk.cursorTheme because they
         # do not consistently implement the hyprcursor protocol.
         env = [
-          "HYPRCURSOR_THEME,rose-pine-hyprcursor"
+          "HYPRCURSOR_THEME,Bibata-Modern-Ice"
           "HYPRCURSOR_SIZE,24"
-          "XCURSOR_THEME,Bibata-Modern-Classic"
+          "XCURSOR_THEME,Bibata-Modern-Ice"
           "XCURSOR_SIZE,24"
         ];
 
@@ -100,6 +100,13 @@ in {
           # fractional scale needs a faster pointer to feel the same, and one
           # at scale 1 does not.
           sensitivity = lib.mkDefault 0;
+
+          touchpad = {
+            # Keep incidental palm contact from moving the pointer while the
+            # user's hands are on the keyboard. Palm size/pressure thresholds
+            # for the Asahi MacBook touchpad live in the host's libinput quirk.
+            disable_while_typing = true;
+          };
         };
 
         # Three-finger horizontal swipe moves between workspaces, like macOS.

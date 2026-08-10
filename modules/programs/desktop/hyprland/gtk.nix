@@ -9,6 +9,16 @@
   cfg = config.programs.hyprland-desktop;
   inherit (pkgs.stdenv) isLinux;
   inherit (pkgs) kvantum-tokyo-night;
+  bibataModernIceHyprcursor =
+    pkgs.runCommand "bibata-modern-ice-hyprcursor-1.1" {
+      nativeBuildInputs = [pkgs.gnutar pkgs.gzip];
+    } ''
+      mkdir -p "$out/share/icons/Bibata-Modern-Ice"
+      tar -xzf ${pkgs.fetchurl {
+        url = "https://github.com/LOSEARDES77/Bibata-Cursor-hyprcursor/releases/download/v1.1/hypr_Bibata-Modern-Ice.tar.gz";
+        hash = "sha256-1fgSRHnNOrZ6toVHqiMTpnzY2laoZgSV9fVHu6PS0QI=";
+      }} -C "$out/share/icons/Bibata-Modern-Ice"
+    '';
 in {
   config = lib.mkIf (cfg.enable && isLinux) {
     # GTK theming
@@ -23,7 +33,7 @@ in {
         package = pkgs.papirus-icon-theme;
       };
       cursorTheme = {
-        name = "Bibata-Modern-Classic";
+        name = "Bibata-Modern-Ice";
         package = pkgs.bibata-cursors;
         size = 24;
       };
@@ -42,6 +52,7 @@ in {
       pkgs.libsForQt5.qtstyleplugin-kvantum
       pkgs.kdePackages.qtstyleplugin-kvantum
       kvantum-tokyo-night
+      bibataModernIceHyprcursor
     ];
 
     # Configure Kvantum to use Tokyo Night
