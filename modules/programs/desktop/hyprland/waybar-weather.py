@@ -97,8 +97,13 @@ def temperature_color(temperature, args):
     return args.color_temp_very_high
 
 
-def colored(text, color):
-    return f"<span color='{escape(color, quote=True)}'>{escape(text)}</span>"
+def colored(text, color, size=None, rise=None):
+    size_attribute = f" size='{escape(size, quote=True)}'" if size else ""
+    rise_attribute = f" rise='{rise}'" if rise is not None else ""
+    return (
+        f"<span color='{escape(color, quote=True)}'{size_attribute}{rise_attribute}>"
+        f"{escape(text)}</span>"
+    )
 
 
 def get_json(url, params=None):
@@ -197,8 +202,8 @@ def build(weather, alerts, args):
     feels = round(current["apparent_temperature"])
     temperature_text = f"{temperature}{degree if args.unit_in_bar else '°'}"
     text = (
-        f"{colored(glyph, args.color_status)} "
-        f"{colored(temperature_text, temperature_color(temperature, args))}"
+        f"{colored(temperature_text, temperature_color(temperature, args), rise=1024)} "
+        f"{colored(glyph, args.color_status, size='xx-large', rise=-2048)}"
     )
     lines = []
 

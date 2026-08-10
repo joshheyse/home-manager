@@ -297,7 +297,7 @@ in {
               warning = 75;
               critical = 90;
             };
-            format = " {:3}%";
+            format = "{:3}% ";
             # Plain text, no markup: waybar's memory module sets this with
             # set_tooltip_text (src/modules/memory/common.cpp), unlike network
             # and pulseaudio which use set_tooltip_markup. Tags here would be
@@ -317,9 +317,9 @@ in {
               warning = 25;
               critical = 0;
             };
-            format-wifi = " {signalStrength:3}%";
-            format-ethernet = " {ipaddr}";
-            format-disconnected = " Disconnected";
+            format-wifi = "{signalStrength:3}% ";
+            format-ethernet = "{ipaddr} ";
+            format-disconnected = "Disconnected ";
             # Label column padded to a fixed width so the values line up. The
             # stylesheet gives tooltips the bar's monospace face specifically
             # so this works; in a proportional font it would come out ragged.
@@ -375,12 +375,12 @@ in {
           # `muted` to the microphone half too and greyed out a live mic.
           # Split, each instance carries only its own state.
           pulseaudio = {
-            format = "{icon} {volume:3}%";
+            format = "{volume:3}% {icon}";
             # Same shape as `format`, so muting cannot change the module's
             # width: "muted" is wider than "100%" and shoved the bar around.
             # The slashed glyph and the grey carry the state instead, and the
             # volume stays readable so you know what unmuting will give you.
-            format-muted = "󰖁 {volume:3}%";
+            format-muted = "{volume:3}% 󰖁";
             format-icons = {default = ["" "" ""];};
             tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%";
             on-click = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
@@ -411,9 +411,9 @@ in {
               warning = 30;
               critical = 15;
             };
-            format = "{icon} {capacity:3}%";
-            format-charging = " {capacity:3}%";
-            format-plugged = " {capacity:3}%";
+            format = "{capacity:3}% {icon}";
+            format-charging = "{capacity:3}% ";
+            format-plugged = "{capacity:3}% ";
             format-icons = ["" "" "" "" ""];
             interval = 30;
           };
@@ -507,6 +507,12 @@ in {
            overlapping it. */
         #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #pulseaudio, #custom-mic, #battery, #custom-notification, #tray {
           padding: 0 10px;
+        }
+
+        /* The enlarged condition glyph visually fills the weather module's
+           normal padding, so give the following Tailscale icon more air. */
+        #custom-weather {
+          margin-right: 6px;
         }
 
         /* Pango spans own the live weather colours. Dim the entire rendered

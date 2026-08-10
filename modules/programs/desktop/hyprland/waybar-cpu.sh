@@ -78,7 +78,7 @@ now=$(snapshot)
 
 if [ ! -r "$state" ]; then
   printf '%s\n' "$now" > "$state" 2>/dev/null || true
-  printf '{"text":"   0%%","tooltip":"CPU: sampling","class":"cpu"}\n'
+  printf '{"text":"  0%% ","tooltip":"CPU: sampling","class":"cpu"}\n'
   exit 0
 fi
 
@@ -108,7 +108,7 @@ read -r -a core <<< "$percents"
 count=${#core[@]}
 
 if [ "$count" -eq 0 ]; then
-  printf '{"text":"   0%%","tooltip":"CPU: no samples","class":"cpu"}\n'
+  printf '{"text":"  0%% ","tooltip":"CPU: no samples","class":"cpu"}\n'
   exit 0
 fi
 
@@ -186,6 +186,6 @@ tooltip="$tooltip\n$(label 'load   ') $l1 $l5 $l15$clusters"
 # glance without the tooltip being opened. Assembled separately because a
 # single-quoted printf format cannot contain the single quotes Pango wants
 # around the colour.
-text=$(printf "<span color='%s'> %3d%%</span>" "$(heat_colour "$avg")" "$avg")
+text=$(printf "<span color='%s'>%3d%% </span>" "$(heat_colour "$avg")" "$avg")
 
 printf '{"text":"%s","tooltip":"%s","class":"cpu"}\n' "$text" "$tooltip"

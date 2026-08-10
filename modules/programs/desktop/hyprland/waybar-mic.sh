@@ -111,4 +111,4 @@ if [ "$capturing" -eq 1 ]; then
   done <<< "$apps"
 fi
 
-printf '{"text":"%s %3d%%","tooltip":"%s","class":"%s"}\n' "$icon" "$volume" "$tooltip" "$class"
+printf '{"text":"%3d%% %s","tooltip":"%s","class":"%s"}\n' "$volume" "$icon" "$tooltip" "$class"

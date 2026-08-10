@@ -61,6 +61,23 @@ in {
       ];
     extraPython3Packages = pythonDeps;
     extraWrapperArgs = [
+      # Inject provider API keys into Neovim only instead of exporting them
+      # from the login shell, so unrelated programs do not inherit the
+      # credentials. Processes launched from inside Neovim (including
+      # :terminal) necessarily inherit Neovim's environment.
+      "--run"
+      ''
+        if [ -z "''${ANTHROPIC_API_KEY:-}" ] &&
+           [ -r "$HOME/.config/sops-nix/secrets/anthropic/api_key" ]; then
+          ANTHROPIC_API_KEY="$(cat "$HOME/.config/sops-nix/secrets/anthropic/api_key")"
+          export ANTHROPIC_API_KEY
+        fi
+        if [ -z "''${OPENAI_API_KEY:-}" ] &&
+           [ -r "$HOME/.config/sops-nix/secrets/openai/api_key" ]; then
+          OPENAI_API_KEY="$(cat "$HOME/.config/sops-nix/secrets/openai/api_key")"
+          export OPENAI_API_KEY
+        fi
+      ''
       "--add-flags"
       ''--cmd "lua vim.g.python3_host_prog='${pythonEnv}/bin/python3'"''
     ];
