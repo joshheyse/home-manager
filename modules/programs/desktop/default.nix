@@ -75,80 +75,85 @@ in {
   # config instead.
   xdg.configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
 
-  programs.pwas-router.enable = true;
-
   # Services with no Linux client worth running. Meet because meetings have to
   # happen somewhere and it is the one platform that works on every machine
   # here -- macOS, Windows, Linux x86_64 and, critically, Linux aarch64, where
   # Zoom, Slack, Discord and Teams all ship no native client at all.
-  programs.pwas = {
-    apple-music = {
-      name = "Apple Music";
-      url = "https://music.apple.com";
-      categories = ["AudioVideo" "Audio" "Player"];
-    };
+  programs = {
+    pwas-router.enable = true;
 
-    # Chromium, so this is a real app window rather than another tabbed
-    # browser -- the whole point being to keep a daily tool out of tab hell.
-    # externalLinksOut is what makes that affordable: chat answers are mostly
-    # links out, and without it they would open in Chromium.
-    chatgpt = {
-      name = "ChatGPT";
-      url = "https://chatgpt.com";
-      externalLinksOut = true;
-      internalOrigins = ["https://auth.openai.com"];
-    };
+    pwa-profiles.google.internalOrigins = [
+      "https://accounts.google.com"
+      "https://myaccount.google.com"
+    ];
 
-    gmail = {
-      name = "Gmail";
-      url = "https://mail.google.com";
-      externalLinksOut = true;
-      profile = "google";
-      internalOrigins = [
-        "https://accounts.google.com"
-        "https://myaccount.google.com"
-      ];
+    pwas = {
+      apple-music = {
+        name = "Apple Music";
+        url = "https://music.apple.com";
+        categories = ["AudioVideo" "Audio" "Player"];
+      };
 
-      # Mail is the biggest source of links into other things, so claiming its
-      # own host keeps a mail link from a chat opening the app rather than a
-      # tab.
-      handles = ["mail.google.com"];
-    };
+      # Chromium, so this is a real app window rather than another tabbed
+      # browser -- the whole point being to keep a daily tool out of tab hell.
+      # externalLinksOut is what makes that affordable: chat answers are mostly
+      # links out, and without it they would open in Chromium.
+      chatgpt = {
+        name = "ChatGPT";
+        url = "https://chatgpt.com";
+        externalLinksOut = true;
+        internalOrigins = ["https://auth.openai.com"];
+      };
 
-    # Chromium here, deliberately differing from ChatGPT above: Meet is
-    # somewhere you sit rather than follow links out of, and Chromium is what
-    # Asahi users report working for Meet -- Google ships no Chrome for Linux
-    # aarch64 at all.
-    meet = {
-      name = "Google Meet";
-      url = "https://meet.google.com";
+      gmail = {
+        name = "Gmail";
+        url = "https://mail.google.com";
+        externalLinksOut = true;
+        profile = "google";
 
-      externalLinksOut = true;
-      profile = "google";
-      internalOrigins = [
-        "https://accounts.google.com"
-        "https://myaccount.google.com"
-      ];
+        # Mail is the biggest source of links into other things, so claiming its
+        # own host keeps a mail link from a chat opening the app rather than a
+        # tab.
+        handles = ["mail.google.com"];
+      };
 
-      # A meeting link from mail or chat opens the app on that meeting rather
-      # than a browser tab, which is the whole point of having the app.
-      handles = ["meet.google.com"];
-    };
+      # Chromium here, deliberately differing from ChatGPT above: Meet is
+      # somewhere you sit rather than follow links out of, and Chromium is what
+      # Asahi users report working for Meet -- Google ships no Chrome for Linux
+      # aarch64 at all.
+      meet = {
+        name = "Google Meet";
+        url = "https://meet.google.com";
 
-    # Google apps share one vendor-isolated profile: one login, without making
-    # those cookies available to Apple Music, ChatGPT, or ordinary Chromium.
-    youtube = {
-      name = "YouTube";
-      url = "https://www.youtube.com";
-      categories = ["AudioVideo" "Video"];
-      profile = "google";
-    };
+        externalLinksOut = true;
+        profile = "google";
 
-    youtube-tv = {
-      name = "YouTube TV";
-      url = "https://tv.youtube.com";
-      categories = ["AudioVideo" "Video" "TV"];
-      profile = "google";
+        # A meeting link from mail or chat opens the app on that meeting rather
+        # than a browser tab, which is the whole point of having the app.
+        handles = ["meet.google.com"];
+      };
+
+      # Google apps share one vendor-isolated profile: one login, without making
+      # those cookies available to Apple Music, ChatGPT, or ordinary Chromium.
+      youtube = {
+        name = "YouTube";
+        url = "https://www.youtube.com";
+        categories = ["AudioVideo" "Video"];
+        profile = "google";
+        handles = [
+          "www.youtube.com"
+          "youtube.com"
+          "youtu.be"
+        ];
+      };
+
+      youtube-tv = {
+        name = "YouTube TV";
+        url = "https://tv.youtube.com";
+        categories = ["AudioVideo" "Video" "TV"];
+        profile = "google";
+        handles = ["tv.youtube.com"];
+      };
     };
   };
 

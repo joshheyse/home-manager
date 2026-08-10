@@ -23,6 +23,7 @@
 }: let
   inherit (pkgs.stdenv) isDarwin;
   cfg = config.programs.pwas;
+  profileCfg = config.programs.pwa-profiles;
   rcfg = config.programs.pwas-router;
 
   # How an app is launched for a *given* URL. The chromium path keeps --app so
@@ -57,6 +58,10 @@
 
   escapePeers = pwa: lib.filter (peer: peer.externalLinksOut) (profilePeers pwa);
   usesEscape = pwa: escapePeers pwa != [];
+  profileInternalOrigins = pwa:
+    if pwa.profile != null && builtins.hasAttr pwa.profile profileCfg
+    then profileCfg.${pwa.profile}.internalOrigins
+    else [];
 
   # One extension is shared by every app in a named profile. This matters
   # because Chromium runs one process per user-data-dir: whichever app starts
@@ -66,7 +71,10 @@
   escapeRules = pwa:
     map (peer: {
       source = origin peer.url;
-      internal = [(origin peer.url)] ++ peer.internalOrigins;
+      internal =
+        [(origin peer.url)]
+        ++ peer.internalOrigins
+        ++ profileInternalOrigins peer;
     }) (escapePeers pwa);
 
   # Scheme used to hand a URL back out of Chromium. Chromium refuses to give
@@ -228,178 +236,199 @@
         (lib.removePrefix "http://" (lib.removePrefix "https://" url)));
   in "chrome-${host}__-Default";
 in {
-  options.programs.pwas = lib.mkOption {
-    default = {};
-    description = ''
-      Web applications to expose as desktop launchers, keyed by a short
-      identifier used for the window class.
+  options.programs = {
+    pwas = lib.mkOption {
+      default = {};
+      description = ''
+        Web applications to expose as desktop launchers, keyed by a short
+        identifier used for the window class.
 
-      Linux only. macOS reads no .desktop files, and Chromium is not among the
-      packages this config installs there.
-    '';
-    example = lib.literalExpression ''
-      {
-        meet = {
-          name = "Google Meet";
-          url = "https://meet.google.com";
+        Linux only. macOS reads no .desktop files, and Chromium is not among the
+        packages this config installs there.
+      '';
+      example = lib.literalExpression ''
+        {
+          meet = {
+            name = "Google Meet";
+            url = "https://meet.google.com";
+          };
+        }
+      '';
+      type = lib.types.attrsOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "Name shown in the application launcher.";
+          };
+
+          url = lib.mkOption {
+            type = lib.types.str;
+            description = "Address the app window opens.";
+          };
+
+          categories = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = ["Network"];
+            description = "freedesktop menu categories.";
+          };
+
+          browser = lib.mkOption {
+            type = lib.types.enum ["chromium" "firefox"];
+            default = "chromium";
+            description = ''
+              Which browser hosts the app, and it is a real trade rather than a
+              preference.
+
+              chromium gets a proper app window -- no tab strip, no omnibox --
+              but a cross-origin link clicked inside it is opened by Chromium
+              itself rather than handed to the desktop, so it lands in Chromium
+              no matter what the system default says.
+
+              firefox has no --app equivalent (only --kiosk, which is
+              fullscreen), so this is an ordinary window. In exchange links
+              behave: they open in the browser you actually browse with.
+
+              Pick per app. Something you mostly follow links out of wants
+              firefox; something you sit inside, or that needs Chromium's media
+              support, wants chromium.
+            '';
+          };
+
+          isolate = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = ''
+              Give the app its own browser profile, so its cookies, storage and
+              fingerprinting surface are its own.
+
+              Without this every app shares the default profile: one cookie jar,
+              one identity, and an ad network embedded in two of them can join
+              the sessions up. Isolated, each app is a separate browser as far as
+              the sites inside it can tell.
+
+              Isolation is per app unless profile names a group. Apps from the
+              same provider can therefore share a sign-in while remaining
+              isolated from unrelated PWAs and the ordinary browser. Setting
+              isolate to false instead uses Chromium's ordinary default profile.
+
+              Profiles live under $XDG_DATA_HOME/pwas, which impermanence
+              persists, so logins survive a reboot.
+
+              chromium only; the Firefox path uses your normal profile.
+            '';
+          };
+
+          profile = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "google";
+            description = ''
+              Optional named isolation group. Isolated apps with the same name
+              share one Chromium profile and therefore one vendor login, while
+              remaining separate from every other named or per-app profile.
+
+              Only meaningful when isolate is true.
+            '';
+          };
+
+          externalLinksOut = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Send links that leave the app's own origin to the normal browser
+              instead of opening them in Chromium.
+
+              Chromium only does this if made to. It treats itself as the handler
+              for web links and will not pass one to the desktop, so a sideloaded
+              extension re-emits external URLs under a scheme Chromium does NOT
+              handle, which it then does hand over. Chromium asks for
+              confirmation the first time; tick "always allow".
+
+              chromium only -- a Firefox-hosted app already opens links in
+              Firefox, being Firefox.
+            '';
+          };
+
+          internalOrigins = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [];
+            example = ["https://auth.example.com"];
+            description = ''
+              Additional origins that remain inside this app when
+              externalLinksOut is enabled. Use this for authentication origins
+              whose redirects must share the app's isolated browser profile.
+            '';
+          };
+
+          handles = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [];
+            example = ["meet.google.com"];
+            description = ''
+              Hosts whose links this app should claim, so a meeting link in a
+              calendar or chat opens the app rather than a browser tab.
+
+              Requires programs.pwas-router.enable. Matching is on host, and the
+              clicked URL is passed through -- opening the actual meeting, not
+              the app's home page.
+            '';
+          };
+
+          wmClass = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              Window class the app reports, used to match the window back to its
+              launcher. Defaults to the value Chromium derives from a bare-host
+              URL.
+
+              Set this explicitly if the URL has a path -- Chromium folds the
+              path into the class and the default will not match. Confirm the
+              real value with `hyprctl clients`, since guessing it wrong fails
+              silently: the app still launches, it just shows up in the taskbar
+              as an anonymous second Chromium.
+            '';
+          };
         };
-      }
-    '';
-    type = lib.types.attrsOf (lib.types.submodule {
-      options = {
-        name = lib.mkOption {
-          type = lib.types.str;
-          description = "Name shown in the application launcher.";
-        };
+      });
+    };
 
-        url = lib.mkOption {
-          type = lib.types.str;
-          description = "Address the app window opens.";
-        };
-
-        categories = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = ["Network"];
-          description = "freedesktop menu categories.";
-        };
-
-        browser = lib.mkOption {
-          type = lib.types.enum ["chromium" "firefox"];
-          default = "chromium";
-          description = ''
-            Which browser hosts the app, and it is a real trade rather than a
-            preference.
-
-            chromium gets a proper app window -- no tab strip, no omnibox --
-            but a cross-origin link clicked inside it is opened by Chromium
-            itself rather than handed to the desktop, so it lands in Chromium
-            no matter what the system default says.
-
-            firefox has no --app equivalent (only --kiosk, which is
-            fullscreen), so this is an ordinary window. In exchange links
-            behave: they open in the browser you actually browse with.
-
-            Pick per app. Something you mostly follow links out of wants
-            firefox; something you sit inside, or that needs Chromium's media
-            support, wants chromium.
-          '';
-        };
-
-        isolate = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = ''
-            Give the app its own browser profile, so its cookies, storage and
-            fingerprinting surface are its own.
-
-            Without this every app shares the default profile: one cookie jar,
-            one identity, and an ad network embedded in two of them can join
-            the sessions up. Isolated, each app is a separate browser as far as
-            the sites inside it can tell.
-
-            Isolation is per app unless profile names a group. Apps from the
-            same provider can therefore share a sign-in while remaining
-            isolated from unrelated PWAs and the ordinary browser. Setting
-            isolate to false instead uses Chromium's ordinary default profile.
-
-            Profiles live under $XDG_DATA_HOME/pwas, which impermanence
-            persists, so logins survive a reboot.
-
-            chromium only; the Firefox path uses your normal profile.
-          '';
-        };
-
-        profile = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          example = "google";
-          description = ''
-            Optional named isolation group. Isolated apps with the same name
-            share one Chromium profile and therefore one vendor login, while
-            remaining separate from every other named or per-app profile.
-
-            Only meaningful when isolate is true.
-          '';
-        };
-
-        externalLinksOut = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = ''
-            Send links that leave the app's own origin to the normal browser
-            instead of opening them in Chromium.
-
-            Chromium only does this if made to. It treats itself as the handler
-            for web links and will not pass one to the desktop, so a sideloaded
-            extension re-emits external URLs under a scheme Chromium does NOT
-            handle, which it then does hand over. Chromium asks for
-            confirmation the first time; tick "always allow".
-
-            chromium only -- a Firefox-hosted app already opens links in
-            Firefox, being Firefox.
-          '';
-        };
-
-        internalOrigins = lib.mkOption {
+    pwa-profiles = lib.mkOption {
+      default = {};
+      description = ''
+        Shared settings for named PWA isolation profiles. Apps select one with
+        programs.pwas.<name>.profile.
+      '';
+      type = lib.types.attrsOf (lib.types.submodule {
+        options.internalOrigins = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [];
-          example = ["https://auth.example.com"];
+          example = ["https://accounts.google.com"];
           description = ''
-            Additional origins that remain inside this app when
-            externalLinksOut is enabled. Use this for authentication origins
-            whose redirects must share the app's isolated browser profile.
+            Authentication and account-management origins that remain internal
+            for every app in this profile when externalLinksOut is enabled.
           '';
         };
+      });
+    };
 
-        handles = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [];
-          example = ["meet.google.com"];
-          description = ''
-            Hosts whose links this app should claim, so a meeting link in a
-            calendar or chat opens the app rather than a browser tab.
+    pwas-router = {
+      enable = lib.mkEnableOption ''
+        routing links by host, so an app can claim its own URLs.
 
-            Requires programs.pwas-router.enable. Matching is on host, and the
-            clicked URL is passed through -- opening the actual meeting, not
-            the app's home page.
-          '';
-        };
+        xdg associations are per-SCHEME, not per-host: the desktop can say
+        "https goes to Firefox" but not "https://meet.google.com goes to Meet".
+        This registers a small dispatcher as the http/https handler which reads
+        the URL and hands it to whichever app claimed that host, falling back to
+        the ordinary browser
+      '';
 
-        wmClass = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          description = ''
-            Window class the app reports, used to match the window back to its
-            launcher. Defaults to the value Chromium derives from a bare-host
-            URL.
-
-            Set this explicitly if the URL has a path -- Chromium folds the
-            path into the class and the default will not match. Confirm the
-            real value with `hyprctl clients`, since guessing it wrong fails
-            silently: the app still launches, it just shows up in the taskbar
-            as an anonymous second Chromium.
-          '';
-        };
+      fallback = lib.mkOption {
+        type = lib.types.str;
+        default = "${lib.getExe pkgs.firefox}";
+        defaultText = lib.literalExpression "lib.getExe pkgs.firefox";
+        description = "Command handed every URL no app claimed.";
       };
-    });
-  };
-
-  options.programs.pwas-router = {
-    enable = lib.mkEnableOption ''
-      routing links by host, so an app can claim its own URLs.
-
-      xdg associations are per-SCHEME, not per-host: the desktop can say
-      "https goes to Firefox" but not "https://meet.google.com goes to Meet".
-      This registers a small dispatcher as the http/https handler which reads
-      the URL and hands it to whichever app claimed that host, falling back to
-      the ordinary browser
-    '';
-
-    fallback = lib.mkOption {
-      type = lib.types.str;
-      default = "${lib.getExe pkgs.firefox}";
-      defaultText = lib.literalExpression "lib.getExe pkgs.firefox";
-      description = "Command handed every URL no app claimed.";
     };
   };
 
