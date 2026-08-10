@@ -104,6 +104,7 @@ in {
       url = "https://mail.google.com";
       externalLinksOut = true;
       profile = "google";
+      internalOrigins = ["https://accounts.google.com"];
 
       # Mail is the biggest source of links into other things, so claiming its
       # own host keeps a mail link from a chat opening the app rather than a
@@ -121,6 +122,7 @@ in {
 
       externalLinksOut = true;
       profile = "google";
+      internalOrigins = ["https://accounts.google.com"];
 
       # A meeting link from mail or chat opens the app on that meeting rather
       # than a browser tab, which is the whole point of having the app.
