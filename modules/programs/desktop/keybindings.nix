@@ -357,7 +357,11 @@
         key = "grave";
         mods = ["Super"];
         desc = "Workspace overview";
-        hyprlandAction = "overview:toggle";
+        # Plugins are loaded by Home Manager through exec-once, after Hyprland
+        # parses the bindings. Indirect through the built-in exec dispatcher so
+        # startup validation does not reject a dispatcher that will exist by
+        # the time the key is actually pressed.
+        hyprlandAction = "exec, hyprctl dispatch overview:toggle";
       }
       {
         key = "n";
