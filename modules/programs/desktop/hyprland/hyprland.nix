@@ -27,6 +27,16 @@ in {
       settings = {
         "$mod" = "SUPER";
 
+        # Native vector cursor for Hyprland and server-side Wayland cursors.
+        # GTK/XWayland retain Bibata below through gtk.cursorTheme because they
+        # do not consistently implement the hyprcursor protocol.
+        env = [
+          "HYPRCURSOR_THEME,rose-pine-hyprcursor"
+          "HYPRCURSOR_SIZE,24"
+          "XCURSOR_THEME,Bibata-Modern-Classic"
+          "XCURSOR_SIZE,24"
+        ];
+
         # Monitor config - dual Dell U3824DW ultrawides (stacked)
         # DP-2 on top, DP-1 on bottom
         monitor = [
@@ -119,11 +129,11 @@ in {
         # Window rules. Current Hyprland syntax: `match:<selector>, <rule> <value>`
         # (this replaced the deprecated windowrulev2 `<rule>, class:...` form).
         windowrule = [
-          "match:class ^(pavucontrol)$, float on"
-          "match:class ^(pavucontrol)$, size 600 400"
-          "match:class ^(pavucontrol)$, move 100%-620 50"
+          "match:class ^(hyprpwcenter)$, float on"
+          "match:class ^(hyprpwcenter)$, size 760 520"
+          "match:class ^(hyprpwcenter)$, move 100%-780 50"
           # waybar's network module opens these; float them by the tray like
-          # pavucontrol rather than letting them tile.
+          # hyprpwcenter rather than letting them tile.
           "match:class ^(network-tui|nm-connection-editor)$, float on"
           "match:class ^(network-tui|nm-connection-editor)$, size 700 500"
           "match:class ^(network-tui|nm-connection-editor)$, move 100%-720 50"
@@ -140,7 +150,6 @@ in {
             # naturally with that instance during logout.
             "waybar"
             "hyprpaper"
-            "mako"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --type text --watch cliphist store"
             "wl-paste --type image --watch cliphist store"

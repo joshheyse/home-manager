@@ -160,7 +160,27 @@ in {
             if hasNotch
             then ["clock#date" "custom/notch" "clock#time"]
             else ["clock"];
-          modules-right = ["custom/weather" "custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "tray"];
+          modules-right = ["custom/weather" "custom/tailscale" "pulseaudio" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
+
+          "custom/notification" = {
+            tooltip = true;
+            format = "{icon}";
+            format-icons = {
+              notification = "󱅫";
+              none = "󰂜";
+              dnd-notification = "󰂠";
+              dnd-none = "󰪓";
+              inhibited-notification = "󰂛";
+              inhibited-none = "󰪑";
+              dnd-inhibited-notification = "󰂛";
+              dnd-inhibited-none = "󰪑";
+            };
+            return-type = "json";
+            exec = "${pkgs.swaynotificationcenter}/bin/swaync-client -swb";
+            on-click = "${pkgs.swaynotificationcenter}/bin/swaync-client -t -sw";
+            on-click-right = "${pkgs.swaynotificationcenter}/bin/swaync-client -d -sw";
+            escape = true;
+          };
 
           "custom/weather" = {
             format = "{}";
@@ -362,7 +382,7 @@ in {
             format-muted = "󰖁 {volume:3}%";
             format-icons = {default = ["" "" ""];};
             tooltip-format = "<span color='${theme.orange}'><b>{desc}</b></span>\n${dim "output "} {volume}%";
-            on-click = "pavucontrol";
+            on-click = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
             scroll-step = 5;
           };
 
@@ -379,7 +399,7 @@ in {
             return-type = "json";
             interval = 2;
             on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
-            on-click-right = "pavucontrol";
+            on-click-right = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.

@@ -8,6 +8,11 @@
 }: let
   cfg = config.programs.hyprland-desktop;
   inherit (pkgs.stdenv) isLinux;
+  brightness = direction:
+    lib.concatStringsSep " " (
+      lib.optional cfg.autoBrightness.enable "${pkgs.coreutils}/bin/touch \"$XDG_RUNTIME_DIR/auto-brightness.pause\" &&"
+      ++ ["swayosd-client --brightness ${direction}"]
+    );
 in {
   config = lib.mkIf (cfg.enable && isLinux) {
     services.swayosd = {
@@ -34,8 +39,8 @@ in {
       bind  = , XF86AudioMicMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
 
       # Brightness keys (SwayOSD)
-      binde = , XF86MonBrightnessUp, exec, swayosd-client --brightness raise
-      binde = , XF86MonBrightnessDown, exec, swayosd-client --brightness lower
+      binde = , XF86MonBrightnessUp, exec, ${brightness "raise"}
+      binde = , XF86MonBrightnessDown, exec, ${brightness "lower"}
     '';
   };
 }
