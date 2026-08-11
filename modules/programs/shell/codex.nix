@@ -157,8 +157,13 @@ in {
       Service = {
         Type = "oneshot";
         UMask = "0077";
-        ExecStart = "${standaloneCodex} remote-control start";
-        ExecStop = "${standaloneCodex} remote-control stop";
+        # The high-level `remote-control start` command exits non-zero when the
+        # initial relay connection is unavailable. systemd then tears down the
+        # detached children in the unit cgroup, including the local control
+        # socket. Bootstrap only waits for the durable local daemon; that daemon
+        # owns relay reconnection and remains available for pairing/diagnostics.
+        ExecStart = "${standaloneCodex} app-server daemon bootstrap --remote-control";
+        ExecStop = "${standaloneCodex} app-server daemon stop";
         RemainAfterExit = true;
       };
 
