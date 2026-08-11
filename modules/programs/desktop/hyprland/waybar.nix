@@ -178,7 +178,7 @@ in {
           modules-center =
             if hasNotch
             then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
-            else ["custom/weather" "clock"];
+            else ["custom/weather" "clock#date" "clock#time"];
           modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
           "custom/notification" = {

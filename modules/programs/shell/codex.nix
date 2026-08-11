@@ -28,12 +28,21 @@
       # app-server administration, and similar commands remain local.
       args=("$@")
       command=""
+      has_cwd_override=false
       index=0
       while (( index < ''${#args[@]} )); do
         arg="''${args[index]}"
         case "$arg" in
+          -C | --cd)
+            has_cwd_override=true
+            ((index += 2))
+            ;;
+          --cd=*)
+            has_cwd_override=true
+            ((index += 1))
+            ;;
           -c | --config | --remote-auth-token-env | -i | --image | -m | --model | \
-            -p | --profile | -s | --sandbox | -C | --cd | --add-dir | -a | \
+            -p | --profile | -s | --sandbox | --add-dir | -a | \
             --ask-for-approval)
             ((index += 2))
             ;;
@@ -81,7 +90,10 @@
       ''}
 
       if [[ -n "$endpoint" ]]; then
-        exec "$real_codex" --remote "$endpoint" "$@"
+        if [[ "$has_cwd_override" == true ]]; then
+          exec "$real_codex" --remote "$endpoint" "$@"
+        fi
+        exec "$real_codex" --remote "$endpoint" --cd "$PWD" "$@"
       fi
 
       # A failed/not-yet-ready service must never make the CLI unusable.
