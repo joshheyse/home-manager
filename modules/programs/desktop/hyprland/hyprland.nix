@@ -92,7 +92,7 @@ in {
         # Input
         input = {
           kb_layout = "us";
-          kb_options = "caps:escape";
+          kb_options = lib.mkDefault "caps:escape";
           numlock_by_default = true;
           repeat_rate = 50;
           repeat_delay = 300;
