@@ -172,9 +172,9 @@ in {
           modules-left = ["hyprland/workspaces" "hyprland/window"];
           modules-center =
             if hasNotch
-            then ["clock#date" "custom/notch" "clock#time"]
-            else ["clock"];
-          modules-right = ["custom/weather" "custom/tailscale" "custom/speaker" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
+            then ["custom/weather" "clock#date" "custom/notch" "clock#time"]
+            else ["custom/weather" "clock"];
+          modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
           "custom/notification" = {
             tooltip = true;
