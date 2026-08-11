@@ -1,8 +1,10 @@
 {
+  config,
   lib,
   pkgs,
   ...
 }: let
+  cfg = config.programs.codex.remote-control;
   inherit (pkgs.stdenv) isLinux;
   socketName = "codex-app-server/app-server.sock";
 
@@ -87,29 +89,40 @@
     '';
   };
 in {
-  home.packages = [codexWrapped];
+  options.programs.codex.remote-control.enable =
+    lib.mkEnableOption "persistent Codex app-server and automatic TUI connection";
 
-  systemd.user.services.codex-app-server = lib.mkIf isLinux {
-    Unit = {
-      Description = "Persistent Codex app server";
-      After = ["network-online.target"];
-      Wants = ["network-online.target"];
+  config = {
+    home.packages = [
+      (
+        if cfg.enable
+        then codexWrapped
+        else pkgs.codex
+      )
+    ];
+
+    systemd.user.services.codex-app-server = lib.mkIf (cfg.enable && isLinux) {
+      Unit = {
+        Description = "Persistent Codex app server";
+        After = ["network-online.target"];
+        Wants = ["network-online.target"];
+      };
+
+      Service = {
+        Type = "simple";
+        RuntimeDirectory = "codex-app-server";
+        RuntimeDirectoryMode = "0700";
+        UMask = "0077";
+        ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
+        # One foreground process serves local/SSH-forwarded TUIs through the
+        # private socket and registers with Codex's managed mobile relay.
+        ExecStart = "${pkgs.codex}/bin/codex app-server --enable remote_control --listen unix://%t/${socketName}";
+        ExecStopPost = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
+        Restart = "always";
+        RestartSec = 2;
+      };
+
+      Install.WantedBy = ["default.target"];
     };
-
-    Service = {
-      Type = "simple";
-      RuntimeDirectory = "codex-app-server";
-      RuntimeDirectoryMode = "0700";
-      UMask = "0077";
-      ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
-      # One foreground process serves local/SSH-forwarded TUIs through the
-      # private socket and registers with Codex's managed mobile relay.
-      ExecStart = "${pkgs.codex}/bin/codex app-server --enable remote_control --listen unix://%t/${socketName}";
-      ExecStopPost = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
-      Restart = "always";
-      RestartSec = 2;
-    };
-
-    Install.WantedBy = ["default.target"];
   };
 }
