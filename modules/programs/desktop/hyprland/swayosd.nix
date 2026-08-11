@@ -28,9 +28,9 @@ in {
     wayland.windowManager.hyprland.extraConfig = ''
 
       # Volume keys (SwayOSD)
-      binde = , XF86AudioRaiseVolume, exec, swayosd-client --output-volume raise
-      binde = , XF86AudioLowerVolume, exec, swayosd-client --output-volume lower
-      bind  = , XF86AudioMute, exec, swayosd-client --output-volume mute-toggle
+      binde = , XF86AudioRaiseVolume, exec, swayosd-client --output-volume raise && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar
+      binde = , XF86AudioLowerVolume, exec, swayosd-client --output-volume lower && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar
+      bind  = , XF86AudioMute, exec, swayosd-client --output-volume mute-toggle && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar
       # wpctl rather than swayosd-client, and it is not a preference: swayosd
       # 0.3.1 talks to PulseAudio, and the default source on this machine is a
       # PipeWire filter-chain node (Asahi's mic DSP: `effect_output.j416-mic`,
@@ -41,7 +41,7 @@ in {
       # Costs the OSD popup for this one key. The waybar microphone module
       # covers it and covers it better -- it is on screen the whole time
       # rather than for two seconds after a keypress.
-      bind  = , XF86AudioMicMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+      bind  = , XF86AudioMicMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar
 
       # Playback keys (MPRIS, routed to the last active player)
       bind = , XF86AudioPlay, exec, ${lib.getExe pkgs.playerctl} --player=playerctld play-pause

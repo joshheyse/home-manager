@@ -400,10 +400,11 @@ in {
             exec = "${speakerStatus}";
             return-type = "json";
             interval = 2;
+            signal = 7;
             on-click = "${pkgs.hyprpwcenter}/bin/hyprpwcenter";
-            on-click-right = "${audioDevicePicker} output";
-            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+";
-            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
+            on-click-right = "${audioDevicePicker} output && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar";
+            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar";
+            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${pkgs.procps}/bin/pkill -RTMIN+7 waybar";
           };
 
           # The mic is deliberately in the bar and not only the tooltip: an
@@ -418,10 +419,11 @@ in {
             exec = "${micStatus}";
             return-type = "json";
             interval = 2;
-            on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
-            on-click-right = "${audioDevicePicker} input";
-            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SOURCE@ 5%+";
-            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%-";
+            signal = 8;
+            on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
+            on-click-right = "${audioDevicePicker} input && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
+            on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SOURCE@ 5%+ && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
+            on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%- && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
           };
 
           # Laptop only; on a desktop `battery` renders nothing and is harmless.

@@ -14,8 +14,8 @@ KEYBOARD = Path("/sys/class/leds/kbd_backlight")
 
 # Lux-to-percent control points. Interpolation happens in log(lux + 1) space,
 # which tracks human perception better than a linear response.
-DISPLAY_CURVE = [(0, 1), (5, 5), (20, 12), (80, 28), (300, 50), (1000, 75), (5000, 100)]
-KEYBOARD_CURVE = [(0, 15), (3, 14), (10, 10), (30, 5), (80, 0)]
+DISPLAY_CURVE = [(0, 1), (5, 2), (20, 6), (80, 18), (300, 40), (1000, 65), (5000, 100)]
+KEYBOARD_CURVE = [(0, 5), (3, 5), (10, 4), (30, 2), (80, 0)]
 
 
 def arguments():
@@ -65,7 +65,7 @@ class Light:
 
     def approach(self, target, step=1):
         current = self.percent()
-        if abs(target - current) < 2:
+        if target == current:
             return
         self.set_percent(current + max(-step, min(step, target - current)))
 

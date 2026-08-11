@@ -53,6 +53,7 @@
   # programs.claude-code.settings (e.g. hooks from the tmux module)
   managedSettings = lib.recursiveUpdate cfg.settings ownSettings;
   managedSettingsFile = jsonFormat.generate "claude-code-managed-settings.json" managedSettings;
+  emptySettingsFile = jsonFormat.generate "claude-code-empty-settings.json" {};
 
   managedMemoryFile = pkgs.writeText "claude-code-CLAUDE.md" ''
     # Global Claude Code Instructions
@@ -155,17 +156,34 @@ in {
     activation.claude-code-mutable-config = lib.hm.dag.entryAfter ["writeBoundary"] ''
       claude_dir="${config.home.homeDirectory}/.claude"
       settings="$claude_dir/settings.json"
+      managed_state="$claude_dir/.nix-managed-settings.json"
       memory="$claude_dir/CLAUDE.md"
       managed="${managedSettingsFile}"
+      previous_managed="${emptySettingsFile}"
+
+      if [ -f "$managed_state" ] && [ ! -L "$managed_state" ]; then
+        previous_managed="$managed_state"
+      fi
 
       # Ensure directory exists
       mkdir -p "$claude_dir"
 
-      # Settings: deep-merge nix-managed keys over any existing runtime settings.
-      # Runtime keys (like theme) are preserved; nix-managed keys always win.
+      # Settings remain mutable because Claude writes runtime preferences here.
+      # Remove top-level keys owned by the previous Nix generation, then merge
+      # the current managed object over the runtime-only keys. This makes a key
+      # deleted from Nix actually disappear instead of surviving forever.
+      # apiKeyHelper predates the ownership snapshot, so retire it explicitly
+      # during this first migration; it forced API billing over the Max login.
       if [ -f "$settings" ] && [ ! -L "$settings" ]; then
-        # Existing mutable file — merge managed keys on top
-        ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$settings" "$managed" > "$settings.tmp"
+        ${pkgs.jq}/bin/jq -s '
+          .[0] as $existing
+          | .[1] as $managed
+          | .[2] as $previous
+          | ($existing
+             | del(.apiKeyHelper)
+             | with_entries(select(.key as $key | ($previous | has($key) | not))))
+            * $managed
+        ' "$settings" "$managed" "$previous_managed" > "$settings.tmp"
         mv "$settings.tmp" "$settings"
       else
         # First run or was a symlink from previous home-manager generation — seed from managed
@@ -173,6 +191,9 @@ in {
         cp "$managed" "$settings"
         chmod 644 "$settings"
       fi
+
+      cp "$managed" "$managed_state"
+      chmod 644 "$managed_state"
 
 
       # CLAUDE.md: overwrite with managed content (this is declarative intent,
