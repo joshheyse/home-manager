@@ -184,9 +184,11 @@ def fetch_alerts(args):
             )
         )
     alerts.sort(
-        key=lambda alert: SEVERITY_RANK.index(alert[0])
-        if alert[0] in SEVERITY_RANK
-        else len(SEVERITY_RANK)
+        key=lambda alert: (
+            SEVERITY_RANK.index(alert[0])
+            if alert[0] in SEVERITY_RANK
+            else len(SEVERITY_RANK)
+        )
     )
     return alerts
 
@@ -226,8 +228,7 @@ def build(weather, alerts, args):
         f"{current['relative_humidity_2m']}% RH",
     ]
     wind = (
-        f"{bearing(current['wind_direction_10m'])} "
-        f"{round(current['wind_speed_10m'])}"
+        f"{bearing(current['wind_direction_10m'])} {round(current['wind_speed_10m'])}"
     )
     if current.get("wind_gusts_10m"):
         wind += f"g{round(current['wind_gusts_10m'])}"
@@ -241,7 +242,11 @@ def build(weather, alerts, args):
         start = hourly["time"].index(now)
     except ValueError:
         start = next(
-            (index for index, timestamp in enumerate(hourly["time"]) if timestamp >= now),
+            (
+                index
+                for index, timestamp in enumerate(hourly["time"])
+                if timestamp >= now
+            ),
             0,
         )
 
@@ -268,9 +273,7 @@ def build(weather, alerts, args):
     daily = weather["daily"]
     for index in range(1, min(4, len(daily["time"]))):
         day = datetime.fromisoformat(daily["time"][index]).strftime("%a")
-        day_glyph, day_label = condition(
-            daily["weather_code"][index], True, args.emoji
-        )
+        day_glyph, day_label = condition(daily["weather_code"][index], True, args.emoji)
         precipitation = daily["precipitation_probability_max"][index] or 0
         lines.append(
             f"{day}  {day_glyph}  "
@@ -286,9 +289,7 @@ def build(weather, alerts, args):
     if args.emoji:
         lines.append(f"<span size='small'>🌅 {sunrise}   🌇 {sunset}</span>")
     else:
-        lines.append(
-            f"<span size='small'>\ue34c {sunrise}   \ue34d {sunset}</span>"
-        )
+        lines.append(f"<span size='small'>\ue34c {sunrise}   \ue34d {sunset}</span>")
 
     classes = ["weather"]
     if alerts:
@@ -298,9 +299,7 @@ def build(weather, alerts, args):
                 "alert",
                 "alert-"
                 + (
-                    top_severity.lower()
-                    if top_severity in SEVERITY_RANK
-                    else "unknown"
+                    top_severity.lower() if top_severity in SEVERITY_RANK else "unknown"
                 ),
             ]
         )
@@ -353,9 +352,7 @@ def parse_args():
     parser.add_argument("--lat", type=float, default=41.7705)
     parser.add_argument("--lon", type=float, default=-87.5760)
     parser.add_argument("--tz", default="America/Chicago")
-    parser.add_argument(
-        "--units", choices=["imperial", "metric"], default="imperial"
-    )
+    parser.add_argument("--units", choices=["imperial", "metric"], default="imperial")
     parser.add_argument("--emoji", action="store_true")
     parser.add_argument("--h24", action="store_true")
     parser.add_argument("--no-alerts", dest="alerts", action="store_false")

@@ -58,7 +58,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
       if [[ ! -f "$file" ]]; then
         continue
       fi
-      if [[ "$file" == *.sh || "$file" == *.nix || "$file" == *.lua ]]; then
+      if [[ "$file" == *.sh || "$file" == *.nix || "$file" == *.lua || "$file" == *.py ]]; then
         FILES+=("$file")
         SEEN[$file]=1
       fi
@@ -66,7 +66,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   done
 
   if [[ ${#FILES[@]} -eq 0 ]]; then
-    info "No dirty .sh, .nix, or .lua files found"
+    info "No dirty .sh, .nix, .lua, or .py files found"
     exit 0
   fi
 
@@ -112,6 +112,40 @@ check_file() {
         echo "    ✗ Issues found (auto-fix disabled)"
         EXIT_CODE=1
       fi
+    fi
+  fi
+
+  # Format and lint Python files
+  if [[ "$FILE" == *.py ]]; then
+    echo "  → Running ruff format"
+    if command -v ruff &>/dev/null; then
+      if ! ruff format --check "$FILE" 2>&1; then
+        if [[ "$AUTO_FIX" == true ]]; then
+          echo "    Formatting..."
+          ruff format "$FILE" 2>&1 || true
+        else
+          echo "    ✗ Formatting needed (auto-fix disabled)"
+          EXIT_CODE=1
+        fi
+      fi
+
+      echo "  → Running ruff check"
+      if ! ruff check "$FILE" 2>&1; then
+        if [[ "$AUTO_FIX" == true ]]; then
+          echo "    Auto-fixing..."
+          ruff check --fix "$FILE" 2>&1 || true
+          echo "    ✓ Auto-fixed, re-checking..."
+          if ! ruff check "$FILE" 2>&1; then
+            EXIT_CODE=1
+          fi
+        else
+          echo "    ✗ Issues found (auto-fix disabled)"
+          EXIT_CODE=1
+        fi
+      fi
+    else
+      warn "ruff not available; enter the repository Nix dev shell"
+      EXIT_CODE=1
     fi
   fi
 

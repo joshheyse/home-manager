@@ -172,7 +172,7 @@ in {
           modules-left = ["hyprland/workspaces" "hyprland/window"];
           modules-center =
             if hasNotch
-            then ["custom/weather" "clock#date" "custom/notch" "clock#time"]
+            then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
             else ["custom/weather" "clock"];
           modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
@@ -279,6 +279,15 @@ in {
           # close up in the middle of the bar, directly behind the cutout.
           # A single space is enough to keep the widget realised.
           "custom/notch" = {
+            format = " ";
+            tooltip = false;
+          };
+
+          # The centre group is positioned as one unit. Weather on only its
+          # left side would move the notch spacer (and therefore the date) to
+          # the right, behind the physical cutout. This invisible slot mirrors
+          # weather's width after the time so the notch remains screen-centred.
+          "custom/weather-balance" = {
             format = " ";
             tooltip = false;
           };
@@ -521,10 +530,21 @@ in {
           padding: 0 10px;
         }
 
-        /* The enlarged condition glyph visually fills the weather module's
-           normal padding, so give the following Tailscale icon more air. */
+        /* Weather now participates in the notch-balanced centre group. A
+           fixed minimum makes its invisible mirror stable as temperature and
+           condition glyphs change; the margin is mirrored on the far side. */
+        #custom-weather,
+        #custom-weather-balance {
+          min-width: 80px;
+        }
+
         #custom-weather {
           margin-right: 6px;
+        }
+
+        #custom-weather-balance {
+          padding: 0 10px;
+          margin-left: 6px;
         }
 
         /* Pango spans own the live weather colours. Dim the entire rendered

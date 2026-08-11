@@ -26,6 +26,13 @@ repos:
         files: \.lua$
         pass_filenames: true
 
+      - id: ruff
+        name: ruff
+        entry: scripts/check-all
+        language: script
+        files: \.py$
+        pass_filenames: true
+
       - id: git-secrets
         name: git-secrets
         entry: git secrets --pre_commit_hook --

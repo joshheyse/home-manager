@@ -12,10 +12,10 @@
   # we merge everything together and manage it via activation instead of home.file.
   ownSettings = {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
-    # Read the key from the sops tmpfs file on demand instead of exporting
-    # ANTHROPIC_API_KEY into the shell, where every child process inherits it.
-    # Falls through to interactive /login if the file isn't present.
-    apiKeyHelper = "cat ${config.home.homeDirectory}/.config/sops-nix/secrets/anthropic/api_key 2>/dev/null";
+    # Authentication deliberately comes from Claude Code's own Claude Max
+    # login. Do not set apiKeyHelper here: any API key source takes precedence
+    # over that login, switches usage to API billing, and disables claude.ai
+    # connectors. Neovim injects its API key into only its own process instead.
     sandbox = {
       enabled = true;
       autoAllowBashIfSandboxed = true;

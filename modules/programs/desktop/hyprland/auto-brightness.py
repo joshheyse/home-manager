@@ -14,8 +14,8 @@ KEYBOARD = Path("/sys/class/leds/kbd_backlight")
 
 # Lux-to-percent control points. Interpolation happens in log(lux + 1) space,
 # which tracks human perception better than a linear response.
-DISPLAY_CURVE = [(0, 18), (5, 25), (20, 34), (80, 48), (300, 62), (1000, 78), (5000, 100)]
-KEYBOARD_CURVE = [(0, 40), (3, 35), (10, 24), (30, 12), (80, 0)]
+DISPLAY_CURVE = [(0, 1), (5, 5), (20, 12), (80, 28), (300, 50), (1000, 75), (5000, 100)]
+KEYBOARD_CURVE = [(0, 15), (3, 14), (10, 10), (30, 5), (80, 0)]
 
 
 def arguments():
@@ -92,7 +92,9 @@ def main():
     while True:
         try:
             lux = max(0.0, float(sensor.read_text(encoding="utf-8")))
-            smoothed_lux = lux if smoothed_lux is None else 0.15 * lux + 0.85 * smoothed_lux
+            smoothed_lux = (
+                lux if smoothed_lux is None else 0.15 * lux + 0.85 * smoothed_lux
+            )
 
             if not display_is_paused(pause_file, args.manual_pause_seconds):
                 display.approach(interpolate(smoothed_lux, DISPLAY_CURVE))
