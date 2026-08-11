@@ -16,9 +16,6 @@ in {
       settings = {
         general = {
           hide_cursor = true;
-          # Briefly treat the idle lock as a screensaver: pointer movement
-          # dismisses it without authentication before this window expires.
-          grace = 10;
         };
 
         background = [

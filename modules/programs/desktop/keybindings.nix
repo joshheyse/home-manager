@@ -237,7 +237,7 @@
   lockCmd =
     if isDarwin
     then "pmset displaysleepnow"
-    else "hyprlock";
+    else "hyprlock --grace 10";
 
   keybinds =
     [
