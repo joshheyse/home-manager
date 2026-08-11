@@ -105,6 +105,21 @@
       fi
 
       endpoint="''${CODEX_REMOTE_ENDPOINT:-}"
+      ${lib.optionalString isLinux ''
+        if [[ -z "$endpoint" ]]; then
+          socket=${lib.escapeShellArg "${codexHome}/app-server-control/app-server-control.sock"}
+
+          if [[ ! -S "$socket" ]] && command -v systemctl >/dev/null 2>&1; then
+            systemctl --user start codex-remote-control.service >/dev/null 2>&1 || true
+            for _ in {1..100}; do
+              [[ -S "$socket" ]] && break
+              ${pkgs.coreutils}/bin/sleep 0.05
+            done
+          fi
+
+          [[ -S "$socket" ]] && endpoint="unix://$socket"
+        fi
+      ''}
 
       if [[ -n "$endpoint" ]]; then
         if [[ "$has_cwd_override" == true ]]; then
