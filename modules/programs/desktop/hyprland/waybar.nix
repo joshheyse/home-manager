@@ -60,6 +60,11 @@
     ${builtins.readFile ./audio-device-picker.sh}
   '';
 
+  bluetoothDevicePicker = pkgs.writeShellScript "bluetooth-device-picker" ''
+    export PATH="${lib.makeBinPath [pkgs.bluez pkgs.blueman pkgs.gawk pkgs.gnugrep pkgs.coreutils pkgs.glib pkgs.rofi]}:$PATH"
+    ${builtins.readFile ./bluetooth-device-picker.sh}
+  '';
+
   healthStatus = pkgs.writeShellScript "waybar-health" ''
     export PATH="${lib.makeBinPath [pkgs.jq pkgs.coreutils pkgs.xdg-utils]}:$PATH"
     ${builtins.readFile ./waybar-health.sh}
@@ -174,7 +179,7 @@ in {
             if hasNotch
             then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
             else ["custom/weather" "clock"];
-          modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
+          modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
           "custom/notification" = {
             tooltip = true;
@@ -195,6 +200,22 @@ in {
             on-click = "${pkgs.swaynotificationcenter}/bin/swaync-client -t -sw";
             on-click-right = "${pkgs.swaynotificationcenter}/bin/swaync-client -d -sw";
             escape = true;
+          };
+
+          bluetooth = {
+            format = "";
+            format-on = "";
+            format-connected = "{num_connections:2} ";
+            format-disabled = "";
+            format-off = "";
+            format-no-controller = "";
+            min-length = 4;
+            align = 1.0;
+            tooltip-format = "Bluetooth\n{num_connections} connected";
+            tooltip-format-connected = "Bluetooth\n\n{device_enumerate}";
+            tooltip-format-enumerate-connected = "{device_alias}";
+            on-click = "${pkgs.blueman}/bin/blueman-manager";
+            on-click-right = "${bluetoothDevicePicker}";
           };
 
           "custom/weather" = {
@@ -528,8 +549,18 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #custom-speaker, #custom-mic, #battery, #custom-notification, #tray {
+        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #custom-speaker, #custom-mic, #battery, #custom-notification, #bluetooth, #tray {
           padding: 0 10px;
+        }
+
+        #bluetooth.disabled,
+        #bluetooth.off {
+          color: ${theme.comment};
+        }
+
+        #bluetooth.discoverable,
+        #bluetooth.discovering {
+          color: ${theme.yellow};
         }
 
         /* Weather now participates in the notch-balanced centre group. A

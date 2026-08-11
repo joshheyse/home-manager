@@ -21,6 +21,10 @@ in {
     lib.mkEnableOption "locking the session immediately on Hyprland startup via `hyprlock --grace 0`";
 
   config = lib.mkIf (cfg.enable && isLinux) {
+    # Blueman's applet provides its asynchronous power-state coordinator over
+    # D-Bus. Disable only its icon; Waybar owns the visible Bluetooth status.
+    dconf.settings."org/blueman/general".plugin-list = ["!StatusIcon"];
+
     wayland.windowManager.hyprland = {
       enable = true;
       configType = "hyprlang";
@@ -156,7 +160,6 @@ in {
             # environment to the current Hyprland instance and lets it exit
             # naturally with that instance during logout.
             "waybar"
-            "${pkgs.blueman}/bin/blueman-applet"
             "hyprpaper"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --type text --watch cliphist store"
