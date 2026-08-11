@@ -6,7 +6,40 @@
 }: let
   cfg = config.programs.codex.remote-control;
   inherit (pkgs.stdenv) isLinux;
-  socketName = "codex-app-server/app-server.sock";
+  codexHome = "${config.home.homeDirectory}/.codex";
+  standaloneRoot = "${codexHome}/packages/standalone";
+  standaloneCodex = "${standaloneRoot}/current/codex";
+  standaloneBin = "${standaloneRoot}/bin";
+
+  # Remote Control intentionally requires the self-updating standalone Codex
+  # installation. Pin the bootstrap logic while allowing that installation's
+  # own updater to manage releases beneath ~/.codex/packages/standalone.
+  standaloneInstaller = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/openai/codex/rust-v0.146.0/scripts/install/install.sh";
+    hash = "sha256-upLdJ+XAbw07vFi/pLnPtlmc0nQvux+SonZebAfe21o=";
+  };
+
+  bootstrapStandalone = pkgs.writeShellApplication {
+    name = "codex-remote-control-bootstrap";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.curl
+      pkgs.gawk
+      pkgs.gnugrep
+      pkgs.gnutar
+    ];
+    text = ''
+      if [[ -x ${lib.escapeShellArg standaloneCodex} ]]; then
+        exit 0
+      fi
+
+      export CODEX_HOME=${lib.escapeShellArg codexHome}
+      export CODEX_INSTALL_DIR=${lib.escapeShellArg standaloneBin}
+      export CODEX_NON_INTERACTIVE=1
+      export PATH="${standaloneBin}:$PATH"
+      exec ${pkgs.dash}/bin/dash ${standaloneInstaller}
+    '';
+  };
 
   codexWrapped = pkgs.writeShellApplication {
     name = "codex";
@@ -72,22 +105,6 @@
       fi
 
       endpoint="''${CODEX_REMOTE_ENDPOINT:-}"
-      ${lib.optionalString isLinux ''
-        if [[ -z "$endpoint" ]]; then
-          runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-          socket="$runtime_dir/${socketName}"
-
-          if [[ ! -S "$socket" ]] && command -v systemctl >/dev/null 2>&1; then
-            systemctl --user start codex-app-server.service >/dev/null 2>&1 || true
-            for _ in {1..20}; do
-              [[ -S "$socket" ]] && break
-              ${pkgs.coreutils}/bin/sleep 0.05
-            done
-          fi
-
-          [[ -S "$socket" ]] && endpoint="unix://$socket"
-        fi
-      ''}
 
       if [[ -n "$endpoint" ]]; then
         if [[ "$has_cwd_override" == true ]]; then
@@ -113,25 +130,36 @@ in {
       )
     ];
 
-    systemd.user.services.codex-app-server = lib.mkIf (cfg.enable && isLinux) {
+    systemd.user.services.codex-remote-control-bootstrap = lib.mkIf (cfg.enable && isLinux) {
       Unit = {
-        Description = "Persistent Codex app server";
+        Description = "Bootstrap the Codex Remote Control runtime";
         After = ["network-online.target"];
         Wants = ["network-online.target"];
       };
 
       Service = {
-        Type = "simple";
-        RuntimeDirectory = "codex-app-server";
-        RuntimeDirectoryMode = "0700";
+        Type = "oneshot";
         UMask = "0077";
-        ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
-        # One foreground process serves local/SSH-forwarded TUIs through the
-        # private socket and registers with Codex's managed mobile relay.
-        ExecStart = "${pkgs.codex}/bin/codex app-server --enable remote_control --listen unix://%t/${socketName}";
-        ExecStopPost = "${pkgs.coreutils}/bin/rm -f %t/${socketName}";
-        Restart = "always";
-        RestartSec = 2;
+        ExecStart = "${bootstrapStandalone}/bin/codex-remote-control-bootstrap";
+        RemainAfterExit = true;
+      };
+
+      Install.WantedBy = ["default.target"];
+    };
+
+    systemd.user.services.codex-remote-control = lib.mkIf (cfg.enable && isLinux) {
+      Unit = {
+        Description = "Codex Remote Control";
+        After = ["codex-remote-control-bootstrap.service"];
+        Requires = ["codex-remote-control-bootstrap.service"];
+      };
+
+      Service = {
+        Type = "oneshot";
+        UMask = "0077";
+        ExecStart = "${standaloneCodex} remote-control start";
+        ExecStop = "${standaloneCodex} remote-control stop";
+        RemainAfterExit = true;
       };
 
       Install.WantedBy = ["default.target"];
