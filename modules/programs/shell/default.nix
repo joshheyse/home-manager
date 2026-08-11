@@ -66,6 +66,7 @@ in {
     ./bottom.nix
     ./btop.nix
     ./claude-code
+    ./codex.nix
     ./direnv.nix
     ./eza.nix
     ./fd.nix
@@ -131,8 +132,6 @@ in {
     git-extras
 
     aichat
-    codex
-
     # GNU core utilities
     tree
     unzip
