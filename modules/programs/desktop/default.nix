@@ -49,90 +49,90 @@ in {
   # the claimed hosts to their app. Everything else goes straight to Firefox.
   xdg = {
     mimeApps = lib.mkIf (!isDarwin) {
-    enable = true;
-    defaultApplications = let
-      browser = ["firefox.desktop"];
-      mail = ["org.gnome.Evolution.desktop"];
-      media = ["mpv.desktop"];
-    in {
-      "application/pdf" = ["sioyek.desktop"];
-      "application/epub+zip" = ["calibre-ebook-viewer.desktop"];
-      "application/ereader" = ["calibre-ebook-viewer.desktop"];
-      "application/json" = ["nvim-kitty.desktop"];
-      "application/msword" = ["writer.desktop"];
-      "application/rtf" = ["writer.desktop"];
-      "application/toml" = ["nvim-kitty.desktop"];
-      "application/oebps-package+xml" = ["calibre-ebook-viewer.desktop"];
-      "application/vnd.ms-excel" = ["calc.desktop"];
-      "application/vnd.ms-powerpoint" = ["impress.desktop"];
-      "application/vnd.oasis.opendocument.presentation" = ["impress.desktop"];
-      "application/vnd.oasis.opendocument.spreadsheet" = ["calc.desktop"];
-      "application/vnd.oasis.opendocument.text" = ["writer.desktop"];
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation" = ["impress.desktop"];
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" = ["calc.desktop"];
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" = ["writer.desktop"];
-      "application/x-shellscript" = ["nvim-kitty.desktop"];
-      "application/x-cb7" = ["calibre-ebook-viewer.desktop"];
-      "application/x-cbc" = ["calibre-ebook-viewer.desktop"];
-      "application/x-cbr" = ["calibre-ebook-viewer.desktop"];
-      "application/x-cbz" = ["calibre-ebook-viewer.desktop"];
-      "application/x-fictionbook+xml" = ["calibre-ebook-viewer.desktop"];
-      "application/x-mobi8-ebook" = ["calibre-ebook-viewer.desktop"];
-      "application/x-mobipocket-ebook" = ["calibre-ebook-viewer.desktop"];
-      "application/x-mobipocket-subscription" = ["calibre-ebook-viewer.desktop"];
-      "application/x-sony-bbeb" = ["calibre-ebook-viewer.desktop"];
-      "application/xml" = ["nvim-kitty.desktop"];
-      "application/yaml" = ["nvim-kitty.desktop"];
-      "image/vnd.djvu" = ["calibre-ebook-viewer.desktop"];
-      "text/html" = browser;
-      "text/markdown" = ["nvim-kitty.desktop"];
-      "text/fb2+xml" = ["calibre-ebook-viewer.desktop"];
-      "text/plain" = ["nvim-kitty.desktop"];
-      "text/x-lua" = ["nvim-kitty.desktop"];
-      "text/x-nix" = ["nvim-kitty.desktop"];
-      "text/x-python" = ["nvim-kitty.desktop"];
-      "text/xml" = ["nvim-kitty.desktop"];
-      "text/yaml" = ["nvim-kitty.desktop"];
-      "x-scheme-handler/about" = browser;
-      "x-scheme-handler/unknown" = browser;
+      enable = true;
+      defaultApplications = let
+        browser = ["firefox.desktop"];
+        mail = ["org.gnome.Evolution.desktop"];
+        media = ["mpv.desktop"];
+      in {
+        "application/pdf" = ["sioyek.desktop"];
+        "application/epub+zip" = ["calibre-ebook-viewer.desktop"];
+        "application/ereader" = ["calibre-ebook-viewer.desktop"];
+        "application/json" = ["nvim-kitty.desktop"];
+        "application/msword" = ["writer.desktop"];
+        "application/rtf" = ["writer.desktop"];
+        "application/toml" = ["nvim-kitty.desktop"];
+        "application/oebps-package+xml" = ["calibre-ebook-viewer.desktop"];
+        "application/vnd.ms-excel" = ["calc.desktop"];
+        "application/vnd.ms-powerpoint" = ["impress.desktop"];
+        "application/vnd.oasis.opendocument.presentation" = ["impress.desktop"];
+        "application/vnd.oasis.opendocument.spreadsheet" = ["calc.desktop"];
+        "application/vnd.oasis.opendocument.text" = ["writer.desktop"];
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation" = ["impress.desktop"];
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" = ["calc.desktop"];
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" = ["writer.desktop"];
+        "application/x-shellscript" = ["nvim-kitty.desktop"];
+        "application/x-cb7" = ["calibre-ebook-viewer.desktop"];
+        "application/x-cbc" = ["calibre-ebook-viewer.desktop"];
+        "application/x-cbr" = ["calibre-ebook-viewer.desktop"];
+        "application/x-cbz" = ["calibre-ebook-viewer.desktop"];
+        "application/x-fictionbook+xml" = ["calibre-ebook-viewer.desktop"];
+        "application/x-mobi8-ebook" = ["calibre-ebook-viewer.desktop"];
+        "application/x-mobipocket-ebook" = ["calibre-ebook-viewer.desktop"];
+        "application/x-mobipocket-subscription" = ["calibre-ebook-viewer.desktop"];
+        "application/x-sony-bbeb" = ["calibre-ebook-viewer.desktop"];
+        "application/xml" = ["nvim-kitty.desktop"];
+        "application/yaml" = ["nvim-kitty.desktop"];
+        "image/vnd.djvu" = ["calibre-ebook-viewer.desktop"];
+        "text/html" = browser;
+        "text/markdown" = ["nvim-kitty.desktop"];
+        "text/fb2+xml" = ["calibre-ebook-viewer.desktop"];
+        "text/plain" = ["nvim-kitty.desktop"];
+        "text/x-lua" = ["nvim-kitty.desktop"];
+        "text/x-nix" = ["nvim-kitty.desktop"];
+        "text/x-python" = ["nvim-kitty.desktop"];
+        "text/xml" = ["nvim-kitty.desktop"];
+        "text/yaml" = ["nvim-kitty.desktop"];
+        "x-scheme-handler/about" = browser;
+        "x-scheme-handler/unknown" = browser;
 
-      "audio/aac" = media;
-      "audio/flac" = media;
-      "audio/mpeg" = media;
-      "audio/ogg" = media;
-      "audio/opus" = media;
-      "audio/wav" = media;
-      "video/mp4" = media;
-      "video/mpeg" = media;
-      "video/ogg" = media;
-      "video/quicktime" = media;
-      "video/webm" = media;
-      "video/x-flv" = media;
-      "video/x-matroska" = media;
-      "video/x-msvideo" = media;
+        "audio/aac" = media;
+        "audio/flac" = media;
+        "audio/mpeg" = media;
+        "audio/ogg" = media;
+        "audio/opus" = media;
+        "audio/wav" = media;
+        "video/mp4" = media;
+        "video/mpeg" = media;
+        "video/ogg" = media;
+        "video/quicktime" = media;
+        "video/webm" = media;
+        "video/x-flv" = media;
+        "video/x-matroska" = media;
+        "video/x-msvideo" = media;
 
-      "x-scheme-handler/mailto" = mail;
-      "x-scheme-handler/mid" = mail;
-      "message/rfc822" = mail;
-      "application/mbox" = mail;
+        "x-scheme-handler/mailto" = mail;
+        "x-scheme-handler/mid" = mail;
+        "message/rfc822" = mail;
+        "application/mbox" = mail;
 
-      # Adopted from the hand-written mimeapps.list this file replaces.
-      # Registering them here is not optional tidying: taking ownership of the
-      # file without carrying these forward would silently break claude:// and
-      # claude-cli:// links, which nothing would report until one failed to
-      # open.
-      "x-scheme-handler/claude" = ["claude.desktop"];
-      "x-scheme-handler/claude-cli" = ["claude-code-url-handler.desktop"];
-      "inode/directory" = ["org.gnome.Nautilus.desktop"];
+        # Adopted from the hand-written mimeapps.list this file replaces.
+        # Registering them here is not optional tidying: taking ownership of the
+        # file without carrying these forward would silently break claude:// and
+        # claude-cli:// links, which nothing would report until one failed to
+        # open.
+        "x-scheme-handler/claude" = ["claude.desktop"];
+        "x-scheme-handler/claude-cli" = ["claude-code-url-handler.desktop"];
+        "inode/directory" = ["org.gnome.Nautilus.desktop"];
+      };
     };
-    };
 
-  # The file already existed, written by whichever app last called
-  # xdg-settings, so Home Manager refused to clobber it and activation failed.
-  # Taking it over is the point -- link handling is declared here now -- but it
-  # does mean an app that calls xdg-settings can no longer make itself the
-  # default: the file is a store symlink, and the change has to come from this
-  # config instead.
+    # The file already existed, written by whichever app last called
+    # xdg-settings, so Home Manager refused to clobber it and activation failed.
+    # Taking it over is the point -- link handling is declared here now -- but it
+    # does mean an app that calls xdg-settings can no longer make itself the
+    # default: the file is a store symlink, and the change has to come from this
+    # config instead.
     configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
 
     desktopEntries.nvim-kitty = lib.mkIf (!isDarwin) {
