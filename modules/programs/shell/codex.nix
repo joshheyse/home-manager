@@ -91,8 +91,11 @@
 
       case "$command" in
         "" | resume | fork) ;;
+        remote-control)
+          exec ${lib.escapeShellArg standaloneCodex} "$@"
+          ;;
         exec | e | review | login | logout | mcp | plugin | mcp-server | \
-          app-server | remote-control | completion | update | doctor | sandbox | \
+          app-server | completion | update | doctor | sandbox | \
           debug | apply | archive | delete | unarchive | cloud | exec-server | \
           features | help)
           exec "$real_codex" "$@"
