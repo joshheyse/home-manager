@@ -38,4 +38,10 @@ in {
       };
     };
   };
+
+  # NixOS hosts use home-manager.useUserPackages, so `home.packages` is linked
+  # into the system-managed per-user profile and only changes after `nrbs`.
+  # Keep the CLI available after a plain `hms` by linking the same wrapper
+  # through Home Manager's own file activation as well.
+  home.file.".local/bin/opencode".source = "${opencodeWrapped}/bin/opencode";
 }
