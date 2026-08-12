@@ -16,7 +16,7 @@ in {
       layout = [
         {
           label = "lock";
-          action = "hyprlock --grace 10";
+          action = "hyprlock --grace 0";
           text = "Lock";
           keybind = "l";
         }
