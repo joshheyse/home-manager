@@ -207,6 +207,7 @@ in {
       nautilus
       gimp
       vlc
+      moonlight-qt
       sioyek
       # Doubles as the PWA host (`chromium --app=<url>`) for services with no
       # native Linux client.
