@@ -22,7 +22,7 @@
     agentFiles;
 in {
   programs.opencode = {
-    rules = ./AGENTS.md;
+    context = ./AGENTS.md;
     inherit agents;
     # Bundled tokyonight matches the rest of the repo (kitty, tmux, bat,
     # lazygit, ...). bg = #1a1b26 == home-manager/modules/theme.nix bg.

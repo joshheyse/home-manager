@@ -46,6 +46,7 @@
         self.homeManagerModules.ssh-agent-switcher
         self.homeManagerModules.secrets
         sops-nix.homeManagerModules.sops
+        ./modules/programs/shell/opencode/desktop.nix
         {
           home = {
             username = nixpkgs.lib.mkDefault "josh";
