@@ -131,7 +131,7 @@
       id =
         if isDarwin
         then "Microsoft Outlook"
-        else "evolution";
+        else "org.gnome.Evolution";
       launch = apps.mail;
     };
     messaging = {
