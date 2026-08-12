@@ -33,6 +33,7 @@
     "openai/api_key" = "OPENAI_API_KEY";
     "openrouter/api_key" = "OPENROUTER_API_KEY";
     "databento/api_key" = "DATABENTO_API_KEY";
+    "tradingeconomics/api_key" = "TRADINGECONOMICS_API_KEY";
     # Read by path from the hyprland wallpaper service.
     "digitalblasphemy/api_key" = null;
   };
