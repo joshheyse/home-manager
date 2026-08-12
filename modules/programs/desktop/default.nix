@@ -52,10 +52,63 @@ in {
     defaultApplications = let
       browser = ["firefox.desktop"];
       mail = ["org.gnome.Evolution.desktop"];
+      media = ["mpv.desktop"];
     in {
+      "application/pdf" = ["sioyek.desktop"];
+      "application/epub+zip" = ["calibre-ebook-viewer.desktop"];
+      "application/ereader" = ["calibre-ebook-viewer.desktop"];
+      "application/json" = ["nvim-kitty.desktop"];
+      "application/msword" = ["writer.desktop"];
+      "application/rtf" = ["writer.desktop"];
+      "application/toml" = ["nvim-kitty.desktop"];
+      "application/oebps-package+xml" = ["calibre-ebook-viewer.desktop"];
+      "application/vnd.ms-excel" = ["calc.desktop"];
+      "application/vnd.ms-powerpoint" = ["impress.desktop"];
+      "application/vnd.oasis.opendocument.presentation" = ["impress.desktop"];
+      "application/vnd.oasis.opendocument.spreadsheet" = ["calc.desktop"];
+      "application/vnd.oasis.opendocument.text" = ["writer.desktop"];
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" = ["impress.desktop"];
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" = ["calc.desktop"];
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" = ["writer.desktop"];
+      "application/x-shellscript" = ["nvim-kitty.desktop"];
+      "application/x-cb7" = ["calibre-ebook-viewer.desktop"];
+      "application/x-cbc" = ["calibre-ebook-viewer.desktop"];
+      "application/x-cbr" = ["calibre-ebook-viewer.desktop"];
+      "application/x-cbz" = ["calibre-ebook-viewer.desktop"];
+      "application/x-fictionbook+xml" = ["calibre-ebook-viewer.desktop"];
+      "application/x-mobi8-ebook" = ["calibre-ebook-viewer.desktop"];
+      "application/x-mobipocket-ebook" = ["calibre-ebook-viewer.desktop"];
+      "application/x-mobipocket-subscription" = ["calibre-ebook-viewer.desktop"];
+      "application/x-sony-bbeb" = ["calibre-ebook-viewer.desktop"];
+      "application/xml" = ["nvim-kitty.desktop"];
+      "application/yaml" = ["nvim-kitty.desktop"];
+      "image/vnd.djvu" = ["calibre-ebook-viewer.desktop"];
       "text/html" = browser;
+      "text/markdown" = ["nvim-kitty.desktop"];
+      "text/fb2+xml" = ["calibre-ebook-viewer.desktop"];
+      "text/plain" = ["nvim-kitty.desktop"];
+      "text/x-lua" = ["nvim-kitty.desktop"];
+      "text/x-nix" = ["nvim-kitty.desktop"];
+      "text/x-python" = ["nvim-kitty.desktop"];
+      "text/xml" = ["nvim-kitty.desktop"];
+      "text/yaml" = ["nvim-kitty.desktop"];
       "x-scheme-handler/about" = browser;
       "x-scheme-handler/unknown" = browser;
+
+      "audio/aac" = media;
+      "audio/flac" = media;
+      "audio/mpeg" = media;
+      "audio/ogg" = media;
+      "audio/opus" = media;
+      "audio/wav" = media;
+      "video/mp4" = media;
+      "video/mpeg" = media;
+      "video/ogg" = media;
+      "video/quicktime" = media;
+      "video/webm" = media;
+      "video/x-flv" = media;
+      "video/x-matroska" = media;
+      "video/x-msvideo" = media;
 
       "x-scheme-handler/mailto" = mail;
       "x-scheme-handler/mid" = mail;
@@ -80,6 +133,30 @@ in {
   # default: the file is a store symlink, and the change has to come from this
   # config instead.
   xdg.configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
+
+  xdg.desktopEntries.nvim-kitty = lib.mkIf (!isDarwin) {
+    name = "Neovim (Kitty)";
+    genericName = "Text Editor";
+    comment = "Edit text files in Neovim inside Kitty";
+    exec = "${lib.getExe pkgs.kitty} --class nvim ${lib.getExe pkgs.neovim} %F";
+    icon = "nvim";
+    terminal = false;
+    categories = ["Utility" "TextEditor"];
+    mimeType = [
+      "application/json"
+      "application/toml"
+      "application/x-shellscript"
+      "application/xml"
+      "application/yaml"
+      "text/markdown"
+      "text/plain"
+      "text/x-lua"
+      "text/x-nix"
+      "text/x-python"
+      "text/xml"
+      "text/yaml"
+    ];
+  };
 
   # Services with no Linux client worth running. Meet because meetings have to
   # happen somewhere and it is the one platform that works on every machine
@@ -202,11 +279,16 @@ in {
       # Linux-only packages (not available or don't work well on macOS via Nix)
       # These are installed via Homebrew on macOS instead
       signal-desktop
+      bitwarden-desktop
+      calibre
       evolution
+      file-roller
       gnome-online-accounts-gtk
       nautilus
       gimp
+      libreoffice-fresh
       vlc
+      mpv
       moonlight-qt
       sioyek
       # Doubles as the PWA host (`chromium --app=<url>`) for services with no
