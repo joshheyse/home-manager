@@ -281,7 +281,6 @@ in {
       # Linux-only packages (not available or don't work well on macOS via Nix)
       # These are installed via Homebrew on macOS instead
       signal-desktop
-      bitwarden-desktop
       calibre
       evolution
       file-roller
