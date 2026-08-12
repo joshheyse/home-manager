@@ -47,7 +47,8 @@ in {
   # in Chromium. Unverified -- confirming it needs a real click.
   # http/https go to the router (below), which hands most links to Firefox and
   # the claimed hosts to their app. Everything else goes straight to Firefox.
-  xdg.mimeApps = lib.mkIf (!isDarwin) {
+  xdg = {
+    mimeApps = lib.mkIf (!isDarwin) {
     enable = true;
     defaultApplications = let
       browser = ["firefox.desktop"];
@@ -124,7 +125,7 @@ in {
       "x-scheme-handler/claude-cli" = ["claude-code-url-handler.desktop"];
       "inode/directory" = ["org.gnome.Nautilus.desktop"];
     };
-  };
+    };
 
   # The file already existed, written by whichever app last called
   # xdg-settings, so Home Manager refused to clobber it and activation failed.
@@ -132,30 +133,31 @@ in {
   # does mean an app that calls xdg-settings can no longer make itself the
   # default: the file is a store symlink, and the change has to come from this
   # config instead.
-  xdg.configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
+    configFile."mimeapps.list".force = lib.mkIf (!isDarwin) true;
 
-  xdg.desktopEntries.nvim-kitty = lib.mkIf (!isDarwin) {
-    name = "Neovim (Kitty)";
-    genericName = "Text Editor";
-    comment = "Edit text files in Neovim inside Kitty";
-    exec = "${lib.getExe pkgs.kitty} --class nvim ${lib.getExe pkgs.neovim} %F";
-    icon = "nvim";
-    terminal = false;
-    categories = ["Utility" "TextEditor"];
-    mimeType = [
-      "application/json"
-      "application/toml"
-      "application/x-shellscript"
-      "application/xml"
-      "application/yaml"
-      "text/markdown"
-      "text/plain"
-      "text/x-lua"
-      "text/x-nix"
-      "text/x-python"
-      "text/xml"
-      "text/yaml"
-    ];
+    desktopEntries.nvim-kitty = lib.mkIf (!isDarwin) {
+      name = "Neovim (Kitty)";
+      genericName = "Text Editor";
+      comment = "Edit text files in Neovim inside Kitty";
+      exec = "${lib.getExe pkgs.kitty} --class nvim ${lib.getExe pkgs.neovim} %F";
+      icon = "nvim";
+      terminal = false;
+      categories = ["Utility" "TextEditor"];
+      mimeType = [
+        "application/json"
+        "application/toml"
+        "application/x-shellscript"
+        "application/xml"
+        "application/yaml"
+        "text/markdown"
+        "text/plain"
+        "text/x-lua"
+        "text/x-nix"
+        "text/x-python"
+        "text/xml"
+        "text/yaml"
+      ];
+    };
   };
 
   # Services with no Linux client worth running. Meet because meetings have to
