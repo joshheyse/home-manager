@@ -52,6 +52,7 @@ in {
       enable = true;
       defaultApplications = let
         browser = ["firefox.desktop"];
+        image = ["imv.desktop"];
         mail = ["org.gnome.Evolution.desktop"];
         media = ["mpv.desktop"];
       in {
@@ -83,7 +84,24 @@ in {
         "application/x-sony-bbeb" = ["calibre-ebook-viewer.desktop"];
         "application/xml" = ["nvim-kitty.desktop"];
         "application/yaml" = ["nvim-kitty.desktop"];
+        "image/avif" = image;
+        "image/bmp" = image;
+        "image/gif" = image;
+        "image/heif" = image;
+        "image/jpeg" = image;
+        "image/jp2" = image;
+        "image/jxl" = image;
+        "image/png" = image;
+        "image/qoi" = image;
+        "image/svg+xml" = image;
+        "image/tiff" = image;
         "image/vnd.djvu" = ["calibre-ebook-viewer.desktop"];
+        "image/vnd.microsoft.icon" = image;
+        "image/webp" = image;
+        "image/x-exr" = image;
+        "image/x-portable-anymap" = image;
+        "image/x-tga" = image;
+        "image/x-xcf" = ["gimp.desktop"];
         "text/html" = browser;
         "text/markdown" = ["nvim-kitty.desktop"];
         "text/fb2+xml" = ["calibre-ebook-viewer.desktop"];
@@ -287,6 +305,7 @@ in {
       gnome-online-accounts-gtk
       nautilus
       gimp
+      imv
       libreoffice-fresh
       vlc
       mpv

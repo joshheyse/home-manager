@@ -31,6 +31,18 @@
     '';
   };
 
+  openDefault = pkgs.writeShellApplication {
+    name = "o";
+    runtimeInputs = [pkgs.coreutils];
+    text = ''
+      nohup ${
+        if pkgs.stdenv.isDarwin
+        then "/usr/bin/open"
+        else "${pkgs.xdg-utils}/bin/xdg-open"
+      } "$@" </dev/null >/dev/null 2>&1 &
+    '';
+  };
+
   # Convert "#rrggbb" hex to "r;g;b" decimal for ANSI escape sequences
   hexToRgb = hex: let
     hexStr = builtins.substring 1 6 hex;
@@ -87,11 +99,6 @@ in {
   # Tokyo Night less standout (search highlight + statusbar): blue bg, dark fg.
   # Must use zsh `$'\e'` for a real ESC byte (see note in home.sessionVariables).
   programs.zsh = {
-    shellAliases.o =
-      if pkgs.stdenv.isDarwin
-      then "open"
-      else "xdg-open";
-
     initContent = ''
       export LESS_TERMCAP_so=$'\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m'
       export LESS_TERMCAP_se=$'\e[0m'
@@ -114,6 +121,7 @@ in {
     kitty.terminfo
 
     pagerPkg
+    openDefault
 
     pkgs.ssh-fzf
     pkgs.notify
