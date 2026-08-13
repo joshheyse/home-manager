@@ -178,7 +178,7 @@ in {
           modules-center =
             if hasNotch
             then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
-            else ["custom/weather" "clock#date" "clock#time"];
+            else ["custom/weather" "clock#date" "clock#time" "custom/weather-balance"];
           modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
 
           "custom/notification" = {
@@ -305,9 +305,10 @@ in {
           };
 
           # The centre group is positioned as one unit. Weather on only its
-          # left side would move the notch spacer (and therefore the date) to
-          # the right, behind the physical cutout. This invisible slot mirrors
-          # weather's width after the time so the notch remains screen-centred.
+          # left side would shift the date/time pair right, putting the date
+          # rather than the boundary between date and time at screen centre.
+          # This invisible slot mirrors weather after the time; on a notched
+          # panel it also keeps the notch spacer centred on the physical cutout.
           "custom/weather-balance" = {
             format = " ";
             tooltip = false;

@@ -39,6 +39,11 @@
     b = builtins.fromTOML "v = 0x${builtins.substring 4 2 hexStr}";
   in "${toString r.v};${toString g.v};${toString b.v}";
 in {
+  home.shellAliases.o =
+    if pkgs.stdenv.isDarwin
+    then "open"
+    else "xdg-open";
+
   home.sessionVariables = {
     PAGER = "moor";
     MANPAGER = "moor";
