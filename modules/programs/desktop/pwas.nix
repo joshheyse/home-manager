@@ -33,7 +33,11 @@
     then "${lib.getExe pkgs.firefox} --new-window ${url}"
     else
       "${lib.getExe pkgs.chromium} --app=${url}"
-      + lib.optionalString (usesEscape pwa) " --load-extension=${escapeDir pwa}"
+      + (
+        if usesEscape pwa
+        then " --disable-extensions-except=${escapeDir pwa} --load-extension=${escapeDir pwa}"
+        else " --disable-extensions"
+      )
       + lib.optionalString pwa.isolate " --user-data-dir=${profileDir pwa}";
 
   claimants = lib.filter (pwa: pwa.handles != []) (lib.attrValues cfg);
