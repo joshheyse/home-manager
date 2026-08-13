@@ -304,14 +304,6 @@
         hyprlandAction = "togglefloating";
         skhdAction = "yabai -m window --toggle float";
       }
-      {
-        key = "b";
-        mods = ["Super"];
-        desc = "Balance layout";
-        hyprlandAction = "exec, hyprctl keyword dwindle:force_split 0";
-        skhdAction = "yabai -m space --balance";
-      }
-
       # Toggle yabai tiling (macOS only)
       {
         key = "y";
@@ -346,13 +338,29 @@
       (mkAppLauncher "f" "fileManager" "File manager")
       (mkAppLauncher "c" "claude" "Claude")
       (mkAppLauncher "g" "chatgpt" "ChatGPT")
-      (mkAppLauncher "r" "kindle" "Kindle")
+      (mkAppLauncher "b" "kindle" "Kindle")
 
       # App launchers (force new instance)
       (mkAppLauncherNew "Return" "terminal" "New terminal")
       (mkAppLauncherNew "w" "browser" "New Firefox")
     ]
     ++ lib.optionals isLinux [
+      # Linux-only: streaming service chord
+      {
+        key = "t";
+        mods = ["Super"];
+        desc = "Streaming (A/Z/H/N/Y/T/P)";
+        hyprlandAction = "submap, streaming";
+      }
+
+      # Linux-only: LibreOffice component chord
+      {
+        key = "o";
+        mods = ["Super"];
+        desc = "LibreOffice (W/C/I/D/M/B)";
+        hyprlandAction = "submap, libreoffice";
+      }
+
       # Linux-only: app launcher (rofi)
       {
         key = "Space";

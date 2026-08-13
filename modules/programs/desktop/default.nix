@@ -19,6 +19,7 @@ in {
     ./evolution.nix
     ./keybindings.nix
     ./kitty.nix
+    ./libreoffice.nix
     ./ghostty
     ./gpg-agent.nix
     ./kicad
@@ -26,6 +27,7 @@ in {
     ./sketchybar.nix
     ./raycast.nix
     ./screenshots.nix
+    ./streaming.nix
     ./yabai.nix
     ./hyprland
   ];
@@ -200,6 +202,15 @@ in {
         name = "Apple Music";
         url = "https://music.apple.com";
         categories = ["AudioVideo" "Audio" "Player"];
+        profile = "apple";
+      };
+
+      apple-tv = {
+        name = "Apple TV";
+        url = "https://tv.apple.com";
+        categories = ["AudioVideo" "Video" "TV"];
+        profile = "apple";
+        handles = ["tv.apple.com"];
       };
 
       # Chromium, so this is a real app window rather than another tabbed
@@ -238,6 +249,36 @@ in {
         categories = ["Office" "Viewer"];
         externalLinksOut = true;
         internalOrigins = ["https://www.amazon.com"];
+      };
+
+      hulu = {
+        name = "Hulu";
+        url = "https://www.hulu.com/hub/home";
+        wmClass = "chrome-www.hulu.com_hub_home-Default";
+        categories = ["AudioVideo" "Video" "TV"];
+        handles = ["www.hulu.com" "hulu.com"];
+      };
+
+      netflix = {
+        name = "Netflix";
+        url = "https://www.netflix.com/browse";
+        wmClass = "chrome-www.netflix.com_browse-Default";
+        categories = ["AudioVideo" "Video" "TV"];
+        handles = ["www.netflix.com" "netflix.com"];
+      };
+
+      paramount-plus = {
+        name = "Paramount+";
+        url = "https://www.paramountplus.com";
+        categories = ["AudioVideo" "Video" "TV"];
+        handles = ["www.paramountplus.com" "paramountplus.com"];
+      };
+
+      prime-video = {
+        name = "Prime Video";
+        url = "https://www.primevideo.com";
+        categories = ["AudioVideo" "Video" "TV"];
+        handles = ["www.primevideo.com" "primevideo.com"];
       };
 
       # Chromium here, deliberately differing from ChatGPT above: Meet is
