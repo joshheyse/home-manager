@@ -183,6 +183,11 @@ in {
   # here -- macOS, Windows, Linux x86_64 and, critically, Linux aarch64, where
   # Zoom, Slack, Discord and Teams all ship no native client at all.
   programs = {
+    mpv = {
+      enable = true;
+      scripts = [pkgs.mpvScripts.mpris];
+    };
+
     pwas-router.enable = true;
 
     pwa-profiles.google.internalOrigins = [
@@ -308,7 +313,6 @@ in {
       imv
       libreoffice-fresh
       vlc
-      mpv
       moonlight-qt
       sioyek
       # Doubles as the PWA host (`chromium --app=<url>`) for services with no
