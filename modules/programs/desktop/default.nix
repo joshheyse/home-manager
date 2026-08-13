@@ -213,6 +213,13 @@ in {
         internalOrigins = ["https://auth.openai.com"];
       };
 
+      discord = {
+        name = "Discord";
+        url = "https://discord.com";
+        externalLinksOut = true;
+        handles = ["discord.com"];
+      };
+
       gmail = {
         name = "Gmail";
         url = "https://mail.google.com";
@@ -223,6 +230,14 @@ in {
         # own host keeps a mail link from a chat opening the app rather than a
         # tab.
         handles = ["mail.google.com"];
+      };
+
+      kindle = {
+        name = "Kindle";
+        url = "https://read.amazon.com";
+        categories = ["Office" "Viewer"];
+        externalLinksOut = true;
+        internalOrigins = ["https://www.amazon.com"];
       };
 
       # Chromium here, deliberately differing from ChatGPT above: Meet is

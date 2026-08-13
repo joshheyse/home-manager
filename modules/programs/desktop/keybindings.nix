@@ -115,8 +115,24 @@
       id =
         if isDarwin
         then "Discord"
+        else if isAarch64Linux
+        then "chrome-discord.com__-Default"
         else "discord";
       launch = apps.discord;
+    };
+    chatgpt = {
+      id =
+        if isDarwin
+        then "ChatGPT"
+        else "chrome-chatgpt.com__-Default";
+      launch = apps.chatgpt;
+    };
+    kindle = {
+      id =
+        if isDarwin
+        then "Firefox"
+        else "chrome-read.amazon.com__-Default";
+      launch = apps.kindle;
     };
     music = {
       id =
@@ -141,12 +157,12 @@
         else "signal-desktop";
       launch = apps.messaging;
     };
-    zoom = {
+    meetings = {
       id =
         if isDarwin
         then "zoom.us"
-        else "zoom";
-      launch = apps.zoom;
+        else "chrome-meet.google.com__-Default";
+      launch = apps.meetings;
     };
     fileManager = {
       id =
@@ -159,7 +175,7 @@
       id =
         if isDarwin
         then "Claude"
-        else "claude-desktop";
+        else "claude";
       launch = apps.claude;
     };
   };
@@ -269,7 +285,7 @@
       }
       {
         key = "f";
-        mods = ["Super"];
+        mods = ["Super" "Ctrl"];
         desc = "Maximize";
         hyprlandAction = "fullscreen, 1";
         skhdAction = "yabai -m window --toggle zoom-fullscreen";
@@ -282,8 +298,8 @@
         skhdAction = "yabai -m window --toggle native-fullscreen";
       }
       {
-        key = "v";
-        mods = ["Super"];
+        key = "Space";
+        mods = ["Super" "Shift"];
         desc = "Toggle floating";
         hyprlandAction = "togglefloating";
         skhdAction = "yabai -m window --toggle float";
@@ -324,27 +340,28 @@
       (mkAppLauncher "w" "browser" "Firefox")
       (mkAppLauncher "d" "discord" "Discord")
       (mkAppLauncher "s" "music" "Music")
-      (mkAppLauncher "m" "mail" "Mail")
-      (mkAppLauncher "t" "messaging" "Messaging")
-      (mkAppLauncher "z" "zoom" "Zoom")
-      (mkAppLauncher "e" "fileManager" "File manager")
+      (mkAppLauncher "e" "mail" "Email")
+      (mkAppLauncher "m" "messaging" "Messaging")
+      (mkAppLauncher "v" "meetings" "Meetings")
+      (mkAppLauncher "f" "fileManager" "File manager")
       (mkAppLauncher "c" "claude" "Claude")
+      (mkAppLauncher "g" "chatgpt" "ChatGPT")
+      (mkAppLauncher "r" "kindle" "Kindle")
 
       # App launchers (force new instance)
       (mkAppLauncherNew "Return" "terminal" "New terminal")
       (mkAppLauncherNew "w" "browser" "New Firefox")
       (mkAppLauncherNew "d" "discord" "New Discord")
       (mkAppLauncherNew "s" "music" "New Music")
-      (mkAppLauncherNew "m" "mail" "New Mail")
-      (mkAppLauncherNew "t" "messaging" "New Messaging")
-      (mkAppLauncherNew "z" "zoom" "New Zoom")
-      (mkAppLauncherNew "e" "fileManager" "New File manager")
+      (mkAppLauncherNew "e" "mail" "New Email")
+      (mkAppLauncherNew "m" "messaging" "New Messaging")
       (mkAppLauncherNew "c" "claude" "New Claude")
+      (mkAppLauncherNew "g" "chatgpt" "New ChatGPT")
     ]
     ++ lib.optionals isLinux [
       # Linux-only: app launcher (rofi)
       {
-        key = "R";
+        key = "Space";
         mods = ["Super"];
         desc = "App launcher (rofi)";
         hyprlandAction = "exec, rofi -show drun";
@@ -599,8 +616,26 @@ in {
         default =
           if isDarwin
           then "open -a Discord"
+          else if isAarch64Linux
+          then "${lib.getExe' pkgs.gtk3 "gtk-launch"} discord"
           else "discord";
         description = "Discord launch command";
+      };
+      chatgpt = lib.mkOption {
+        type = lib.types.str;
+        default =
+          if isDarwin
+          then "open -a ChatGPT"
+          else "${lib.getExe' pkgs.gtk3 "gtk-launch"} chatgpt";
+        description = "ChatGPT launch command";
+      };
+      kindle = lib.mkOption {
+        type = lib.types.str;
+        default =
+          if isDarwin
+          then "open -a Firefox https://read.amazon.com"
+          else "${lib.getExe' pkgs.gtk3 "gtk-launch"} kindle";
+        description = "Kindle launch command";
       };
       music = lib.mkOption {
         type = lib.types.str;
@@ -628,13 +663,13 @@ in {
           else "signal-desktop";
         description = "Messaging app launch command";
       };
-      zoom = lib.mkOption {
+      meetings = lib.mkOption {
         type = lib.types.str;
         default =
           if isDarwin
           then "open -a zoom.us"
-          else "zoom";
-        description = "Zoom launch command";
+          else "${lib.getExe' pkgs.gtk3 "gtk-launch"} meet";
+        description = "Meetings launch command";
       };
       fileManager = lib.mkOption {
         type = lib.types.str;
