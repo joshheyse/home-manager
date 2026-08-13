@@ -1,5 +1,5 @@
 # Cross-platform screenshot/recording management
-# - Chord: Super+P → R(egion) / F(ull) / W(indow) / V(ideo) / D(irectory)
+# - Chord: Super+S → R(egion) / F(ull) / W(indow) / V(ideo) / D(irectory)
 # - Auto-copies file path to clipboard
 # - Auto-converts MOV recordings to MP4 (macOS)
 # - Toast notifications on completion
@@ -111,7 +111,7 @@
       file="${dir}/Recording_$(date +%Y-%m-%d_%H%M%S).mp4"
       ${pkgs.wf-recorder}/bin/wf-recorder -f "$file" &
       echo $! > "$PIDFILE"
-      ${pkgs.libnotify}/bin/notify-send "Recording Started" "Press Opt+P → V to stop"
+      ${pkgs.libnotify}/bin/notify-send "Recording Started" "Press Super+S → V to stop"
     fi
   '';
 
@@ -138,9 +138,9 @@
 
   skhdScreenshotMode = ''
 
-    # Screenshot mode (Super+P chord)
+    # Screenshot mode (Super+S chord)
     :: screenshot
-    alt - p ; screenshot
+    alt - s ; screenshot
     screenshot < r : ${screenshotRegion} ; default
     screenshot < f : ${screenshotFull} ; default
     screenshot < w : ${screenshotWindow} ; default
@@ -153,8 +153,8 @@
 
   hyprlandScreenshotSubmap = ''
 
-    # Screenshot submap (Super+P chord)
-    bind = $mod, P, submap, screenshot
+    # Screenshot submap (Super+S chord)
+    bind = $mod, S, submap, screenshot
     submap = screenshot
     bind = , R, exec, ${screenshotRegion}
     bind = , F, exec, ${screenshotFull}

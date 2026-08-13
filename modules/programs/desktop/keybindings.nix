@@ -339,7 +339,7 @@
       (mkAppLauncher "Return" "terminal" "Terminal")
       (mkAppLauncher "w" "browser" "Firefox")
       (mkAppLauncher "d" "discord" "Discord")
-      (mkAppLauncher "s" "music" "Music")
+      (mkAppLauncher "u" "music" "Music")
       (mkAppLauncher "e" "mail" "Email")
       (mkAppLauncher "m" "messaging" "Messaging")
       (mkAppLauncher "v" "meetings" "Meetings")
@@ -351,12 +351,6 @@
       # App launchers (force new instance)
       (mkAppLauncherNew "Return" "terminal" "New terminal")
       (mkAppLauncherNew "w" "browser" "New Firefox")
-      (mkAppLauncherNew "d" "discord" "New Discord")
-      (mkAppLauncherNew "s" "music" "New Music")
-      (mkAppLauncherNew "e" "mail" "New Email")
-      (mkAppLauncherNew "m" "messaging" "New Messaging")
-      (mkAppLauncherNew "c" "claude" "New Claude")
-      (mkAppLauncherNew "g" "chatgpt" "New ChatGPT")
     ]
     ++ lib.optionals isLinux [
       # Linux-only: app launcher (rofi)
@@ -396,7 +390,7 @@
         desc = "Power menu";
         hyprlandAction = "exec, wlogout";
       }
-      # Screenshots handled by screenshots.nix chord (Super+P → R/F/W/V/D)
+      # Screenshots handled by screenshots.nix chord (Super+S → R/F/W/V/D)
     ];
 
   # Workspace bindings (1-9, plus 0 for 10)
