@@ -39,11 +39,6 @@
     b = builtins.fromTOML "v = 0x${builtins.substring 4 2 hexStr}";
   in "${toString r.v};${toString g.v};${toString b.v}";
 in {
-  home.shellAliases.o =
-    if pkgs.stdenv.isDarwin
-    then "open"
-    else "xdg-open";
-
   home.sessionVariables = {
     PAGER = "moor";
     MANPAGER = "moor";
@@ -91,10 +86,17 @@ in {
 
   # Tokyo Night less standout (search highlight + statusbar): blue bg, dark fg.
   # Must use zsh `$'\e'` for a real ESC byte (see note in home.sessionVariables).
-  programs.zsh.initContent = ''
-    export LESS_TERMCAP_so=$'\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m'
-    export LESS_TERMCAP_se=$'\e[0m'
-  '';
+  programs.zsh = {
+    shellAliases.o =
+      if pkgs.stdenv.isDarwin
+      then "open"
+      else "xdg-open";
+
+    initContent = ''
+      export LESS_TERMCAP_so=$'\e[38;2;${hexToRgb theme.bg};48;2;${hexToRgb theme.blue}m'
+      export LESS_TERMCAP_se=$'\e[0m'
+    '';
+  };
 
   # Register Nix-installed fonts with fontconfig on Linux
   fonts.fontconfig.enable = lib.mkIf pkgs.stdenv.isLinux true;
