@@ -239,6 +239,42 @@
       lib.head (lib.splitString "/"
         (lib.removePrefix "http://" (lib.removePrefix "https://" url)));
   in "chrome-${host}__-Default";
+
+  pwaClass = pwa:
+    if pwa.wmClass != null
+    then pwa.wmClass
+    else derivedClass pwa.url;
+
+  # Desktop launches are app switches: focus/cycle an existing PWA window and
+  # create one only when none exists. URL routing deliberately keeps using the
+  # raw launcher above because a claimed link must navigate to that exact URL.
+  desktopLauncher = key: pwa:
+    if pwa.browser != "chromium"
+    then launcher pwa pwa.url
+    else let
+      class = pwaClass pwa;
+    in
+      toString (pkgs.writeShellScript "pwa-${key}" ''
+        windows=$(${pkgs.hyprland}/bin/hyprctl clients -j |
+          ${pkgs.jq}/bin/jq --arg class ${lib.escapeShellArg class} \
+            '[.[] | select(.class == $class)]')
+        count=$(${pkgs.jq}/bin/jq 'length' <<<"$windows")
+
+        if ((count == 0)); then
+          exec ${launcher pwa pwa.url}
+        fi
+
+        focused=$(${pkgs.hyprland}/bin/hyprctl activewindow -j |
+          ${pkgs.jq}/bin/jq -r '.address // empty')
+        next=$(${pkgs.jq}/bin/jq -r --arg focused "$focused" '
+          (map(.address) | index($focused)) as $index
+          | if $index == null
+            then .[0].address
+            else .[(($index + 1) % length)].address
+            end
+        ' <<<"$windows")
+        exec ${pkgs.hyprland}/bin/hyprctl dispatch focuswindow "address:$next"
+      '');
 in {
   options.programs = {
     pwas = lib.mkOption {
@@ -468,7 +504,7 @@ in {
           mimeType = ["x-scheme-handler/http" "x-scheme-handler/https"];
         };
       }
-      // lib.mapAttrs (_key: pwa: {
+      // lib.mapAttrs (key: pwa: {
         inherit (pwa) name categories;
         type = "Application";
         terminal = false;
@@ -482,7 +518,7 @@ in {
         # flag and then ignores it in --app mode, deriving the class from the
         # URL instead -- observed as chrome-meet.google.com__-Default rather
         # than the requested value.
-        exec = launcher pwa pwa.url;
+        exec = desktopLauncher key pwa;
 
         # StartupWMClass matches the window back to this entry so the taskbar
         # shows the app rather than an anonymous second browser. It has to be
@@ -492,10 +528,7 @@ in {
         # Firefox window and reports the same class as every other one, so
         # there is nothing to distinguish it by.
         settings = lib.optionalAttrs (pwa.browser == "chromium") {
-          StartupWMClass =
-            if pwa.wmClass != null
-            then pwa.wmClass
-            else derivedClass pwa.url;
+          StartupWMClass = pwaClass pwa;
         };
       })
       cfg;
