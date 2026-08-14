@@ -345,6 +345,15 @@
       (mkAppLauncherNew "w" "browser" "New Firefox")
     ]
     ++ lib.optionals isLinux [
+      # Keep Evolution as the primary graphical client while trying aerc for
+      # Gmail. The dedicated Kitty class lets repeated presses focus/cycle it.
+      {
+        key = "e";
+        mods = ["Super" "Shift"];
+        desc = "aerc";
+        hyprlandAction = ''exec, ${smartFocus} "aerc" "${lib.getExe pkgs.kitty} --class aerc ${lib.getExe pkgs.aerc}"'';
+      }
+
       # Linux-only: streaming service chord
       {
         key = "t";
