@@ -240,8 +240,8 @@ in {
             then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
             else ["custom/weather" "clock#date" "clock#time" "custom/weather-balance"];
           modules-right =
-            ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory"]
-            ++ lib.optional cfg.waybar.fnMode.enable "custom/fnmode"
+            lib.optional cfg.waybar.fnMode.enable "custom/fnmode"
+            ++ ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory"]
             ++ ["battery" "custom/health" "custom/notification" "tray"];
 
           "custom/fnmode" = lib.mkIf cfg.waybar.fnMode.enable {
