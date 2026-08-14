@@ -83,6 +83,64 @@
       "$@"
   '';
 
+  fnMode = pkgs.writeShellApplication {
+    name = "fn-mode";
+    runtimeInputs = with pkgs; [coreutils libnotify procps];
+    text = ''
+      parameter=/sys/module/hid_apple/parameters/fnmode
+      taps="$XDG_RUNTIME_DIR/fn-mode-last-tap"
+
+      show_status() {
+        case "$(<"$parameter")" in
+          2) printf '{"text":"󰊕","tooltip":"Function keys · Fn for media controls","class":"function"}\n' ;;
+          *) printf '{"text":"","tooltip":"Media controls · Fn for F1–F12","class":"media"}\n' ;;
+        esac
+      }
+
+      toggle() {
+        if [ "$(<"$parameter")" = 2 ]; then
+          next=1
+          label="Media controls"
+          detail="Fn accesses F1–F12"
+        else
+          next=2
+          label="Function keys"
+          detail="Fn accesses media controls"
+        fi
+
+        printf '%s\n' "$next" >"$parameter"
+        notify-send --app-name="Fn mode" --icon=input-keyboard "$label" "$detail"
+        pkill -RTMIN+9 waybar || true
+      }
+
+      case "''${1:-status}" in
+        status)
+          show_status
+          ;;
+        toggle)
+          toggle
+          ;;
+        tap)
+          now=$(date +%s%3N)
+          last=0
+          [ ! -r "$taps" ] || read -r last <"$taps"
+
+          elapsed=$((now - last))
+          if ((elapsed >= 0 && elapsed <= 400)); then
+            rm -f "$taps"
+            toggle
+          else
+            printf '%s\n' "$now" >"$taps"
+          fi
+          ;;
+        *)
+          printf 'usage: fn-mode [status|toggle|tap]\n' >&2
+          exit 2
+          ;;
+      esac
+    '';
+  };
+
   notch = cfg.waybar.notchWidth;
   hasNotch = notch > 0;
 
@@ -151,6 +209,8 @@ in {
         Ignored unless notchWidth is set; the bar falls back to 30 otherwise.
       '';
     };
+
+    fnMode.enable = lib.mkEnableOption "Apple Fn/media mode indicator and double-tap toggle";
   };
 
   config = lib.mkIf (cfg.enable && isLinux) {
@@ -179,7 +239,18 @@ in {
             if hasNotch
             then ["custom/weather" "clock#date" "custom/notch" "clock#time" "custom/weather-balance"]
             else ["custom/weather" "clock#date" "clock#time" "custom/weather-balance"];
-          modules-right = ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory" "battery" "custom/health" "custom/notification" "tray"];
+          modules-right =
+            ["custom/tailscale" "custom/speaker" "custom/mic" "bluetooth" "network" "custom/cpu" "memory"]
+            ++ lib.optional cfg.waybar.fnMode.enable "custom/fnmode"
+            ++ ["battery" "custom/health" "custom/notification" "tray"];
+
+          "custom/fnmode" = lib.mkIf cfg.waybar.fnMode.enable {
+            exec = "${fnMode}/bin/fn-mode status";
+            return-type = "json";
+            interval = 2;
+            signal = 9;
+            on-click = "${fnMode}/bin/fn-mode toggle";
+          };
 
           "custom/notification" = {
             tooltip = true;
@@ -550,7 +621,7 @@ in {
            module no horizontal padding of its own, so one left out does not
            look under-padded -- it looks like the module beside it is
            overlapping it. */
-        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #custom-speaker, #custom-mic, #battery, #custom-notification, #bluetooth, #tray {
+        #clock, #custom-weather, #custom-health, #custom-tailscale, #custom-cpu, #memory, #network, #custom-speaker, #custom-mic, #custom-fnmode, #battery, #custom-notification, #bluetooth, #tray {
           padding: 0 10px;
         }
 
@@ -692,5 +763,12 @@ in {
         }
       '';
     };
+
+    # Linux KEY_FN (464) arrives through xkb as keycode 472. Trigger on
+    # release so a normal Fn chord remains usable; the helper toggles only
+    # when two releases land within 400 ms. `n` passes the Fn event through.
+    wayland.windowManager.hyprland.extraConfig = lib.mkIf cfg.waybar.fnMode.enable ''
+      bindrn = , code:472, exec, ${fnMode}/bin/fn-mode tap
+    '';
   };
 }
